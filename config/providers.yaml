@@ -1,0 +1,63 @@
+providers:
+  - name: local
+    tier: 4
+    enabled: true
+    base_url: http://127.0.0.1:11434/v1
+    api_key_env: ""
+    models:
+      - id: local/qwen2.5:1.5b
+        provider_model: qwen2.5:1.5b
+        capabilities: [text, tool_call]
+        enabled: true
+        healthy: false
+      - id: local/llama3.2:1b
+        provider_model: llama3.2:1b
+        capabilities: [text]
+        enabled: true
+        healthy: false
+      - id: local/qwen2.5:0.5b
+        provider_model: qwen2.5:0.5b
+        capabilities: [text]
+        enabled: true
+        healthy: false
+
+  - name: groq
+    tier: 1
+    enabled: true
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    models:
+      - id: groq/llama-3.1-8b-instant
+        provider_model: llama-3.1-8b-instant
+        capabilities: [text, tool_call]
+        enabled: true
+        healthy: false
+
+  - name: openrouter
+    tier: 2
+    enabled: true
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+    models:
+      - id: openrouter/meta-llama/llama-3.2-3b-instruct:free
+        provider_model: meta-llama/llama-3.2-3b-instruct:free
+        capabilities: [text]
+        enabled: true
+        healthy: false
+      - id: openrouter/qwen/qwen-2.5-7b-instruct:free
+        provider_model: qwen/qwen-2.5-7b-instruct:free
+        capabilities: [text]
+        enabled: true
+        healthy: false
+
+  - name: mistral
+    tier: 2
+    enabled: true
+    base_url: https://api.mistral.ai/v1
+    api_key_env: MISTRAL_API_KEY
+    models:
+      - id: mistral/mistral-small-latest
+        provider_model: mistral-small-latest
+        capabilities: [text, tool_call]
+        enabled: true
+        healthy: false

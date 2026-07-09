@@ -1,0 +1,39 @@
+services:
+  forgerouter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: forgerouter:latest
+    container_name: forgerouter
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      # Codex CLI login (read-only): the OpenAI Codex plan handler resolves its
+      # OAuth token from here automatically — no token is stored in the registry.
+      - ~/.codex:/root/.codex:ro
+      # Antigravity (agy) CLI login (read-only): the Google Antigravity plan
+      # handler resolves its OAuth token from here automatically.
+      - ~/.gemini:/root/.gemini:ro
+      # Claude Code CLI login (read-only, single file — avoids exposing the
+      # CLI's conversation history/session data): the Claude Code plan
+      # handler resolves its OAuth token from here automatically.
+      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
+      # Z.ai approved login/CLI token (read-only): the Z.ai plan handler resolves
+      # its OAuth/session access token from ~/.zai/auth.json when present.
+      - ~/.zai:/root/.zai:ro
+      # DeepSeek web credentials/token (read-only): the native subscription
+      # handler reads ~/.deepseek/auth.json when present.
+      - ~/.deepseek:/root/.deepseek:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:2100/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Notes:
+# - network_mode: host is required while Ollama listens only on 127.0.0.1:11434 on the host.
+# - PostgreSQL remains the Foundation-managed database at foundation_postgres.
+# - Secrets must stay in .env and must not be committed.

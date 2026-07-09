@@ -1,0 +1,70 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+ForgeRouter (formerly ProxyRouter; Hermes AI Proxy Router): a FastAPI service exposing one OpenAI-compatible API (`/v1/chat/completions`, `/v1/models`) that routes requests across multiple LLM providers (local Ollama, Groq, OpenRouter, Mistral) with health-based selection and automatic fallback. Listens on port 2100. The PRD lives in `docs/HERMES_AI_PROXY_ROUTER_PRD_v2.md`.
+
+## Commands
+
+Everything runs in Docker — the host Python runtime does not have the required dependencies.
+
+```bash
+# Build image
+docker compose build
+
+# Run all tests
+docker compose run --rm forgerouter pytest -q
+
+# Run a single test file / test
+docker compose run --rm forgerouter pytest tests/test_chat_fallback.py -q
+docker compose run --rm forgerouter pytest tests/test_chat_fallback.py::test_chat_falls_back_to_next_candidate -q
+
+# Run the service locally (host networking — required so the container can reach
+# Ollama on 127.0.0.1:11434; the bridge-network docker-compose.yml cannot)
+docker compose -f docker-compose.local.yml up -d --build
+
+# Provider health scan (writes to DB with --persist)
+docker run --rm --network host --env-file .env \
+  forgerouter:latest python -m app.validation.scanner --persist
+
+# Health check
+curl http://127.0.0.1:2100/health
+```
+
+The frontend dashboard (`frontend/`, Vite + React + TypeScript) is served from `frontend/dist`, which the Dockerfile copies into the image. Rebuild it with `npm run build` in `frontend/` before rebuilding the image when dashboard code changes.
+
+## Architecture
+
+Request flow for `/v1/chat/completions` (`app/main.py`):
+
+1. `load_registry_with_db_health()` loads the provider registry from PostgreSQL (`ai_router.providers` + `ai_router.models` — the source of truth, managed via the dashboard/CRUD endpoints), falling back to `config/providers.yaml` when the DB is unreachable or empty. It then overlays each model's `healthy` flag with the latest status from `ai_router.provider_health`.
+2. Capability is inferred from the request (`tool_call` if `tools` present, else `text`). Candidates are healthy+enabled models with that capability, sorted by tier ascending (tier 1 = highest priority; local Ollama is tier 4, the fallback of last resort).
+3. Candidates are tried in order. A specific `model` in the request is a preference, not an exclusive filter — it is sorted first, and the remaining healthy candidates stay as automatic fallback (a free-tier 429 on the requested model must never stop the caller). Any HTTP >= 400 or exception records a route event in `ai_router.route_events`, persists an unhealthy health row for that model (`mark_runtime_failure_unhealthy`), and moves to the next candidate. Only when all candidates fail does it return 502 `all_providers_failed`.
+
+Key modules:
+
+- `app/registry.py` — YAML registry parsing, DB health overlay, provider readiness (reports whether API-key env vars are set, never the values).
+- `app/providers/openai_compatible.py` — the default provider client (OpenAI-compatible `/chat/completions`). Each provider has an `api_format` (`openai`, the default, or `anthropic`); `anthropic` providers route through `app/providers/anthropic_compatible.py`, a generic Anthropic Messages API (`/v1/messages`) client that reuses the Claude Code adapter's payload/stream translation without the OAuth particularities — the router, scanner and usage accounting keep speaking chat completions either way. Plan handlers (`app/providers/plans.py`) take precedence over `api_format`.
+- `app/validation/scanner.py` + `app/validation/health.py` — health scanner sends a real chat completion to each model and classifies the response. `health.py` detects "silent failures": HTTP 200 responses with empty content or quota/billing/auth error text in the body are marked unhealthy.
+- `app/storage.py` — all PostgreSQL access (psycopg, raw SQL against schema `ai_router`).
+
+Design rules baked into the code:
+
+- **Demand routing** (`app/demand.py`, dashboard "Tasks" page): virtual models `forgerouter/auto|simple|standard|complex|reasoning|vision` are exposed in `/v1/models`. `auto`/`forgerouter/auto` classifies each request (image parts → vision, prompt size + reasoning hints + tools) into a demand class; each class routes through an ordered model chain (`ai_router.demand_routes`, or a rank-derived default from `default_chain`), then through every other healthy candidate. Runtime failures (`runtime_*` health rows, e.g. 429) expire after a 10-minute cooldown in `latest_health_by_model`, so rate-limited models re-enter routing automatically. **Auto-inclusion rule**: when the healthy candidate pool drops below `AUTO_INCLUDE_MIN_HEALTHY` (env, default 3), models degraded *only by runtime failures* (`runtime_degraded_models`) re-enter immediately as last-resort reserves appended after the healthy candidates — hard failures (auth, not found, scanner verdicts) are never re-admitted.
+- **Streaming**: `/v1/chat/completions` supports `stream: true` — the provider response is proxied as SSE (`StreamingResponse`, chunk generator in `app/providers/openai_compatible.py`). The payload requests `stream_options.include_usage`; `_stream_and_persist_usage` in `app/main.py` scans the SSE chunks for the final usage object (`usage`, or Groq's `x_groq.usage`) and persists the route event with token counts after the stream completes. `ChatMessage` allows extra fields (`tool_calls`, `tool_call_id`, `name`) for full OpenAI compatibility.
+- **DB failures must never break routing.** Every persistence call in the request path is wrapped in try/except; admin endpoints fall back to YAML when the health store is unavailable. Preserve this when adding persistence.
+- **Never route to an unhealthy provider**, and never expose secrets — the readiness endpoint returns env var names and a configured boolean only; secrets must not be logged.
+- Read-only admin endpoints (`/admin/providers/health`, `/admin/providers/readiness`, `/admin/providers/registry`, `/admin/routes/recent`, `/admin/agents`, `/admin/usage`) are public — they never expose secret values (agent/provider keys are masked), and the dashboard depends on loading them without a token. State-changing endpoints (`POST /admin/providers/rescan` — health-only re-check, `POST /admin/providers/resync` — full re-discover/catalog/scan of every provider, `POST /admin/providers/discover-models`, `POST /admin/providers/{name}/validate` — credential check + real call per enabled model, persists health, `PUT /admin/providers/{name}`, `DELETE /admin/providers/{name}`, the agent endpoints `POST /admin/agents`, `POST /admin/agents/{name}/rotate-key`, `POST /admin/agents/{name}/duplicate`, `PUT /admin/agents/{name}/models`, `DELETE /admin/agents/{name}`, and the key-reveal endpoints `GET /admin/providers/{name}/key`, `GET /admin/agents/{name}/key`) require a Bearer token that is either a registered agent's API key (each agent's own AGENTE_API_KEY, stored in `ai_router.agents`) or a dashboard session — there is no master key in the environment. Protection activates automatically once at least one enabled agent exists; with no agents (or no DB) admin stays open for first-time setup.
+- **Dashboard login**: `/auth/login`, `/auth/me`, `/auth/change-password`, `/auth/logout` back the frontend login gate. The default `admin`/`admin` user is seeded on first login (`ensure_default_user`) with `must_change_password = true`, and the UI forces a credential change before showing the app. Passwords are PBKDF2-hashed in `ai_router.users`; sessions (7 days) live in `ai_router.sessions`. This gates the dashboard only — `/v1/*` uses agent keys and `/admin/*` keeps its public-read model with state changes gated by agent keys/sessions.
+- **Agents**: each connected agent (Athos, Opencode, …) has its own `hermes_*` API key in `ai_router.agents`. A `/v1/chat/completions` bearer key matching an agent attributes the route event to it (`route_events.agent_id`) and, when the agent has rows in `ai_router.agent_models`, restricts routing to those models. Agent lookup failures must never break routing. Rotating the key (`rotate-key`) keeps the agent identity and its model controls; `duplicate` clones the controls into a new agent with a fresh key.
+- **Context compaction** (`app/normalize.py`): before building the provider payload, `chat_completions` applies lossless whitespace normalization to every message (trailing whitespace, runs of blank lines collapsed; `role: "tool"` JSON content minified) — no semantic content is removed. Toggled via `ai_router.settings.context_compaction_enabled` (`GET`/`POST /admin/settings/context-compaction`, default `true`, read failures default to enabled). `count_tokens()` (tiktoken `cl100k_base`, lazy-loaded, `None` on failure — never breaks routing) estimates tokens before and after normalization using the same encoding; both are persisted per route event (`prompt_tokens_raw`, `prompt_tokens_compacted`) so `/admin/usage` can report aggregate `tokens_raw`/`tokens_saved`/`pct_saved` (the Overview "Context compaction" card). The estimator is provider-agnostic by design — no per-provider tokenizer/API-type detection.
+
+## Database
+
+PostgreSQL is Foundation-managed (separate `proxyrouter` database, `proxyrouter_user` user, `ai_router` schema — rationale in `docs/DATABASE_DECISION.md`). Connection comes from `DATABASE_URL` in `.env` (never commit `.env`). Schema/seed SQL lives in `db/*.sql` (numbered files, applied manually — there is no migration tool). Tables: `providers` (with `access_type` subscription/api_key/local, `cost_type` free/paid, `api_format` openai/anthropic — the endpoint's wire protocol, `auth_config` JSONB for subscription particularities like extra headers — tokens always go in `api_key`), `models`, `provider_health` (append-only health history), `route_events` (one row per provider attempt, with `agent_id` attribution), `agents` (per-agent API keys), `agent_models` (per-agent model controls), `users` + `sessions` (dashboard login), `subscription_catalog` (seeded coding-plan providers listed by `GET /admin/subscriptions/catalog`). Migrations must be applied as the `foundation` superuser (`docker exec -i hermes_foundation_pg_postgres psql -U foundation -d proxyrouter`) — `proxyrouter_user` does not own the tables. Models are joined by `public_id` (e.g. `local/qwen2.5:1.5b`), which must match the `id` in `config/providers.yaml`.
+
+## Testing conventions
+
+Tests use FastAPI's `TestClient` and monkeypatch the names imported into `app.main` (e.g. `monkeypatch.setattr("app.main.load_registry_with_db_health", ...)`, `"app.main.chat_completion"`, `"app.main.persist_route_event"`) — no live DB or providers are needed. `pyproject.toml` sets `pythonpath = ["."]` for pytest.

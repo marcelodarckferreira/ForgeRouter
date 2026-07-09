@@ -1,0 +1,5 @@
+ALTER TABLE ai_router.route_events
+    ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER,
+    ADD COLUMN IF NOT EXISTS completion_tokens INTEGER,
+    ADD COLUMN IF NOT EXISTS total_tokens INTEGER,
+    ADD COLUMN IF NOT EXISTS cost NUMERIC(12, 6) NOT NULL DEFAULT 0;

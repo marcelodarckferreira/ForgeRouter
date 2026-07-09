@@ -1,0 +1,141 @@
+from fastapi.testclient import TestClient
+
+from app.demand import classify_request, default_chain, resolve_demand
+from app.main import app
+from app.registry import ProviderModel, ProviderRegistry
+
+client = TestClient(app)
+
+
+def model(public_id: str, tier: int, caps: list[str] | None = None) -> ProviderModel:
+    return ProviderModel(public_id, public_id.split("/")[0], public_id.split("/", 1)[1], tier, caps or ["text"], True, True, "http://x/v1", "")
+
+
+def msg(content: str, role: str = "user") -> dict:
+    return {"role": role, "content": content}
+
+
+def test_classify_request_by_size_and_hints():
+    assert classify_request([msg("gere um título curto")], has_tools=False) == "simple"
+    assert classify_request([msg("x" * 3000)], has_tools=False) == "standard"
+    assert classify_request([msg("x" * 9000)], has_tools=False) == "complex"
+    assert classify_request([msg("analise passo a passo este problema")], has_tools=False) == "reasoning"
+    assert classify_request([msg("oi")], has_tools=True) == "standard"
+
+
+def test_classify_request_with_images_is_vision():
+    image_msg = {"role": "user", "content": [
+        {"type": "text", "text": "o que aparece na imagem?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,xyz"}},
+    ]}
+    assert classify_request([image_msg], has_tools=False) == "vision"
+
+
+def test_default_chain_vision_only_uses_vision_capable():
+    plain = model("groq/llama-3.3-70b-versatile", 1)
+    seeing = model("groq/meta-llama/llama-4-scout-17b-16e-instruct", 1, ["text", "vision"])
+    chain = default_chain([plain, seeing], "vision")
+    assert chain == [seeing]
+
+
+def test_default_chain_audio_only_uses_audio_capable():
+    plain = model("groq/llama-3.3-70b-versatile", 1)
+    omni = model("openrouter/nemotron-omni:free", 2, ["text", "audio"])
+    chain = default_chain([plain, omni], "audio")
+    assert chain == [omni]
+
+
+def test_resolve_demand_virtual_models():
+    assert resolve_demand("forgerouter/simple", [], False) == "simple"
+    assert resolve_demand("forgerouter/audio", [], False) == "audio"
+    assert resolve_demand("forgerouter/auto", [msg("oi")], False) == "simple"
+    assert resolve_demand("auto", [msg("x" * 9000)], False) == "complex"
+    assert resolve_demand("groq/llama-3.1-8b-instant", [], False) is None
+
+
+def test_default_chain_bands_by_rank():
+    small = model("local/qwen2.5:1.5b", 4)            # score 12
+    mid = model("groq/llama-3.3-70b-versatile", 1)    # score 41
+    big = model("openrouter/deepseek-r1:free", 2, ["text", "reasoning"])  # score 60
+    chain_simple = default_chain([small, mid, big], "simple")
+    chain_complex = default_chain([small, mid, big], "complex")
+    chain_reasoning = default_chain([small, mid, big], "reasoning")
+    assert chain_simple[0].id == "local/qwen2.5:1.5b"
+    assert chain_complex[0].id == "openrouter/deepseek-r1:free"
+    assert chain_reasoning == [big]
+
+
+def test_chat_routes_by_demand_chain(monkeypatch):
+    small = model("local/qwen2.5:1.5b", 4)
+    mid = model("groq/llama-3.3-70b-versatile", 1)
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([mid, small]))
+    monkeypatch.setattr("app.main.get_demand_routes", lambda: {})
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    calls = []
+
+    def fake_chat_completion(selected, payload):
+        calls.append(selected.id)
+        return 200, {"choices": [{"message": {"content": "OK"}}]}
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    # Short prompt → simple demand → the small model goes first despite its higher tier.
+    response = client.post("/v1/chat/completions", json={"model": "forgerouter/auto", "messages": [msg("titulo curto")]})
+
+    assert response.status_code == 200
+    assert calls == ["local/qwen2.5:1.5b"]
+    assert response.headers["x-proxyrouter-model"] == "local/qwen2.5:1.5b"
+
+
+def test_chat_demand_chain_falls_back(monkeypatch):
+    small = model("local/qwen2.5:1.5b", 4)
+    mid = model("groq/llama-3.3-70b-versatile", 1)
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([mid, small]))
+    monkeypatch.setattr("app.main.get_demand_routes", lambda: {"simple": ["local/qwen2.5:1.5b"]})
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda *args, **kwargs: None)
+
+    calls = []
+
+    def fake_chat_completion(selected, payload):
+        calls.append(selected.id)
+        if selected.id == "local/qwen2.5:1.5b":
+            return 429, {"error": {"message": "rate limit"}}
+        return 200, {"choices": [{"message": {"content": "OK"}}]}
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post("/v1/chat/completions", json={"model": "forgerouter/simple", "messages": [msg("oi")]})
+
+    assert response.status_code == 200
+    assert calls == ["local/qwen2.5:1.5b", "groq/llama-3.3-70b-versatile"]
+
+
+def test_models_endpoint_exposes_virtual_models(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model("p1/m", 1)]))
+
+    response = client.get("/v1/models")
+
+    ids = [item["id"] for item in response.json()["data"]]
+    assert "forgerouter/auto" in ids
+    assert "forgerouter/reasoning" in ids
+    assert "p1/m" in ids
+
+
+def test_demand_routes_endpoints(monkeypatch):
+    monkeypatch.setattr("app.main.get_demand_routes", lambda: {"simple": ["p1/m"]})
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model("p1/m", 1)]))
+    saved = {}
+    monkeypatch.setattr("app.main.set_demand_routes", lambda demand, models: saved.update(demand=demand, models=models))
+
+    listing = client.get("/admin/demand-routes")
+    update = client.put("/admin/demand-routes/simple", json={"models": ["p1/m", " "]})
+    invalid = client.put("/admin/demand-routes/nope", json={"models": []})
+
+    assert listing.status_code == 200
+    assert listing.json()["routes"]["simple"] == ["p1/m"]
+    assert "forgerouter/auto" in listing.json()["virtual_models"]
+    assert update.status_code == 200
+    assert saved == {"demand": "simple", "models": ["p1/m"]}
+    assert invalid.status_code == 400
