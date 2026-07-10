@@ -1,267 +1,156 @@
-# ForgeRouter
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
+    <img alt="ForgeRouter" src="assets/logo-light.svg" width="420">
+  </picture>
+</p>
 
-Hermes ForgeRouter project.
+<p align="center">
+  A self-hosted, OpenAI-compatible API gateway that routes chat completions across multiple LLM providers with health-based selection and automatic fallback.
+</p>
 
-## Current runtime
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-MPL--2.0-orange">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="FastAPI" src="https://img.shields.io/badge/framework-FastAPI-009688">
+</p>
 
-The project is currently containerized because the host Python runtime does not expose the required FastAPI/Pytest dependencies reliably.
+---
 
-## Commands
+## What is ForgeRouter?
 
-Build image:
+ForgeRouter exposes a single OpenAI-compatible API — `/v1/chat/completions` and `/v1/models` — and routes each request across a configurable pool of LLM providers (local models via Ollama, and remote providers such as Groq, OpenRouter, Mistral, or OAuth-based coding-plan subscriptions). Point any OpenAI-compatible client at it, and it handles provider selection, health checks, and failover for you.
+
+It ships with a built-in admin dashboard for managing providers, agents, and usage — no separate service required.
+
+## Features
+
+- **OpenAI-compatible API** — drop-in `/v1/chat/completions` and `/v1/models`, including streaming (SSE) responses.
+- **Multi-provider routing** — mix local (Ollama) and remote providers (API-key or OAuth/subscription-based) in one pool.
+- **Health-based selection with automatic fallback** — candidates are tried in tier order; a failing or rate-limited provider is skipped in favor of the next healthy one, so a single provider outage never breaks a request.
+- **Demand routing** — virtual models (`forgerouter/auto`, `simple`, `standard`, `complex`, `reasoning`, `vision`) classify each request and route it through an ordered chain of concrete models.
+- **Provider health scanner** — periodically sends real chat completions to each configured model and detects silent failures (HTTP 200 with empty content, quota/billing errors, etc.), not just connection errors.
+- **Per-agent API keys and model controls** — issue a distinct API key per connected client/agent, optionally restricting it to a subset of models, with usage attribution.
+- **Context compaction** — lossless whitespace normalization of outgoing messages, with before/after token accounting.
+- **Admin dashboard** — a React/TypeScript UI for managing providers, agents, viewing health, recent routes, and usage, served directly by the API.
+- **Database-backed with YAML fallback** — the provider registry lives in PostgreSQL; a bundled YAML config is used automatically if the database is unreachable, so routing never goes down with it.
+
+## Architecture
+
+```
+Client (OpenAI SDK, curl, etc.)
+        │
+        ▼
+ POST /v1/chat/completions
+        │
+        ▼
+ Load provider registry (PostgreSQL, YAML fallback)
+        │
+        ▼
+ Infer capability (text / tool_call / vision) → filter healthy, enabled candidates
+        │
+        ▼
+ Sort candidates by tier → try in order
+        │
+        ├─ success ──────────────► response streamed/returned to client
+        │
+        └─ failure ── record route event, mark unhealthy ── try next candidate
+                                                                   │
+                                                    all exhausted ─┴─► 502 all_providers_failed
+```
+
+Each provider has an `api_format` (`openai` or `anthropic`) describing its wire protocol; subscription-based providers (Claude Code, Codex, Antigravity, DeepSeek, Z.ai) go through dedicated plan handlers that manage OAuth tokens instead of static API keys.
+
+## Getting started
+
+### Prerequisites
+
+- Docker and Docker Compose
+- A PostgreSQL instance (or use the bundled compose service)
+- Optional: [Ollama](https://ollama.com) running locally for local-model fallback
+
+### Installation
 
 ```bash
+git clone https://github.com/marcelodarckferreira/ForgeRouter.git
+cd ForgeRouter
+
+# Copy the example environment file and fill in your database and provider credentials
+cp .env.example .env
+
+# Build the image
 docker compose build
+
+# Apply the database schema (run each file in db/ in order against your PostgreSQL instance)
+for f in db/*.sql; do
+  psql "$DATABASE_URL" -f "$f"
+done
+
+# Start the service
+docker compose up -d
 ```
 
-Run tests inside container image:
-
-```bash
-docker compose run --rm proxyrouter-api pytest -q
-```
-
-Run service directly:
-
-```bash
-docker rm -f proxyrouter-api 2>/dev/null || true
-docker run -d --name proxyrouter-api   --env-file /root/.hermes/forgerouter/.env   -p 127.0.0.1:2100:2100   --restart unless-stopped   proxyrouter-proxyrouter-api:latest
-```
-
-Health check:
+Check that it's up:
 
 ```bash
 curl http://127.0.0.1:2100/health
 ```
 
-## Database
+The dashboard is served at `http://127.0.0.1:2100/` — the default login is `admin` / `admin`, and you'll be prompted to change it on first sign-in.
 
-PostgreSQL database created in the Foundation PostgreSQL instance:
+> **Local Ollama note:** if you run Ollama on the host, use `docker-compose.local.yml` (host networking) instead, so the container can reach `127.0.0.1:11434`:
+> ```bash
+> docker compose -f docker-compose.local.yml up -d --build
+> ```
 
-- database: `proxyrouter`
-- user: `proxyrouter_user`
-- schema: `ai_router`
+### Configuration
 
-The `.env` file points to the `proxyrouter` database and must not be committed.
+Core environment variables (see `config/providers.yaml` and `db/002_seed_registry.sql` for the full provider list):
 
-## Provider scanner
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `APP_HOST` / `APP_PORT` | Bind address (default `127.0.0.1:2100`) |
+| `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, ... | Per-provider API keys, only required for the providers you enable |
+| `ENABLE_PAID_FALLBACK` | Whether paid providers may be used as a fallback |
+| `LOG_PROMPTS` | Whether prompt content is logged (defaults to `false`) |
 
-Run provider health scanner:
+Providers and models are managed at runtime through the dashboard or the `/admin/providers` CRUD endpoints — the `.env` file only needs to hold credentials, not the registry itself.
 
-```bash
-docker compose run --rm proxyrouter-api python -m app.validation.scanner
-```
-
-Current expected behavior until provider credentials/local runtime are wired:
-- `local/qwen2.5:1.5b` may return `ConnectError` if Ollama is not reachable from the container.
-- `mistral/mistral-small-latest` returns `http_401` if `MISTRAL_API_KEY` is not present in the container env.
-
-The router must not route to providers marked unhealthy.
-
-## Local Ollama note
-
-Ollama on this host listens on `127.0.0.1:11434`, so bridge-network containers cannot reach it through `host.docker.internal`.
-
-For local-provider validation and chat execution, run ForgeRouter with host networking:
+## Usage
 
 ```bash
-docker rm -f proxyrouter-api 2>/dev/null || true
-docker run -d --network host --name proxyrouter-api \
-  --env-file /root/.hermes/forgerouter/.env \
-  --restart unless-stopped \
-  proxyrouter-proxyrouter-api:latest
+curl http://127.0.0.1:2100/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <agent-api-key>" \
+  -d '{
+    "model": "forgerouter/auto",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
 ```
 
-Run scanner with host networking:
+List available models:
 
 ```bash
-docker run --rm --network host --env-file /root/.hermes/forgerouter/.env \
-proxyrouter-proxyrouter-api:latest \
-  python -m app.validation.scanner --persist
+curl http://127.0.0.1:2100/v1/models
 ```
 
-## Admin provider health
+Any OpenAI-compatible SDK works out of the box by pointing `base_url` at `http://127.0.0.1:2100/v1`.
 
-Latest provider health endpoint:
+## Development
 
 ```bash
-curl http://127.0.0.1:2100/admin/providers/health
+# Run the full test suite
+docker compose run --rm forgerouter pytest -q
+
+# Run a single test file
+docker compose run --rm forgerouter pytest tests/test_chat_fallback.py -q
+
+# Rebuild the dashboard after frontend changes
+cd frontend && npm install && npm run build
 ```
 
-Returns latest persisted health from `ai_router.provider_health`, with a YAML fallback when the database is unavailable.
+## License
 
-## Route events
-
-Every successful or failed provider execution attempts to persist a route event in:
-
-```text
-ai_router.route_events
-```
-
-Useful query:
-
-```bash
-docker exec hermes_foundation_pg_postgres psql -U foundation -d proxyrouter -c "\
-SELECT r.route_id, m.public_id, r.required_capability, r.status, r.error_type, r.created_at \
-FROM ai_router.route_events r \
-LEFT JOIN ai_router.models m ON m.model_id = r.selected_model_id \
-ORDER BY r.route_id DESC LIMIT 10;"
-```
-
-## Frontend dashboard
-
-Frontend source lives in:
-
-```text
-/root/.hermes/forgerouter/frontend
-```
-
-Stack:
-- React
-- Vite
-- TypeScript strict
-- CSS dashboard style inspired by Linear/Vercel
-
-Commands:
-
-```bash
-cd /root/.hermes/forgerouter/frontend
-npm install
-npm run build
-npm run dev
-```
-
-Current dashboard reads:
-
-```text
-/admin/providers/health
-```
-
-The dashboard authorizes admin actions with its login session; API callers use a registered agent's key.
-
-## Scanner scheduling recommendation
-
-Validated manual scanner script:
-
-```bash
-/root/.hermes/forgerouter/scripts/forgerouter_scan.sh
-```
-
-Recommended schedule after approval:
-- every 5 minutes during development; or
-- every 15 minutes for low-noise local operation.
-
-Do not schedule before deciding the notification/noise policy.
-
-## Admin routes endpoint
-
-Recent route events endpoint:
-
-```bash
-curl http://127.0.0.1:2100/admin/routes/recent
-curl 'http://127.0.0.1:2100/admin/routes/recent?limit=10'
-```
-
-## Served dashboard
-
-FastAPI serves the built dashboard at:
-
-```text
-http://127.0.0.1:2100/
-```
-
-The Docker image copies `frontend/dist` into `/app/frontend/dist`. Rebuild the frontend before rebuilding the Docker image when UI changes.
-
-## Active scanner cron
-
-Hermes cron job created:
-
-```text
-job_id: 95389d518dd4
-schedule: */15 * * * *
-mode: no_agent=true
-deliver: local
-script: forgerouter_scan.sh
-profile: athos
-```
-
-## Admin rescan and auth
-
-Read-only admin endpoints are public (they never expose secret values):
-
-```bash
-curl http://127.0.0.1:2100/admin/providers/health
-curl http://127.0.0.1:2100/admin/routes/recent
-curl http://127.0.0.1:2100/admin/providers/readiness
-curl http://127.0.0.1:2100/admin/providers/registry
-```
-
-State-changing endpoints are protected once at least one agent is registered. Use any registered agent's API key (its AGENTE_API_KEY, shown on the Agents page) as the bearer token:
-
-```bash
-curl -H "Authorization: Bearer <agent api key>" -X POST http://127.0.0.1:2100/admin/providers/rescan
-
-# create/update a provider and its models
-curl -H "Authorization: Bearer <agent api key>" -H 'Content-Type: application/json' \
-  -X PUT http://127.0.0.1:2100/admin/providers/groq \
-  -d '{"name":"groq","tier":1,"base_url":"https://api.groq.com/openai/v1","api_key_env":"GROQ_API_KEY","enabled":true,"models":[{"id":"groq/llama-3.1-8b-instant","provider_model":"llama-3.1-8b-instant","capabilities":["text","tool_call"],"enabled":true}]}'
-
-# delete a provider (cascades to its models)
-curl -H "Authorization: Bearer <agent api key>" -X DELETE http://127.0.0.1:2100/admin/providers/groq
-```
-
-The dashboard loads provider data without a token. The token field (stored in browser localStorage) is needed for the `Run scan`, `Add provider`, edit and delete actions.
-
-## Provider registry source of truth
-
-The provider registry lives in PostgreSQL (`ai_router.providers` + `ai_router.models`) and is managed through the dashboard or the CRUD endpoints above. `config/providers.yaml` is only a fallback used when the database is unreachable or empty. Migration `db/004_provider_api_key_env.sql` added the `api_key_env` column to `ai_router.providers`.
-
-## Runtime fallback
-
-`/v1/chat/completions` now iterates through all healthy candidates for the required capability. If one provider returns HTTP >= 400 or raises during execution, ForgeRouter records the route event and tries the next healthy candidate before returning `all_providers_failed`.
-
-## Expanded provider registry
-
-Configured providers/models:
-
-- `local/qwen2.5:1.5b` — healthy local fallback, text + tool_call
-- `local/llama3.2:1b` — healthy local fallback, text
-- `local/qwen2.5:0.5b` — healthy local fallback, text
-- `groq/llama-3.1-8b-instant` — requires `GROQ_API_KEY`
-- `openrouter/meta-llama/llama-3.2-3b-instruct:free` — requires `OPENROUTER_API_KEY`
-- `openrouter/qwen/qwen-2.5-7b-instruct:free` — requires `OPENROUTER_API_KEY`
-- `mistral/mistral-small-latest` — requires `MISTRAL_API_KEY`
-
-Remote providers are expected to remain `unhealthy` with HTTP 401 until API keys are present in `.env`.
-
-Runtime provider failures automatically persist an unhealthy health result, so subsequent routing avoids failed providers after the health override is refreshed from DB.
-
-## Provider readiness endpoint
-
-Admin endpoint that reports whether required API key environment variables are present without exposing secret values:
-
-```bash
-ADMIN_TOKEN="your_admin_token_here"
-curl -H "Authorization: Bearer ${ADMIN_TOKEN}" http://127.0.0.1:2100/admin/providers/readiness
-```
-
-Fields:
-- `api_key_env`: environment variable name only
-- `api_key_required`: whether the provider requires a key
-- `api_key_configured`: boolean only; never returns the secret
-
-## Local production compose
-
-A local runtime compose is available at:
-
-```text
-/root/.hermes/forgerouter/docker-compose.local.yml
-```
-
-Run:
-
-```bash
-cd /root/.hermes/forgerouter
-docker compose -f docker-compose.local.yml up -d --build
-```
-
-This uses `network_mode: host` because local Ollama currently listens on `127.0.0.1:11434`. PostgreSQL remains Foundation-managed.
+[Mozilla Public License 2.0](LICENSE)
