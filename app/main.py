@@ -424,6 +424,7 @@ def _stream_and_persist_usage(
     agent_name: str | None,
     tokens_raw: int | None = None,
     tokens_compacted: int | None = None,
+    demand: str | None = None,
 ) -> Iterator[bytes]:
     usage: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
@@ -454,7 +455,7 @@ def _stream_and_persist_usage(
             metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
             error_type = f"stream_{metadata.get('error_type') or error.get('code') or 'error'}"
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
                 pass
             try:
@@ -463,7 +464,7 @@ def _stream_and_persist_usage(
                 pass
         else:
             try:
-                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
                 pass
 
@@ -614,7 +615,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 if request.stream:
                     # Usage arrives in the final SSE chunk (stream_options.include_usage),
                     # so the route event is persisted after the stream completes.
-                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
                     return StreamingResponse(stream_body, media_type="text/event-stream", headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
                 # A provider can return HTTP 200 with a body that is itself an error
                 # (no choices, empty content, quota/auth text) — treat that the same
@@ -623,7 +624,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 if silent_failure is None:
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
                     try:
-                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
                     except Exception:
                         pass
                     return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
@@ -632,7 +633,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 error_type = f"http_{status_code}"
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
                 pass
             try:
@@ -642,7 +643,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         except Exception as exc:
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted)
+                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
                 pass
             try:

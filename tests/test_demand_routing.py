@@ -23,6 +23,32 @@ def test_classify_request_by_size_and_hints():
     assert classify_request([msg("oi")], has_tools=True) == "standard"
 
 
+def test_classify_discounts_history_for_short_follow_ups():
+    # A trivial follow-up in a long conversation must not drift to "complex":
+    # history counts at a discount, so 10k chars of transcript + "obrigado, ficou ótimo"
+    # stays in the cheap bands instead of burning big-model quota.
+    history = [msg("x" * 5000), msg("y" * 5000, role="assistant")]
+    assert classify_request([*history, msg("obrigado, ficou ótimo")], has_tools=False) == "standard"
+    # Truly long contexts still escalate — just later (discounted, not ignored).
+    huge_history = [msg("x" * 20000), msg("y" * 20000, role="assistant")]
+    assert classify_request([*huge_history, msg("resuma tudo isso")], has_tools=False) == "complex"
+
+
+def test_reasoning_hints_match_whole_words_only():
+    # "prove" must not fire inside "aprove"/"provedor" (substring false positives).
+    assert classify_request([msg("aprove a proposta do provedor")], has_tools=False) == "simple"
+    assert classify_request([msg("prove que a raiz de 2 é irracional")], has_tools=False) == "reasoning"
+
+
+def test_classify_request_detects_code():
+    assert classify_request([msg("refatore a função de login")], has_tools=False) == "code"
+    assert classify_request([msg("corrija o bug no arquivo app/main.py")], has_tools=False) == "code"
+    assert classify_request([msg("o que acha deste trecho?\n```python\nprint('hi')\n```")], has_tools=False) == "code"
+    # Code signals win over tools and reasoning hints — coding agents send both.
+    assert classify_request([msg("implemente passo a passo o parser.ts")], has_tools=True) == "code"
+    assert classify_request([msg("me explique o que é uma API")], has_tools=False) == "simple"
+
+
 def test_classify_request_with_images_is_vision():
     image_msg = {"role": "user", "content": [
         {"type": "text", "text": "o que aparece na imagem?"},
@@ -43,6 +69,13 @@ def test_default_chain_audio_only_uses_audio_capable():
     omni = model("openrouter/nemotron-omni:free", 2, ["text", "audio"])
     chain = default_chain([plain, omni], "audio")
     assert chain == [omni]
+
+
+def test_default_chain_code_only_uses_code_capable():
+    plain = model("groq/llama-3.3-70b-versatile", 1)
+    coder = model("openrouter/qwen-2.5-coder:free", 2, ["text", "code"])
+    chain = default_chain([plain, coder], "code")
+    assert chain == [coder]
 
 
 def test_resolve_demand_virtual_models():
@@ -70,7 +103,8 @@ def test_chat_routes_by_demand_chain(monkeypatch):
     mid = model("groq/llama-3.3-70b-versatile", 1)
     monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([mid, small]))
     monkeypatch.setattr("app.main.get_demand_routes", lambda: {})
-    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    persisted = {}
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: persisted.update(kwargs))
 
     calls = []
 
@@ -86,6 +120,8 @@ def test_chat_routes_by_demand_chain(monkeypatch):
     assert response.status_code == 200
     assert calls == ["local/qwen2.5:1.5b"]
     assert response.headers["x-proxyrouter-model"] == "local/qwen2.5:1.5b"
+    # The resolved demand class is recorded with the route event for auditing.
+    assert persisted["demand"] == "simple"
 
 
 def test_chat_demand_chain_falls_back(monkeypatch):

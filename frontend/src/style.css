@@ -27,12 +27,14 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .accent-amber{background:rgba(245,158,11,.14);color:#fbbf24}
 .accent-teal{background:rgba(45,212,191,.14);color:#2dd4bf}
 .accent-pink{background:rgba(244,114,182,.14);color:#f0abfc}
+.accent-orange{background:rgba(251,146,60,.14);color:#fb923c}
 .text-violet{color:#a78bfa}
 .text-green{color:#4ade80}
 .text-blue{color:#38bdf8}
 .text-amber{color:#fbbf24}
 .text-teal{color:#2dd4bf}
 .text-pink{color:#f0abfc}
+.text-orange{color:#fb923c}
 .groupHead{display:flex;flex-direction:column;align-items:center;gap:6px}
 .demandGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;margin-bottom:18px;align-items:start}
 .demandCard{display:flex;flex-direction:column;margin-bottom:0}

@@ -151,7 +151,7 @@ def test_chat_attributes_agent_from_bearer_key(monkeypatch):
 
     recorded = {}
 
-    def fake_persist(request_id, model_id, capability, status, error=None, usage=None, agent_name=None, tokens_raw=None, tokens_compacted=None):
+    def fake_persist(request_id, model_id, capability, status, error=None, usage=None, agent_name=None, tokens_raw=None, tokens_compacted=None, demand=None):
         recorded["agent_name"] = agent_name
 
     monkeypatch.setattr("app.main.persist_route_event", fake_persist)

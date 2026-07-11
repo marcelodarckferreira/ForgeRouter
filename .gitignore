@@ -2,3 +2,4 @@
 .env.ai
 .claude/settings.local.json
 .codex/config.toml
+frontend/node_modules/

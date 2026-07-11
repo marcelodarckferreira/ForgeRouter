@@ -58,6 +58,7 @@ const DEMAND_GROUP_STYLE: Record<string, { accent: string; icon: React.ReactNode
   reasoning: { accent: 'accent-violet', icon: <Brain size={13} /> },
   vision: { accent: 'accent-pink', icon: <Eye size={13} /> },
   audio: { accent: 'accent-teal', icon: <AudioLines size={13} /> },
+  code: { accent: 'accent-orange', icon: <Code size={13} /> },
 };
 
 const EMPTY_PROVIDER: RegistryProvider = { name: '', tier: 3, base_url: '', api_key_env: '', api_key: '', enabled: true, models: [], access_type: 'api_key', cost_type: 'free', api_format: 'openai', auth_config: {} };
