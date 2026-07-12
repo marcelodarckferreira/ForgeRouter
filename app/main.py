@@ -600,7 +600,9 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         )
     request_id = str(uuid.uuid4())
     last_error: dict[str, Any] | None = None
-    raw_messages = [message.model_dump() for message in request.messages]
+    # exclude_none: strict providers (Mistral, Cloudflare) reject explicit nulls
+    # ("name": null → 422 extra_forbidden); lenient ones ignore them either way.
+    raw_messages = [message.model_dump(exclude_none=True) for message in request.messages]
     try:
         tokens_raw = count_tokens(raw_messages, request.tools)
     except Exception:
