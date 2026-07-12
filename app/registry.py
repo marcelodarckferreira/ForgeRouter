@@ -23,6 +23,9 @@ class ProviderModel:
     # Wire protocol of the provider endpoint: "openai" (/chat/completions)
     # or "anthropic" (Messages API /v1/messages).
     api_format: str = "openai"
+    # True = the model was unchecked by hand (permanent until re-enabled by
+    # hand); False + disabled = auto-off by a health verdict (revivable).
+    manual_off: bool = False
 
 
 def mask_secret(value: str) -> str:
@@ -84,6 +87,8 @@ def load_registry(path: str | Path = "config/providers.yaml") -> ProviderRegistr
                     base_url=provider.get("base_url", ""),
                     api_key_env=provider.get("api_key_env") or "",
                     api_format=provider.get("api_format") or "openai",
+                    # No flag stored (YAML): a disabled model counts as manual.
+                    manual_off=bool(model.get("manual_off", not model.get("enabled", True))),
                 )
             )
     return ProviderRegistry(models=models)
@@ -109,6 +114,7 @@ def registry_from_provider_dicts(providers: list[dict[str, Any]]) -> ProviderReg
                     api_key=provider.get("api_key") or "",
                     extra_headers=dict((provider.get("auth_config") or {}).get("extra_headers") or {}),
                     api_format=provider.get("api_format") or "openai",
+                    manual_off=bool(model.get("manual_off", not model.get("enabled", True))),
                 )
             )
     return ProviderRegistry(models=models)
@@ -150,6 +156,7 @@ def load_registry_with_db_health(path: str | Path = "config/providers.yaml") -> 
                 api_key=model.api_key,
                 extra_headers=model.extra_headers,
                 api_format=model.api_format,
+                manual_off=model.manual_off,
             )
             for model in registry.models
         ]

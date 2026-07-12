@@ -33,7 +33,7 @@ def test_upsert_provider_requires_token_when_configured(monkeypatch):
 
 def test_upsert_provider_persists_payload(monkeypatch):
     saved = {}
-    monkeypatch.setattr("app.main.upsert_provider", lambda payload: saved.update(payload))
+    monkeypatch.setattr("app.main.upsert_provider", lambda payload, manual=False: saved.update(payload))
 
     response = client.put("/admin/providers/cerebras", json=VALID_PAYLOAD)
 
@@ -46,7 +46,7 @@ def test_upsert_provider_persists_payload(monkeypatch):
 
 def test_upsert_provider_persists_access_and_cost(monkeypatch):
     saved = {}
-    monkeypatch.setattr("app.main.upsert_provider", lambda payload: saved.update(payload))
+    monkeypatch.setattr("app.main.upsert_provider", lambda payload, manual=False: saved.update(payload))
 
     payload = {**VALID_PAYLOAD, "access_type": "subscription", "cost_type": "paid", "auth_config": {"extra_headers": {"X-Plan": "coding"}}}
     response = client.put("/admin/providers/cerebras", json=payload)
@@ -381,7 +381,7 @@ def test_resync_rediscovers_and_saves_every_enabled_provider(monkeypatch):
     )
 
     saved = []
-    monkeypatch.setattr("app.main.upsert_provider", lambda payload: saved.append(payload))
+    monkeypatch.setattr("app.main.upsert_provider", lambda payload, manual=False: saved.append(payload))
 
     response = client.post("/admin/providers/resync")
 

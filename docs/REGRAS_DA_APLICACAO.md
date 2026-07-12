@@ -132,12 +132,14 @@
 - **Run scan** (resync): redescobre os modelos de cada provider habilitado,
   recataloga capacidades/rank e refaz o health scan completo. É ele que encontra
   modelos novos e religa os recuperados.
-- **Refresh** (rescan): revalida saúde/latência apenas dos modelos já registrados
-  e habilitados (não descobre novos).
-- **O on/off do modelo segue o veredito do scan**: unhealthy → desmarcado;
-  healthy → religado (no Run scan). A escolha manual de desligar um modelo no
-  editor do provider **não** sobrevive ao próximo Run scan — o controle
-  permanente por agente é o **opt-out** (seção 3).
+- **Refresh** (rescan): revalida saúde/latência dos modelos registrados que não
+  foram desligados manualmente (não descobre novos).
+- **O on/off do modelo segue o veredito do scan, exceto desligamento manual**
+  (`models.manual_off`): desmarcar um modelo no editor do provider é
+  **permanente** — Refresh e Run scan nunca o religam; só marcá-lo de novo à
+  mão. Já um modelo desmarcado **automaticamente** por veredito de saúde
+  continua sendo escaneado e religa sozinho quando recupera (unhealthy →
+  desmarcado; healthy → religado).
 - Ambos os botões existem nas telas Routing, Agents e Tasks e sempre terminam
   sincronizando as associações de todos os agentes.
 - **Cooldown de runtime**: modelo derrubado por falha em tempo de execução

@@ -60,7 +60,9 @@ def persist_health_results(results: list[HealthResult]) -> int:
 def set_models_enabled_from_health(results: list[HealthResult]) -> int:
     """Mirror the latest scan verdict into the model on/off selection: unhealthy
     models are unchecked (leave selection and, via the agent sync, every agent's
-    list); models that scanned healthy come back on. Returns rows changed."""
+    list); models that scanned healthy come back on — unless they were turned
+    off by hand (manual_off), which only a manual re-enable undoes. Returns
+    rows changed."""
     if not results:
         return 0
     with db_connect() as conn:
@@ -69,8 +71,12 @@ def set_models_enabled_from_health(results: list[HealthResult]) -> int:
             for result in results:
                 enabled = result.status == "healthy"
                 cur.execute(
-                    "UPDATE ai_router.models SET enabled = %s WHERE public_id = %s AND enabled IS DISTINCT FROM %s",
-                    (enabled, result.model_id, enabled),
+                    """
+                    UPDATE ai_router.models SET enabled = %s
+                    WHERE public_id = %s AND enabled IS DISTINCT FROM %s
+                      AND NOT (%s AND manual_off)
+                    """,
+                    (enabled, result.model_id, enabled, enabled),
                 )
                 changed += cur.rowcount
         conn.commit()
@@ -616,7 +622,7 @@ def db_providers_with_models() -> list[dict[str, Any]]:
     SELECT
         p.name, p.tier, p.base_url, p.api_key_env, p.enabled, p.api_key,
         p.access_type, p.cost_type, p.auth_config, p.api_format,
-        m.public_id, m.provider_model, m.capabilities, m.enabled, m.healthy
+        m.public_id, m.provider_model, m.capabilities, m.enabled, m.healthy, m.manual_off
     FROM ai_router.providers p
     LEFT JOIN ai_router.models m ON m.provider_id = p.provider_id
     ORDER BY p.tier, p.name, m.public_id
@@ -651,13 +657,19 @@ def db_providers_with_models() -> list[dict[str, Any]]:
                     "capabilities": list(row[12] or []),
                     "enabled": row[13],
                     "healthy": row[14],
+                    "manual_off": bool(row[15]),
                 }
             )
     return list(providers.values())
 
 
-def upsert_provider(payload: dict[str, Any]) -> None:
-    """Create or replace a provider and its full model list."""
+def upsert_provider(payload: dict[str, Any], manual: bool = False) -> None:
+    """Create or replace a provider and its full model list.
+
+    manual=True (dashboard save): the enabled flags are the user's curation —
+    an unchecked model becomes manual_off (permanent until re-checked by hand).
+    manual=False (resync/automation): manual_off is preserved and keeps the
+    model off regardless of the scan verdict."""
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -697,22 +709,28 @@ def upsert_provider(payload: dict[str, Any]) -> None:
                 (provider_id, kept_ids),
             )
             for model in payload.get("models", []):
+                enabled = bool(model.get("enabled", True))
                 cur.execute(
                     """
-                    INSERT INTO ai_router.models (provider_id, public_id, provider_model, capabilities, enabled, healthy)
-                    VALUES (%(provider_id)s, %(public_id)s, %(provider_model)s, %(capabilities)s, %(enabled)s, false)
+                    INSERT INTO ai_router.models (provider_id, public_id, provider_model, capabilities, enabled, healthy, manual_off)
+                    VALUES (%(provider_id)s, %(public_id)s, %(provider_model)s, %(capabilities)s, %(enabled)s, false, %(manual_off)s)
                     ON CONFLICT (public_id) DO UPDATE SET
                         provider_id = EXCLUDED.provider_id,
                         provider_model = EXCLUDED.provider_model,
                         capabilities = EXCLUDED.capabilities,
-                        enabled = EXCLUDED.enabled
+                        enabled = CASE WHEN %(manual)s THEN EXCLUDED.enabled
+                                       ELSE EXCLUDED.enabled AND NOT ai_router.models.manual_off END,
+                        manual_off = CASE WHEN %(manual)s THEN NOT EXCLUDED.enabled
+                                          ELSE ai_router.models.manual_off END
                     """,
                     {
                         "provider_id": provider_id,
                         "public_id": model["id"],
                         "provider_model": model.get("provider_model") or model["id"],
                         "capabilities": list(model.get("capabilities", ["text"])),
-                        "enabled": bool(model.get("enabled", True)),
+                        "enabled": enabled,
+                        "manual": manual,
+                        "manual_off": manual and not enabled,
                     },
                 )
                 health = model.get("health")

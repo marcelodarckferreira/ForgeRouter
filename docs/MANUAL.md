@@ -140,6 +140,10 @@ agente aux-tasks para colar na configuração do Hermes.
   provider mandar (cap de 6h). Depois volta sozinho.
 - **Falha dura** (401/404, veredito do scanner): só volta com rescan —
   botão **Refresh** (Tasks/Routing) ou `POST /admin/providers/rescan`.
+- **On/off manual × automático** (`models.manual_off`): desmarcar um modelo no
+  editor do provider é permanente — Refresh/Resync nunca o religam. Um modelo
+  desligado automaticamente por veredito de saúde continua sendo escaneado
+  pelo Refresh e religa sozinho quando recupera.
 - Health é histórico append-only em `ai_router.provider_health`.
 
 ## 7. Providers e modelos
@@ -189,6 +193,7 @@ key de agente ou sessão do dashboard.
 | Modelo healthy no scan mas falha em requisição real | Diferença de payload (histórico: nulls rejeitados por providers estritos — corrigido) | Ver `error_type` em Messages; testar o modelo direto com o payload do router |
 | Modelo some do routing e volta em 10 min | Cooldown de runtime (429/timeout) | Normal; `Retry-After` pode alongar |
 | Modelo não volta nunca | Falha dura (auth/404/scanner) | Refresh/rescan; conferir key do provider |
+| Modelo OFF não religa nem com Refresh | Desligado manualmente (`manual_off`) | Religar à mão no editor do provider |
 | Tudo indo para o mesmo modelo | Sticky (10 min) — comportamento esperado | `STICKY_TTL_SECONDS=0` desliga |
 | `502 all_providers_failed` | Todos os candidatos falharam | `last_error` no corpo aponta o último motivo |
 | `401` no `/v1` | Key de agente ausente/inválida | Página Agents → copiar/rotacionar key |

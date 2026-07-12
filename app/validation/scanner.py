@@ -83,9 +83,10 @@ def scan_registry(path: str = "config/providers.yaml") -> list[HealthResult]:
     from app.registry import load_provider_dicts, registry_from_provider_dicts
 
     registry = registry_from_provider_dicts(load_provider_dicts(path))
-    # Disabled models are skipped: they are not routing candidates, and scanning
-    # them wastes free-tier rate limits.
-    models = [model for model in registry.models if model.enabled]
+    # Manually-disabled models are skipped (deliberate curation — scanning them
+    # wastes free-tier rate limits). Models auto-disabled by a health verdict
+    # keep being scanned, so they come back on as soon as they recover.
+    models = [model for model in registry.models if model.enabled or not model.manual_off]
     if not models:
         return []
     with ThreadPoolExecutor(max_workers=8) as executor:

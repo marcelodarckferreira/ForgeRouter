@@ -1980,7 +1980,10 @@ def admin_provider_upsert(name: str, payload: ProviderPayload, request: Request)
             content={"error": {"message": "api_format must be openai or anthropic", "type": "invalid_payload"}},
         )
     try:
-        upsert_provider(payload.model_dump())
+        # manual=True: the enabled flags in a dashboard save are the user's
+        # curation — unchecked models become manual_off (rescan/resync never
+        # re-enable them; only a manual re-check does).
+        upsert_provider(payload.model_dump(), manual=True)
         try:
             # Models switched off here leave every agent's list; new enabled models
             # reach the agents already participating in this provider.

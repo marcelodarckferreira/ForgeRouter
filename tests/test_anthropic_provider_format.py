@@ -108,7 +108,7 @@ VALID_PAYLOAD = {
 
 def test_upsert_provider_persists_api_format(monkeypatch):
     saved = {}
-    monkeypatch.setattr("app.main.upsert_provider", lambda payload: saved.update(payload))
+    monkeypatch.setattr("app.main.upsert_provider", lambda payload, manual=False: saved.update(payload))
 
     response = client.put("/admin/providers/claude-gw", json={**VALID_PAYLOAD, "api_format": "anthropic"})
 
@@ -121,7 +121,7 @@ def test_upsert_provider_persists_api_format(monkeypatch):
 
 
 def test_upsert_provider_rejects_invalid_api_format(monkeypatch):
-    monkeypatch.setattr("app.main.upsert_provider", lambda payload: None)
+    monkeypatch.setattr("app.main.upsert_provider", lambda payload, manual=False: None)
 
     response = client.put("/admin/providers/claude-gw", json={**VALID_PAYLOAD, "api_format": "grpc"})
 
