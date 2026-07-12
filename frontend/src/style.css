@@ -253,7 +253,7 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .cap.costLocal{background:#2a1430;color:#f0abfc;border-color:#86198f}
 .cap.capTask{background:#042f2e;color:#5eead4;border-color:#115e59}
 .row.compaction{grid-template-columns:repeat(4,1fr);text-align:center}
-.row.taskGroups{grid-template-columns:repeat(6,1fr);gap:10px;text-align:center;align-items:start}
+.row.taskGroups{grid-template-columns:repeat(7,1fr);gap:10px;text-align:center;align-items:start}
 .groupCell{display:flex;flex-direction:column;align-items:center;gap:8px}
 .groupCell strong{font-size:22px}
 .groupStats{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--raised);padding:8px 12px;display:flex;flex-direction:column;gap:6px}

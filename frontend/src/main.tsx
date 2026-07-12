@@ -1901,7 +1901,7 @@ function App() {
   const auxHolder = agents.find((agent) => agent.aux_tasks);
   // Healthy models grouped by demand class — mirrors the per-agent breakdown on the Agents page.
   const taskGroups = useMemo(() => {
-    const groups = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0 };
+    const groups = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0, code: 0 };
     for (const p of providers) {
       if (p.status !== 'healthy') continue;
       const score = scoreByModel[p.model_id] ?? 0;
@@ -1909,6 +1909,7 @@ function App() {
       if (caps.includes('reasoning')) groups.reasoning += 1;
       if (caps.includes('vision')) groups.vision += 1;
       if (caps.includes('audio')) groups.audio += 1;
+      if (caps.includes('code')) groups.code += 1;
       if (score >= 50) groups.complex += 1;
       else if (score >= 30) groups.standard += 1;
       else groups.simple += 1;
@@ -1925,6 +1926,7 @@ function App() {
       reasoning: { messages: 0, tokens: 0 },
       vision: { messages: 0, tokens: 0 },
       audio: { messages: 0, tokens: 0 },
+      code: { messages: 0, tokens: 0 },
     };
     for (const item of usage?.by_model ?? []) {
       const score = scoreByModel[item.model_id] ?? 0;
@@ -2275,9 +2277,10 @@ function App() {
                 <span className="groupHead text-violet"><span className="panelIcon accent-violet"><Brain size={13} /></span>Reasoning</span>
                 <span className="groupHead text-pink"><span className="panelIcon accent-pink"><Eye size={13} /></span>Vision</span>
                 <span className="groupHead text-teal"><span className="panelIcon accent-teal"><AudioLines size={13} /></span>Audio</span>
+                <span className="groupHead text-orange"><span className="panelIcon accent-orange"><Code size={13} /></span>Code</span>
               </div>
               <div className="row taskGroups">
-                {(['simple', 'standard', 'complex', 'reasoning', 'vision', 'audio'] as const).map((group) => (
+                {(['simple', 'standard', 'complex', 'reasoning', 'vision', 'audio', 'code'] as const).map((group) => (
                   <div className="groupCell" key={group}>
                     <strong>{taskGroups[group]}</strong>
                     <div className="groupStats">
