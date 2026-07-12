@@ -47,6 +47,29 @@ def headers_for_model(model: ProviderModel) -> dict[str, str]:
     return headers
 
 
+def parse_retry_after(value: str | None) -> int | None:
+    """Seconds from a Retry-After header, capped at 6h. HTTP-date form (rare
+    from LLM providers) and non-positive values are ignored."""
+    if not value:
+        return None
+    try:
+        seconds = int(float(value.strip()))
+    except ValueError:
+        return None
+    if seconds <= 0:
+        return None
+    return min(seconds, 6 * 3600)
+
+
+def _attach_retry_after(body: Any, headers: Any) -> Any:
+    # Internal marker consumed (and removed) by the router: turns the provider's
+    # Retry-After into the model's runtime cooldown instead of the fixed window.
+    retry_after = parse_retry_after(headers.get("retry-after"))
+    if retry_after and isinstance(body, dict):
+        body["_proxyrouter_retry_after"] = retry_after
+    return body
+
+
 def chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: float = 60.0) -> tuple[int, Any]:
     # Subscription plans with their own protocol (e.g. OpenAI Codex) route through
     # their plan handler instead of the default OpenAI-compatible path.
@@ -76,7 +99,7 @@ def chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: floa
                     body = {"error": {"message": response.text, "type": "invalid_json"}}
                 response.close()
                 client.close()
-                return response.status_code, body
+                return response.status_code, _attach_retry_after(body, response.headers)
 
             def chunk_generator():
                 try:
@@ -96,4 +119,6 @@ def chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: floa
             body = response.json()
         except Exception:
             body = {"error": {"message": response.text, "type": "invalid_json"}}
+        if response.status_code >= 400:
+            body = _attach_retry_after(body, response.headers)
         return response.status_code, body

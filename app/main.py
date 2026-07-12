@@ -14,6 +14,14 @@ from pydantic import BaseModel, Field
 
 from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, default_chain, messages_have_images, resolve_demand
 from app.normalize import count_tokens, normalize_messages
+from app.routing_state import (
+    breaker_open,
+    model_performance_cached,
+    record_provider_failure,
+    record_provider_success,
+    record_sticky,
+    sticky_model,
+)
 from app.registry import load_registry, load_registry_with_db_health, provider_readiness
 from app.providers.openai_compatible import build_chat_payload, chat_completion
 from app.validation.health import detect_silent_failure
@@ -452,6 +460,7 @@ def _stream_and_persist_usage(
                     yield buffer
     finally:
         if error is not None:
+            record_provider_failure(selected.provider)
             metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
             error_type = f"stream_{metadata.get('error_type') or error.get('code') or 'error'}"
             try:
@@ -463,6 +472,8 @@ def _stream_and_persist_usage(
             except Exception:
                 pass
         else:
+            record_provider_success(selected.provider)
+            record_sticky(agent_name, demand, selected.id)
             try:
                 persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
@@ -556,9 +567,13 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         except Exception:
             chain_ids = []
         if not chain_ids:
-            chain_ids = [model.id for model in default_chain(candidates, demand)]
+            chain_ids = [model.id for model in default_chain(candidates, demand, performance=model_performance_cached())]
         order = {model_id: position for position, model_id in enumerate(chain_ids)}
-        candidates = sorted(candidates, key=lambda model: (order.get(model.id, len(order) + model.tier), model.tier))
+        # Sticky routing: the last model that succeeded for this agent+demand goes
+        # first (even ahead of the chain head) — staying on the same model across a
+        # conversation preserves the provider's prompt cache.
+        sticky_id = sticky_model(agent_name, demand)
+        candidates = sorted(candidates, key=lambda model: (model.id != sticky_id, order.get(model.id, len(order) + model.tier), model.tier))
     elif request.model and request.model != "auto":
         # The requested model is a preference, not an exclusive filter: it is tried first,
         # but the remaining healthy candidates stay as automatic fallback — hitting a
@@ -567,6 +582,11 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     if reserves:
         # Reserves go strictly after the healthy candidates, in tier order.
         candidates = candidates + reserves
+    # Circuit breaker: models of a provider that just failed repeatedly sort last
+    # (deprioritized, never excluded — the last resort must stay reachable).
+    tripped = {model.provider: breaker_open(model.provider) for model in candidates}
+    if any(tripped.values()):
+        candidates = sorted(candidates, key=lambda model: tripped[model.provider])
     if not candidates:
         return JSONResponse(
             status_code=503,
@@ -611,6 +631,9 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         )
         try:
             status_code, body = chat_completion(selected, payload)
+            # Internal marker from the provider client: Retry-After on a 429/5xx
+            # becomes this model's runtime cooldown (never leaks to the caller).
+            retry_after = body.pop("_proxyrouter_retry_after", None) if isinstance(body, dict) else None
             if status_code < 400:
                 if request.stream:
                     # Usage arrives in the final SSE chunk (stream_options.include_usage),
@@ -622,6 +645,8 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 # as an HTTP error so the next candidate gets a chance.
                 silent_failure = detect_silent_failure(body) if isinstance(body, dict) else "non_json_response"
                 if silent_failure is None:
+                    record_provider_success(selected.provider)
+                    record_sticky(agent_name, demand, selected.id)
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
                     try:
                         persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
@@ -631,16 +656,18 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 error_type = f"silent_{silent_failure}"
             else:
                 error_type = f"http_{status_code}"
+            record_provider_failure(selected.provider)
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
             try:
                 persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
             except Exception:
                 pass
             try:
-                mark_runtime_failure_unhealthy(selected, status_code, f"runtime_{error_type}")
+                mark_runtime_failure_unhealthy(selected, status_code, f"runtime_{error_type}", cooldown_seconds=retry_after)
             except Exception:
                 pass
         except Exception as exc:
+            record_provider_failure(selected.provider)
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
             try:
                 persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
@@ -1351,7 +1378,7 @@ def admin_demand_routes(request: Request):
         healthy = registry.healthy_for_capability("text")
     except Exception:
         healthy = []
-    defaults = {demand: [model.id for model in default_chain(healthy, demand)][:8] for demand in DEMANDS}
+    defaults = {demand: [model.id for model in default_chain(healthy, demand, performance=model_performance_cached())][:8] for demand in DEMANDS}
     return {
         "demands": list(DEMANDS),
         "info": DEMAND_INFO,

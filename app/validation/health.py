@@ -25,6 +25,9 @@ class HealthResult:
     http_code: int | None
     latency_ms: int | None
     error_message: str | None = None
+    # Runtime failures only: how long routing should skip the model (e.g. the
+    # provider's Retry-After on a 429). None = the default 600-second window.
+    cooldown_seconds: int | None = None
 
 
 def _message_from_response(response: dict[str, Any]) -> dict[str, Any]:

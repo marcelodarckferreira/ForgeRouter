@@ -94,6 +94,23 @@ def intelligence_score(model_id: str) -> int:
     return 20
 
 
+def dynamic_score(model_id: str, performance: dict[str, dict[str, Any]] | None = None) -> float:
+    """Static intelligence score blended with the model's recent behaviour.
+
+    Success rate (route_events, last days) scales the score between 60% and
+    100%; scan latency shaves up to 2 points as a near-tie breaker. Models with
+    fewer than 5 recent attempts keep the static score — no penalty on thin data.
+    """
+    base = float(intelligence_score(model_id))
+    stats = (performance or {}).get(model_id)
+    if not stats or (stats.get("total") or 0) < 5:
+        return base
+    success_rate = min(1.0, max(0.0, float(stats.get("success_rate", 1.0))))
+    latency_ms = stats.get("latency_ms") or 0
+    latency_penalty = min(2.0, latency_ms / 5000.0)
+    return base * (0.6 + 0.4 * success_rate) - latency_penalty
+
+
 LOCAL_HOST_MARKERS = ("127.0.0.1", "localhost", "host.docker.internal")
 
 

@@ -47,7 +47,7 @@ def test_chat_falls_back_on_200_with_error_body(monkeypatch):
     monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
 
     unhealthy_calls = []
-    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda model, status_code, error_message: unhealthy_calls.append((model.id, status_code, error_message)))
+    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda model, status_code, error_message, cooldown_seconds=None: unhealthy_calls.append((model.id, status_code, error_message)))
 
     response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
 
@@ -247,7 +247,7 @@ def test_chat_completion_stream_marks_unhealthy_on_in_band_error_chunk(monkeypat
     unhealthy_calls = []
     monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
     monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: persisted.append((args, kwargs)))
-    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda model, status_code, error_message: unhealthy_calls.append((model.id, status_code, error_message)))
+    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda model, status_code, error_message, cooldown_seconds=None: unhealthy_calls.append((model.id, status_code, error_message)))
 
     response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}], "stream": True})
     assert response.status_code == 200

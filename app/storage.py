@@ -19,6 +19,7 @@ def health_to_row(result: HealthResult) -> dict[str, Any]:
         "http_code": result.http_code,
         "latency_ms": result.latency_ms,
         "error_message": result.error_message,
+        "cooldown_seconds": getattr(result, "cooldown_seconds", None),
     }
 
 
@@ -44,10 +45,10 @@ def persist_health_results(results: list[HealthResult]) -> int:
                 cur.execute(
                     """
                     INSERT INTO ai_router.provider_health
-                        (model_id, status, http_code, latency_ms, error_message)
+                        (model_id, status, http_code, latency_ms, error_message, cooldown_seconds)
                     VALUES (
                         (SELECT model_id FROM ai_router.models WHERE public_id = %(model_id)s),
-                        %(status)s, %(http_code)s, %(latency_ms)s, %(error_message)s
+                        %(status)s, %(http_code)s, %(latency_ms)s, %(error_message)s, %(cooldown_seconds)s
                     )
                     """,
                     row,
@@ -86,7 +87,7 @@ def latest_health_by_model() -> dict[str, str]:
     WHERE NOT (
         h.status = 'unhealthy'
         AND h.error_message LIKE 'runtime%%'
-        AND h.checked_at < now() - interval '10 minutes'
+        AND h.checked_at < now() - make_interval(secs => coalesce(h.cooldown_seconds, 600))
     )
     ORDER BY m.public_id, h.checked_at DESC, h.health_id DESC
     """
@@ -94,6 +95,38 @@ def latest_health_by_model() -> dict[str, str]:
         with conn.cursor() as cur:
             cur.execute(query)
             return {row[0]: row[1] for row in cur.fetchall()}
+
+
+def model_performance(days: int = 7) -> dict[str, dict[str, Any]]:
+    """Per-model routing stats feeding dynamic_score: attempts and success rate
+    from route_events, plus the latest health-scan latency."""
+    query = """
+    SELECT m.public_id,
+           count(*) AS total,
+           count(*) FILTER (WHERE r.status = 'success') AS ok,
+           (
+               SELECT h.latency_ms FROM ai_router.provider_health h
+               WHERE h.model_id = m.model_id
+               ORDER BY h.checked_at DESC, h.health_id DESC
+               LIMIT 1
+           ) AS latency_ms
+    FROM ai_router.route_events r
+    JOIN ai_router.models m ON m.model_id = r.selected_model_id
+    WHERE r.created_at >= now() - make_interval(days => %(days)s)
+    GROUP BY m.public_id, m.model_id
+    """
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, {"days": days})
+            rows = cur.fetchall()
+    return {
+        row[0]: {
+            "total": row[1],
+            "success_rate": (row[2] / row[1]) if row[1] else 1.0,
+            "latency_ms": row[3],
+        }
+        for row in rows
+    }
 
 
 def runtime_degraded_models() -> set[str]:
@@ -104,14 +137,14 @@ def runtime_degraded_models() -> set[str]:
     Hard failures (auth, model not found, scanner verdicts) are never re-admitted."""
     query = """
     SELECT public_id FROM (
-        SELECT DISTINCT ON (m.public_id) m.public_id, h.status, h.error_message, h.checked_at
+        SELECT DISTINCT ON (m.public_id) m.public_id, h.status, h.error_message, h.checked_at, h.cooldown_seconds
         FROM ai_router.provider_health h
         JOIN ai_router.models m ON m.model_id = h.model_id
         ORDER BY m.public_id, h.checked_at DESC, h.health_id DESC
     ) latest
     WHERE status = 'unhealthy'
       AND error_message LIKE 'runtime%%'
-      AND checked_at >= now() - interval '10 minutes'
+      AND checked_at >= now() - make_interval(secs => coalesce(cooldown_seconds, 600))
     """
     with db_connect() as conn:
         with conn.cursor() as cur:
@@ -1297,18 +1330,19 @@ def delete_profile(profile_id: int) -> bool:
     return deleted
 
 
-def runtime_failure_health_result(model: Any, http_code: int | None, error_message: str) -> HealthResult:
+def runtime_failure_health_result(model: Any, http_code: int | None, error_message: str, cooldown_seconds: int | None = None) -> HealthResult:
     return HealthResult(
         model_id=model.id,
         status="unhealthy",
         http_code=http_code,
         latency_ms=0,
         error_message=error_message,
+        cooldown_seconds=cooldown_seconds,
     )
 
 
-def mark_runtime_failure_unhealthy(model: Any, http_code: int | None, error_message: str) -> None:
-    persist_health_results([runtime_failure_health_result(model, http_code, error_message)])
+def mark_runtime_failure_unhealthy(model: Any, http_code: int | None, error_message: str, cooldown_seconds: int | None = None) -> None:
+    persist_health_results([runtime_failure_health_result(model, http_code, error_message, cooldown_seconds)])
 
 
 def get_task_map() -> list[dict[str, Any]]:

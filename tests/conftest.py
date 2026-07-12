@@ -9,4 +9,16 @@ fast, exercising the same fallbacks a DB outage does.
 
 import os
 
+import pytest
+
 os.environ.pop("DATABASE_URL", None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_routing_state():
+    # Circuit breaker, sticky routing and the performance cache are process-global;
+    # leaking them across tests would change candidate ordering unpredictably.
+    from app.routing_state import reset
+
+    reset()
+    yield

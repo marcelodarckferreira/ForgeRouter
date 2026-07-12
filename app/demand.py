@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.ranking import intelligence_score
+from app.ranking import dynamic_score, intelligence_score
 from app.registry import ProviderModel
 
 # Demand classes, from cheapest to deepest. Each routes to a chain of models:
@@ -133,13 +133,16 @@ def classify_request(messages: list[Any], has_tools: bool) -> str:
     return "complex"
 
 
-def default_chain(models: list[ProviderModel], demand: str) -> list[ProviderModel]:
+def default_chain(models: list[ProviderModel], demand: str, performance: dict[str, Any] | None = None) -> list[ProviderModel]:
     """Rank-derived chain for a demand when no custom chain is configured.
 
     simple: best of the small models (economy first); standard: mid band;
     complex: high rank; reasoning: reasoning-capable, highest rank first.
+    Band membership uses the static score (a big model stays a "complex" model
+    even while misbehaving); the order *within* the chain uses dynamic_score,
+    so recently failing/slow models sink without changing class.
     """
-    by_score_desc = sorted(models, key=lambda model: -intelligence_score(model.id))
+    by_score_desc = sorted(models, key=lambda model: -dynamic_score(model.id, performance))
     if demand in ("vision", "audio", "code"):
         # Vision/audio/code are catalog particularities: only models with the capability may serve them.
         return [model for model in by_score_desc if demand in model.capabilities]
