@@ -1,68 +1,58 @@
-# ForgeRouter Database Recommendation
+# ForgeRouter × Foundation — Banco de dados
 
-## Decision
-Use a separate PostgreSQL database for ProxyRouter.
+> Atualizado em 2026-07-11. A primeira versão deste documento era a proposta
+> de decisão (banco `proxyrouter`); esta versão descreve o que está
+> **implantado hoje** e mantém a justificativa original ao final.
 
-Recommended database name:
-- proxyrouter
+## Estado atual (implantado)
 
-Recommended schema layout inside that database:
-- public only for bootstrap metadata, or better:
-- ai_router schema for all application objects
+| Item | Valor |
+| --- | --- |
+| Instância | Foundation PostgreSQL — container **`foundation_postgres`** (pgvector/pg16), porta **5432** do host |
+| Banco | **`forgerouter`** (renomeado; nasceu como `proxyrouter`) |
+| Usuário da aplicação | `proxyrouter_user` (nome herdado do original — não foi renomeado) |
+| Schema | `ai_router` (todos os objetos da aplicação) |
+| Conexão | `DATABASE_URL` no `.env` (nunca commitado) — `postgresql://proxyrouter_user:…@127.0.0.1:5432/forgerouter` |
+| Superusuário | `foundation` — dono das tabelas; obrigatório para migrations |
 
-## Why not use the Foundation database directly?
-The Foundation database already contains multiple applications and domains:
-- public: foundation_checklist, pipeline_*, pir_*, provider_groups, maintenance_*
-- knowledge_base: checkpoints, checkpoint_log, llm_fallback_log
-- hindsight: documents, entities, memory_units, directives, audit_log, webhooks
+### Migrations
 
-Using the same database would create avoidable risk:
-1. Namespace collision with existing tables and future migrations.
-2. Harder backup/restore boundaries.
-3. Higher blast radius if ProxyRouter migrations fail.
-4. More difficult permission isolation.
-5. Operational confusion between Foundation core tables and app tables.
+SQL numerado em `db/*.sql` (001–030), aplicado **manualmente** — não há
+ferramenta de migração. Sempre como superusuário `foundation`, porque
+`proxyrouter_user` não é dono das tabelas:
 
-## Recommended isolation model
-Best option:
-- same PostgreSQL instance
-- separate database: proxyrouter
-- dedicated user: proxyrouter_user
-- dedicated schema: ai_router
+```bash
+docker exec -i foundation_postgres psql -U foundation -d forgerouter < db/0NN_arquivo.sql
+```
 
-This keeps administration simple while preserving strong separation.
+### Inventário de tabelas (schema `ai_router`, até a migration 030)
 
-## Minimal ProxyRouter database design
-### Option A — preferred
-Database: proxyrouter
-Schema: ai_router
+| Tabela | Papel |
+| --- | --- |
+| `providers` | Cadastro de providers (`access_type` subscription/api_key/local, `cost_type` free/paid, `api_format` openai/anthropic, `auth_config` JSONB) |
+| `models` | Modelos por provider, join por `public_id` (ex.: `groq/llama-3.1-8b-instant`); `capabilities TEXT[]`, `enabled` |
+| `provider_health` | Histórico de saúde **append-only**; `cooldown_seconds` (030) guarda o Retry-After de 429s |
+| `route_events` | Uma linha por tentativa de provider: agente, tokens, custo, `demand` (029 — classe resolvida pelo auto) |
+| `demand_routes` | Chain customizada por classe de demanda (tela Tasks) |
+| `agents` | Keys de agente (`hermes_*`) para `/v1` e admin |
+| `agent_models` | Controle de modelos por agente |
+| `users` + `sessions` | Login do dashboard (PBKDF2; sessões de 7 dias) |
+| `settings` | Chave/valor (ex.: `context_compaction_enabled`) |
+| `task_map` | Tarefas auxiliares do Hermes → grupo/modelo |
+| `subscription_catalog` | Providers de planos de assinatura conhecidos |
+| `usage_monthly` | Roll-up mensal de eventos arquivados |
 
-Tables:
-- ai_router.providers
-- ai_router.models
-- ai_router.provider_health
-- ai_router.route_events
-- ai_router.request_logs
-- ai_router.validation_runs
+## Decisão original (mantida)
 
-### Option B — acceptable for very small MVP
-Database: proxyrouter
-Schema: public
+Usar um banco **separado** na mesma instância Foundation, em vez de reutilizar
+o banco `foundation` (que já abriga `public` — checklist/pipeline/PIR,
+`knowledge_base` e `hindsight`):
 
-This is simpler, but less clean for long-term maintenance.
+1. Sem colisão de namespace com as tabelas do Foundation.
+2. Fronteira própria de backup/restore.
+3. Raio de dano limitado se uma migration falhar.
+4. Isolamento de permissões simples (`proxyrouter_user` só enxerga o próprio banco).
+5. Ciclo de vida de migração independente — ForgeRouter é um produto separado.
 
-## Recommendation
-Create a new database instead of reusing `foundation`.
-
-Reason:
-- ProxyRouter is a separate product/service.
-- It needs its own migration lifecycle.
-- It should not share state with Foundation audit/pipeline/knowledge tables.
-- It reduces risk and makes rollback easier.
-
-## Next step
-If approved, create:
-- database: `proxyrouter`
-- user: `proxyrouter_user`
-- schema: `ai_router`
-- `.env` updated to point ProxyRouter to the new database
+Modelo de isolamento: mesma instância PostgreSQL, banco dedicado, usuário
+dedicado, schema dedicado (`ai_router`).

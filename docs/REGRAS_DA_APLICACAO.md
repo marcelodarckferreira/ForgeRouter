@@ -155,18 +155,29 @@ Requisição → POST /v1/chat/completions
 │                      banco fora do ar → passa sem atribuição
 ├─ 2. PERMISSÕES ───── só os modelos associados ("on") ao agente
 ├─ 3. CAPACIDADE ───── tools → tool_call · imagem → vision · senão text
-├─ 4. SAÚDE ────────── só modelos healthy (429 volta após 10 min)
-├─ 5. ORDENAÇÃO ─────  a) modelo específico pedido → primeiro (preferência,
+├─ 4. SAÚDE ────────── só modelos healthy (falha de runtime volta após 10 min,
+│                      ou após o Retry-After enviado pelo provider num 429)
+├─ 5. ORDENAÇÃO ─────  a) sticky: o último modelo com sucesso para o par
+│                         agente+demanda vai primeiro por STICKY_TTL_SECONDS
+│                         (600) — preserva o prompt cache do provider
+│                      b) modelo específico pedido → primeiro (preferência,
 │                         não exclusivo: o resto fica como fallback)
-│                      b) auto / forgerouter/<classe> → chain da tela Tasks
-│                         (customizada, ou automática por rank)
-│                      c) demais modelos → Tier ↑ e, no mesmo tier, AI rank ↓
+│                      c) auto / forgerouter/<classe> → chain da tela Tasks
+│                         (customizada, ou automática por rank); dentro da
+│                         chain a ordem usa o score dinâmico (rank estático ×
+│                         taxa de sucesso 7d − penalidade de latência)
+│                      d) demais modelos → Tier ↑ e, no mesmo tier, AI rank ↓
 │                         (= exatamente a ordem da tabela Manage Models)
 ├─ 6. RESERVAS ─────── pool saudável < AUTO_INCLUDE_MIN_HEALTHY (padrão 3):
 │                      modelos degradados SÓ por runtime reentram no fim da fila
 │                      (falhas duras — auth, not found, scanner — nunca voltam aqui)
-└─ 7. EXECUÇÃO ─────── tenta em ordem; erro (HTTP ≥ 400/exceção) → grava evento,
-                       marca unhealthy (runtime) e tenta o próximo;
+├─ 7. BREAKER ──────── provider com BREAKER_THRESHOLD (4) falhas seguidas vai
+│                      para o fim de tudo por BREAKER_COOLDOWN_SECONDS (120);
+│                      meio-aberto depois (uma sonda). Deprioriza, nunca exclui.
+│                      Estado em memória — zera no restart.
+└─ 8. EXECUÇÃO ─────── tenta em ordem; erro (HTTP ≥ 400/exceção) → grava evento
+                       (com a classe `demand` resolvida), marca unhealthy
+                       (runtime) e tenta o próximo;
                        todos falharam → 502 all_providers_failed
 ```
 
@@ -180,14 +191,22 @@ Requisição → POST /v1/chat/completions
 ## 7. Classes de demanda e tarefas (tela Tasks)
 
 - Modelos virtuais expostos em `/v1/models`: `forgerouter/auto|simple|standard|
-  complex|reasoning|vision|audio`.
-- `auto` classifica cada pedido: imagem → vision; dicas de raciocínio →
-  reasoning; tamanho do prompt e presença de tools decidem entre simple
-  (< ~1,5k chars), standard (< ~8k) e complex.
+  complex|reasoning|vision|audio|code`.
+- `auto` classifica cada pedido, nesta ordem: imagem → vision; sinal de código
+  na última mensagem do usuário (bloco ```` ``` ````, nome de arquivo, verbos
+  como "refatore"/"implemente"/"fix the bug") → code; dica de raciocínio por
+  **palavra inteira** ("passo a passo", "prove" — "aprove"/"provedor" não
+  disparam) → reasoning; senão tamanho do prompt e presença de tools decidem
+  entre simple (< ~1,5k chars), standard (< ~8k) e complex — o histórico da
+  conversa conta com peso 1/4, para follow-ups curtos em conversas longas não
+  escalarem de classe.
+- A classe resolvida é gravada em cada evento (`route_events.demand`) para
+  auditoria; pedidos de modelo concreto ficam com demand nula.
 - **Cadeias automáticas por banda de rank**: simple = rank < 30 · standard =
-  30–49 · complex = ≥ 50 · reasoning/vision/audio = somente modelos com a
+  30–49 · complex = ≥ 50 · reasoning/vision/audio/code = somente modelos com a
   capability no catálogo (particularidade de catálogo: sem a capability, o
-  modelo nunca serve a classe).
+  modelo nunca serve a classe). A banda usa o rank estático; a ordem dentro da
+  cadeia usa o score dinâmico (seção 6).
 - **Cadeia customizada** por classe é salva em `ai_router.demand_routes` e tem
   precedência sobre a automática.
 - **Economia de tokens** é o objetivo: trabalho curto vai para modelo pequeno,
