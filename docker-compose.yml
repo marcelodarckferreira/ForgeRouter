@@ -25,6 +25,13 @@ services:
       # DeepSeek web credentials/token (read-only): the native subscription
       # handler reads ~/.deepseek/auth.json when present.
       - ~/.deepseek:/root/.deepseek:ro
+      # Reference-cost pricing catalogs (read-write): POST /admin/pricing/sync
+      # rewrites these from inside the container (app/pricing.py). Without a
+      # bind mount here the sync result only lives in the container's writable
+      # layer and is lost on the next --build/recreate — mount them so a sync
+      # actually persists across deploys, the same way the repo file does.
+      - ./config/model_pricing.json:/app/config/model_pricing.json
+      - ./config/model_pricing_live.json:/app/config/model_pricing_live.json
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"

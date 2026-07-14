@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
+import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
-type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; agent: string | null; };
-type UsageDay = { day: string; messages: number; tokens: number; cost: number };
-type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; pct_total: number };
-type AgentUsage = { agent: string; totals: { messages: number; tokens: number; cost: number }; daily: UsageDay[]; by_model: UsageModel[] };
-type UsageTotals = { messages: number; tokens: number; cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number };
+type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; };
+type UsageDay = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
+type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
+type AgentUsage = { agent: string; totals: { messages: number; tokens: number; cost: number; reference_cost: number }; daily: UsageDay[]; by_model: UsageModel[] };
+type UsageTotals = { messages: number; tokens: number; cost: number; reference_cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number };
 type Usage = { days: number; totals: UsageTotals; daily: UsageDay[]; by_model: UsageModel[]; by_agent?: AgentUsage[] };
-type UsageMetric = 'messages' | 'tokens' | 'cost';
+type UsageMetric = 'messages' | 'tokens' | 'cost' | 'reference_cost';
 type MonthlyTotals = { messages: number; tokens: number; cost: number };
 type YearlyAgentUsage = { agent: string; months: Record<string, MonthlyTotals>; totals: MonthlyTotals };
 type YearlyUsage = { year: number; by_agent: YearlyAgentUsage[] };
@@ -24,13 +24,14 @@ type SubscriptionPlan = { name: string; display_name: string; plan_hint: string;
 type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string; images?: string[] };
 type Attachment = { id: string; url: string; name: string };
 
-type AgentDaily = { day: string; messages: number; tokens: number; cost: number };
-type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; daily: AgentDaily[]; models: string[]; models_off?: string[] };
+type AgentDaily = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
+type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; daily: AgentDaily[]; models: string[]; models_off?: string[] };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
 
 type StatusFilter = 'all' | 'healthy' | 'unhealthy';
-type Page = 'agents' | 'overview' | 'messages' | 'routing' | 'tasks' | 'playground' | 'users' | 'profiles';
+type Page = 'agents' | 'overview' | 'messages' | 'routing' | 'tasks' | 'playground' | 'pricing' | 'users' | 'profiles';
+type PriceModel = { public_id: string; provider_model: string; priced: boolean; input_cost_per_token: number | null; output_cost_per_token: number | null; source: string | null };
 
 // Canonical capability catalog from the PRD.
 const CAPABILITIES = ['text', 'code', 'reasoning', 'tool_call', 'vision', 'embedding', 'audio'] as const;
@@ -75,13 +76,14 @@ const PAGES: { id: Page; label: string; section: string; icon: React.ReactNode }
   { id: 'routing', label: 'Routing', section: 'Manage', icon: <SlidersHorizontal size={15} /> },
   { id: 'tasks', label: 'Tasks', section: 'Manage', icon: <Layers size={15} /> },
   { id: 'playground', label: 'Playground', section: 'Manage', icon: <Terminal size={15} /> },
+  { id: 'pricing', label: 'LLM Pricing', section: 'Manage', icon: <DollarSign size={15} /> },
   { id: 'users', label: 'Users', section: 'Administration', icon: <UsersRound size={15} /> },
   { id: 'profiles', label: 'Access Profiles', section: 'Administration', icon: <ShieldCheck size={15} /> },
 ];
 
 /** Modules a profile can grant to non-admin users. Users/Profiles management
  * stays admin-only (like ForgeHub), so it's not part of the matrix. */
-const PROFILE_MODULES: Page[] = ['agents', 'overview', 'messages', 'routing', 'tasks', 'playground'];
+const PROFILE_MODULES: Page[] = ['agents', 'overview', 'messages', 'routing', 'tasks', 'playground', 'pricing'];
 
 // Recommended virtual model for each Hermes (OpenClaw) task — paste these ids in
 // the Hermes model settings. forgerouter/auto classifies the request on the fly.
@@ -131,7 +133,7 @@ function formatCost(value: number): string {
 }
 
 function formatMetricValue(value: number, metric: UsageMetric): string {
-  if (metric === 'cost') return formatCost(value);
+  if (metric === 'cost' || metric === 'reference_cost') return formatCost(value);
   if (metric === 'tokens') return formatTokens(value);
   return `${value}`;
 }
@@ -1083,6 +1085,10 @@ function App() {
   const [agentModelSearch, setAgentModelSearch] = useState('');
   const [savingAgentModels, setSavingAgentModels] = useState(false);
   const [taskMap, setTaskMap] = useState<{ task: string; hint: string; model: string }[]>(HERMES_TASK_MAP);
+  const [pricingModels, setPricingModels] = useState<PriceModel[]>([]);
+  const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number }>({ priced_count: 0, total_count: 0 });
+  const [pricingSyncing, setPricingSyncing] = useState(false);
+  const [pricingSearch, setPricingSearch] = useState('');
   const [demandData, setDemandData] = useState<DemandData | null>(null);
   const [demandDrafts, setDemandDrafts] = useState<Record<string, string[]>>({});
   // Chains being reordered right now: while any is in edit mode, the 5s auto-refresh
@@ -1325,6 +1331,26 @@ function App() {
     }
   }
 
+  async function syncPricing() {
+    // Refreshes config/model_pricing.json from LiteLLM's public catalog, reads
+    // live pricing straight from every registered provider's /models response
+    // (OpenRouter/Kilo-style `pricing` object — the most authoritative source,
+    // since it's the literal endpoint being routed through), then backfills
+    // reference_cost on existing route_events that predate a model being
+    // priced — so Overview/Messages reflect the new coverage right away.
+    setPricingSyncing(true);
+    try {
+      const result = await fetchJson('/admin/pricing/sync', { method: 'POST' });
+      setScanStatus(`Pricing sync: ${result.catalog_entries} catalog entries · ${result.live_entries} live provider prices · backfilled ${result.backfill_priced}/${result.backfill_checked} historical messages`);
+      await loadAll();
+    } catch (err) {
+      setScanStatus('failed');
+      setError(err instanceof Error ? err.message : 'Unknown pricing sync error');
+    } finally {
+      setPricingSyncing(false);
+    }
+  }
+
   async function loadAll() {
     try {
       const agentParam = agentFilter !== 'all' ? `&agent=${encodeURIComponent(agentFilter)}` : '';
@@ -1371,6 +1397,13 @@ function App() {
         setYearlyUsage(yearly);
       } catch {
         // yearly usage is optional UI data
+      }
+      try {
+        const pricing = await fetchJson('/admin/pricing/models');
+        setPricingModels(pricing.models ?? []);
+        setPricingMeta({ priced_count: pricing.priced_count ?? 0, total_count: pricing.total_count ?? 0 });
+      } catch {
+        // pricing catalog coverage is optional UI data
       }
       setProviders(healthData.providers ?? []);
       setRoutes(routeData.routes ?? []);
@@ -1953,6 +1986,9 @@ function App() {
     .filter((route) => msgStatus === 'all' || (msgStatus === 'success' ? route.status === 'success' : route.status !== 'success'))
     .filter((route) => !msgSearch.trim() || `${route.model_id ?? ''} ${route.agent ?? ''} ${route.request_id}`.toLowerCase().includes(msgSearch.trim().toLowerCase()))
     .slice(0, 50);
+  const visiblePricingModels = pricingModels.filter(
+    (item) => !pricingSearch.trim() || item.public_id.toLowerCase().includes(pricingSearch.trim().toLowerCase())
+  );
   const playModelOptions = providers
     .filter((p) => p.status === 'healthy')
     .filter((p) => !agentAllowed || agentAllowed.has(p.model_id))
@@ -1976,10 +2012,10 @@ function App() {
   const usagePanel = usage && (
     <section className="panel">
       <div className="usageTabs">
-        {(['messages', 'tokens', 'cost'] as UsageMetric[]).map((metric) => (
-          <button key={metric} className={`usageTab${usageMetric === metric ? ' active' : ''}`} onClick={() => setUsageMetric(metric)}>
-            <span>{metric === 'messages' ? 'Messages' : metric === 'tokens' ? 'Token usage' : 'Cost'}</span>
-            <strong>{metric === 'messages' ? usage.totals.messages : metric === 'tokens' ? formatTokens(usage.totals.tokens) : formatCost(usage.totals.cost)}</strong>
+        {(['messages', 'tokens', 'cost', 'reference_cost'] as UsageMetric[]).map((metric) => (
+          <button key={metric} className={`usageTab${usageMetric === metric ? ' active' : ''}`} onClick={() => setUsageMetric(metric)} title={metric === 'reference_cost' ? 'Notional cost at public commercial rates for an equivalent model — never billed, since only free-tier models are routed to' : undefined}>
+            <span>{metric === 'messages' ? 'Messages' : metric === 'tokens' ? 'Token usage' : metric === 'cost' ? 'Cost' : 'Reference cost'}</span>
+            <strong>{metric === 'messages' ? usage.totals.messages : metric === 'tokens' ? formatTokens(usage.totals.tokens) : metric === 'cost' ? formatCost(usage.totals.cost) : formatCost(usage.totals.reference_cost)}</strong>
           </button>
         ))}
         <span className="usageRange">last {usage.days} days</span>
@@ -2202,7 +2238,7 @@ function App() {
                   <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}{agent.aux_tasks && <b className="status healthy">aux tasks</b>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
-                  <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)}</span><span /></div>
+                  <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)} billed · {formatCost(agent.reference_cost)} ref.</span><span /></div>
                   <div className="setupRow">
                     <span>Actions</span>
                     <span className="rowActions">
@@ -2359,7 +2395,7 @@ function App() {
                   title={<><i className="legendDot" style={{ background: agentColor(index) }} />Cost by model — {agentUsage.agent}</>}
                   meta={`${agentUsage.by_model.length} models · ${agentUsage.totals.messages} msgs · ${formatTokens(agentUsage.totals.tokens)} tok · ${formatCost(agentUsage.totals.cost)} · last ${usage.days} days`}
                 >
-                  <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span></div>
+                  <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span></div>
                   <div className="tableScroll">
                   {agentUsage.by_model.map((item) => (
                     <div className="row byModel" key={item.model_id}>
@@ -2368,6 +2404,7 @@ function App() {
                       <span>{formatTokens(item.tokens)}</span>
                       <span className="pctCell"><i className="pctBar"><i style={{ width: `${Math.min(100, item.pct_total)}%` }} /></i>{item.pct_total}%</span>
                       <span>{formatCost(item.cost)}</span>
+                      <span>{formatCost(item.reference_cost)}</span>
                     </div>
                   ))}
                   </div>
@@ -2375,7 +2412,7 @@ function App() {
               ))
             ) : (usage && usage.by_model.length > 0 && (
               <Panel title={`Cost by model${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} meta={`${usage.by_model.length} models · last ${usage.days} days`}>
-                <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span></div>
+                <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span></div>
                 <div className="tableScroll">
                 {usage.by_model.map((item) => (
                   <div className="row byModel" key={item.model_id}>
@@ -2384,6 +2421,7 @@ function App() {
                     <span>{formatTokens(item.tokens)}</span>
                     <span className="pctCell"><i className="pctBar"><i style={{ width: `${Math.min(100, item.pct_total)}%` }} /></i>{item.pct_total}%</span>
                     <span>{formatCost(item.cost)}</span>
+                    <span>{formatCost(item.reference_cost)}</span>
                   </div>
                 ))}
                 </div>
@@ -2409,7 +2447,7 @@ function App() {
             </header>
             {error && <div className="alert">{error}</div>}
             <Panel title="Messages" meta={`${visibleRoutes.length}/${routes.length} shown`}>
-              <div className="row msg head"><span>Date</span><span>Status</span><span>Model</span><span>Agent</span><span>Tokens</span><span>Cost</span><span>% total</span><span /></div>
+              <div className="row msg head"><span>Date</span><span>Status</span><span>Model</span><span>Agent</span><span>Tokens</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span><span>% total</span><span /></div>
               <div className="tableScroll">
               {visibleRoutes.map((route) => (
                 <React.Fragment key={route.route_id}>
@@ -2420,6 +2458,7 @@ function App() {
                     <span className="caps">{route.agent ? <i className="cap agentChip">{route.agent}</i> : <span className="muted">-</span>}</span>
                     <span>{formatTokens(route.total_tokens)}</span>
                     <span>{route.total_tokens ? formatCost(route.cost) : '-'}</span>
+                    <span>{route.reference_cost != null ? formatCost(route.reference_cost) : '-'}</span>
                     <span>{usage?.totals.tokens && route.total_tokens ? `${Math.max(0.1, Math.round(1000 * route.total_tokens / usage.totals.tokens) / 10)}%` : '-'}</span>
                     <span>{expandedRoute === route.route_id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
                   </div>
@@ -2427,7 +2466,7 @@ function App() {
                     <div className="msgDetail">
                       <p><b>Message</b></p>
                       <p>ID <span className="mono">{route.request_id}</span> · Route #{route.route_id} · Capability <span className="mono">{route.required_capability}</span> · Agent <span className="mono">{route.agent ?? '-'}</span></p>
-                      <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
+                      <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.reference_cost != null ? <> · Ref. cost {formatCost(route.reference_cost)}</> : null}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
                     </div>
                   )}
                 </React.Fragment>
@@ -2947,6 +2986,40 @@ function App() {
             </section>
           </>
         )}
+        {page === 'pricing' && (
+          <>
+            <header className="pageHeader">
+              <div>
+                <h1>LLM Pricing</h1>
+                <p className="subtitle">Reference/notional cost catalog — what each routed model would cost at public commercial rates for an equivalent model. Never billed: ForgeRouter only routes to free-tier models. Used to estimate spend in Overview/Messages when a provider reports no cost.</p>
+              </div>
+              <div className="actions">
+                <input className="searchBox" type="search" placeholder="Search model…" value={pricingSearch} onChange={(e) => setPricingSearch(e.target.value)} />
+                <button className="button" disabled={pricingSyncing} title="Refresh the pricing catalog from LiteLLM's public price list and from every provider's live /models pricing, then backfill reference cost on past messages that predate a model being priced" onClick={() => void syncPricing()}>
+                  {pricingSyncing ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />} Sync
+                </button>
+              </div>
+            </header>
+            {scanStatus && <div className="scanStatus">{scanStatus}</div>}
+            {error && <div className="alert">{error}</div>}
+
+            <Panel title="Model pricing catalog" meta={`${visiblePricingModels.length}/${pricingModels.length} shown · ${pricingMeta.priced_count}/${pricingMeta.total_count} priced`}>
+              <div className="row pricing head"><span>Model</span><span>Status</span><span>Input $/1M</span><span>Output $/1M</span><span>Source</span></div>
+              <div className="tableScroll">
+              {visiblePricingModels.map((item) => (
+                <div className="row pricing" key={item.public_id}>
+                  <span className="mono">{item.public_id}</span>
+                  <span>{item.priced ? <b className="status healthy">priced</b> : <b className="status unknown">unpriced</b>}</span>
+                  <span>{item.input_cost_per_token != null ? `$${(item.input_cost_per_token * 1_000_000).toFixed(3)}` : '-'}</span>
+                  <span>{item.output_cost_per_token != null ? `$${(item.output_cost_per_token * 1_000_000).toFixed(3)}` : '-'}</span>
+                  <span className="small muted">{item.source ?? '-'}</span>
+                </div>
+              ))}
+              {!visiblePricingModels.length && <p className="muted modelEmpty">No models match this search.</p>}
+              </div>
+            </Panel>
+          </>
+        )}
         {page === 'users' && authUser.is_admin && <UsersAdminPage fetchJson={fetchJson} currentUsername={authUser.username} />}
         {page === 'profiles' && authUser.is_admin && <ProfilesAdminPage fetchJson={fetchJson} />}
       </main>
@@ -2975,7 +3048,7 @@ function UsageChart({ seriesList, metric, days }: { seriesList: { name: string; 
   const max = Math.max(1, ...lines.flatMap((line) => line.values));
   const stepX = (width - padX * 2) / Math.max(1, dayKeys.length - 1);
   const y = (value: number) => height - padY - ((height - padY * 2) * value) / max;
-  const fmt = (value: number) => metric === 'cost' ? formatCost(value) : metric === 'tokens' ? formatTokens(value) : `${value}`;
+  const fmt = (value: number) => metric === 'cost' || metric === 'reference_cost' ? formatCost(value) : metric === 'tokens' ? formatTokens(value) : `${value}`;
   const single = lines.length === 1;
   return (
     <div className="chartWrap">

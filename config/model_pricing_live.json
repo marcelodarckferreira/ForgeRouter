@@ -1,0 +1,3452 @@
+{
+ "Kilo/ai21/jamba-large-1.7": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/aion-labs/aion-2.0": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/aion-labs/aion-3.0": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/aion-labs/aion-3.0-mini": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 1.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/aion-labs/aion-rp-llama-3.1-8b": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/allenai/olmo-3-32b-think": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/amazon/nova-2-lite-v1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/amazon/nova-lite-v1": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 2.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/amazon/nova-micro-v1": {
+  "input_cost_per_token": 3.5e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/amazon/nova-premier-v1": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.25e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/amazon/nova-pro-v1": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 3.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthracite-org/magnum-v4-72b": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-3-haiku": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-fable-5": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-haiku-4.5": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 7.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.1": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 7.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.5": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.6": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.7": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.7-fast": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00015,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.8": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-opus-4.8-fast": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-sonnet-4": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-sonnet-4.5": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-sonnet-4.6": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/anthropic/claude-sonnet-5": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/arcee-ai/coder-large": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/arcee-ai/trinity-large-thinking": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/arcee-ai/virtuoso-large": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/baidu/ernie-4.5-vl-424b-a47b": {
+  "input_cost_per_token": 4.2e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/bytedance-seed/seed-1.6": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/bytedance-seed/seed-1.6-flash": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/bytedance-seed/seed-2.0-lite": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/bytedance-seed/seed-2.0-mini": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/bytedance/ui-tars-1.5-7b": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cognitivecomputations/dolphin-mistral-24b-venice-edition": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cohere/command-a": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cohere/command-r-08-2024": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cohere/command-r-plus-08-2024": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cohere/command-r7b-12-2024": {
+  "input_cost_per_token": 3.75e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/cohere/north-mini-code:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepcogito/cogito-v2.1-671b": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-chat": {
+  "input_cost_per_token": 2.002e-07,
+  "output_cost_per_token": 8.001e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-chat-v3-0324": {
+  "input_cost_per_token": 2.4e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-chat-v3.1": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 9.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-r1": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-r1-0528": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 2.15e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-r1-distill-llama-70b": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v3.1-terminus": {
+  "input_cost_per_token": 2.7e-07,
+  "output_cost_per_token": 9.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v3.2": {
+  "input_cost_per_token": 5.7e-07,
+  "output_cost_per_token": 1.71e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v3.2-exp": {
+  "input_cost_per_token": 2.7e-07,
+  "output_cost_per_token": 4.1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v4-flash": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v4-flash:discounted": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 2.8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v4-pro": {
+  "input_cost_per_token": 2.4e-06,
+  "output_cost_per_token": 4.8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/deepseek/deepseek-v4-pro:discounted": {
+  "input_cost_per_token": 4.35e-07,
+  "output_cost_per_token": 8.7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-flash": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-flash-image": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-flash-lite": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-pro": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-pro-preview": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-2.5-pro-preview-05-06": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3-flash-preview": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3-pro-image": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3-pro-image-preview": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-flash-image": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-flash-image-preview": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-flash-lite": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-flash-lite-image": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-flash-lite-preview": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-pro-preview": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.1-pro-preview-customtools": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemini-3.5-flash": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 9e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-2-27b-it": {
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 6.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-3-12b-it": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-3-27b-it": {
+  "input_cost_per_token": 8e-08,
+  "output_cost_per_token": 1.6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-3-4b-it": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-3n-e4b-it": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 1.2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-4-26b-a4b-it": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 3.3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/gemma-4-31b-it": {
+  "input_cost_per_token": 1.2e-07,
+  "output_cost_per_token": 3.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/lyria-3-clip-preview": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/google/lyria-3-pro-preview": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/gryphe/mythomax-l2-13b": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 6e-08,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/ibm-granite/granite-4.0-h-micro": {
+  "input_cost_per_token": 1.7e-08,
+  "output_cost_per_token": 1.12e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/ibm-granite/granite-4.1-8b": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inception/mercury-2": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inclusionai/ling-2.6-1t": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inclusionai/ling-2.6-flash": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inclusionai/ring-2.6-1t": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inflection/inflection-3-pi": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/inflection/inflection-3-productivity": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kilo-auto/balanced": {
+  "input_cost_per_token": 3.25e-07,
+  "output_cost_per_token": 1.95e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kilo-auto/efficient": {
+  "input_cost_per_token": 3.25e-07,
+  "output_cost_per_token": 1.95e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kilo-auto/free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kilo-auto/frontier": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kilo-auto/small": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/kwaipilot/kat-coder-pro-v2": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mancer/weaver": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.1-70b-instruct": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.1-8b-instruct": {
+  "input_cost_per_token": 2e-08,
+  "output_cost_per_token": 3e-08,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.2-11b-vision-instruct": {
+  "input_cost_per_token": 3.45e-07,
+  "output_cost_per_token": 3.45e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.2-1b-instruct": {
+  "input_cost_per_token": 2.7e-08,
+  "output_cost_per_token": 2.01e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.2-3b-instruct": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 3.3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-3.3-70b-instruct": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3.2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-4-maverick": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-4-scout": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/meta-llama/llama-guard-4-12b": {
+  "input_cost_per_token": 1.8e-07,
+  "output_cost_per_token": 1.8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/microsoft/phi-4": {
+  "input_cost_per_token": 7e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/microsoft/wizardlm-2-8x22b": {
+  "input_cost_per_token": 6.2e-07,
+  "output_cost_per_token": 6.2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-01": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m1": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m2": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m2-her": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m2.1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m2.5": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m2.7": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/minimax/minimax-m3": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/codestral-2508": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/devstral-2512": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/ministral-14b-2512": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/ministral-3b-2512": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/ministral-8b-2512": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-large": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-large-2407": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-large-2512": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-medium-3": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-medium-3-5": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 7.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-medium-3.1": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-nemo": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-saba": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-small-24b-instruct-2501": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 8e-08,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-small-2603": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-small-3.1-24b-instruct": {
+  "input_cost_per_token": 3.51e-07,
+  "output_cost_per_token": 5.55e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mistral-small-3.2-24b-instruct": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/mixtral-8x22b-instruct": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/mistralai/voxtral-small-24b-2507": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2": {
+  "input_cost_per_token": 5.7e-07,
+  "output_cost_per_token": 2.3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2-0905": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2-thinking": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2.5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2.6": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 3.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/moonshotai/kimi-k2.7-code": {
+  "input_cost_per_token": 9.5e-07,
+  "output_cost_per_token": 4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/morph/morph-v3-fast": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/morph/morph-v3-large": {
+  "input_cost_per_token": 9e-07,
+  "output_cost_per_token": 1.9e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nex-agi/nex-n2-mini": {
+  "input_cost_per_token": 2.5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nex-agi/nex-n2-pro": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nousresearch/hermes-3-llama-3.1-405b": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nousresearch/hermes-3-llama-3.1-70b": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nousresearch/hermes-4-405b": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nousresearch/hermes-4-70b": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/llama-3.3-nemotron-super-49b-v1.5": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-nano-30b-a3b": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-super-120b-a12b": {
+  "input_cost_per_token": 8e-08,
+  "output_cost_per_token": 4.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-super-120b-a12b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-ultra-550b-a55b": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3-ultra-550b-a55b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/nvidia/nemotron-3.5-content-safety:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-3.5-turbo": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-3.5-turbo-0613": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-3.5-turbo-16k": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-3.5-turbo-instruct": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 6e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4-turbo": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4-turbo-preview": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4.1": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4.1-mini": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4.1-nano": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-2024-05-13": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-2024-08-06": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-2024-11-20": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-mini": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-mini-2024-07-18": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-mini-search-preview": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-4o-search-preview": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-chat": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-codex": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-image": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-image-mini": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-mini": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-nano": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5-pro": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 0.00012,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.1": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.1-chat": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.1-codex": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.1-codex-max": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.1-codex-mini": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.2": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.2-chat": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.2-codex": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.2-pro": {
+  "input_cost_per_token": 2.1e-05,
+  "output_cost_per_token": 0.000168,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.3-chat": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.3-codex": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.4": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.4-image-2": {
+  "input_cost_per_token": 8e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.4-mini": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 4.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.4-nano": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.4-pro": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00018,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.5": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.5-pro": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00018,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-luna": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-luna-pro": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-sol": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-sol-pro": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-terra": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-5.6-terra-pro": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-audio": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-audio-mini": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-chat-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-oss-120b": {
+  "input_cost_per_token": 3e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-oss-20b": {
+  "input_cost_per_token": 2.9e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/gpt-oss-safeguard-20b": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o1": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 6e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o1-pro": {
+  "input_cost_per_token": 0.00015,
+  "output_cost_per_token": 0.0006,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o3": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o3-deep-research": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 4e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o3-mini": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o3-mini-high": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o3-pro": {
+  "input_cost_per_token": 2e-05,
+  "output_cost_per_token": 8e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o4-mini": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o4-mini-deep-research": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openai/o4-mini-high": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/openrouter/free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perceptron/perceptron-mk1": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perplexity/sonar": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perplexity/sonar-deep-research": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perplexity/sonar-pro": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perplexity/sonar-pro-search": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/perplexity/sonar-reasoning-pro": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/poolside/laguna-m.1": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/poolside/laguna-m.1:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/poolside/laguna-xs-2.1": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/poolside/laguna-xs-2.1:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-2.5-72b-instruct": {
+  "input_cost_per_token": 3.6e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-2.5-7b-instruct": {
+  "input_cost_per_token": 4e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-2.5-coder-32b-instruct": {
+  "input_cost_per_token": 6.6e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-plus": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-plus-2025-07-28": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen-plus-2025-07-28:thinking": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen2.5-vl-72b-instruct": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-14b": {
+  "input_cost_per_token": 3.5e-07,
+  "output_cost_per_token": 1.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-235b-a22b": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 2.8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-235b-a22b-2507": {
+  "input_cost_per_token": 2.3e-07,
+  "output_cost_per_token": 9.2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-235b-a22b-thinking-2507": {
+  "input_cost_per_token": 2.3e-07,
+  "output_cost_per_token": 2.3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-30b-a3b": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-30b-a3b-instruct-2507": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-30b-a3b-thinking-2507": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-32b": {
+  "input_cost_per_token": 1.6e-07,
+  "output_cost_per_token": 6.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-8b": {
+  "input_cost_per_token": 1.8e-07,
+  "output_cost_per_token": 7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-coder": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 7.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-coder-30b-a3b-instruct": {
+  "input_cost_per_token": 4.5e-07,
+  "output_cost_per_token": 2.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-coder-flash": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-coder-next": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-coder-plus": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-max": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-max-thinking": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-next-80b-a3b-instruct": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-next-80b-a3b-thinking": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-235b-a22b-instruct": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-235b-a22b-thinking": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-30b-a3b-instruct": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-30b-a3b-thinking": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-32b-instruct": {
+  "input_cost_per_token": 1.6e-07,
+  "output_cost_per_token": 6.4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-8b-instruct": {
+  "input_cost_per_token": 1.8e-07,
+  "output_cost_per_token": 7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3-vl-8b-thinking": {
+  "input_cost_per_token": 1.8e-07,
+  "output_cost_per_token": 2.1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-122b-a10b": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 3.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-27b": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-35b-a3b": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-397b-a17b": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 3.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-9b": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-flash-02-23": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-plus-02-15": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.5-plus-20260420": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.6-27b": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 3.6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.6-35b-a3b": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.6-flash": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.6-max-preview": {
+  "input_cost_per_token": 1.3e-06,
+  "output_cost_per_token": 7.8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.6-plus": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.7-max": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 3.75e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/qwen/qwen3.7-plus": {
+  "input_cost_per_token": 3.2e-07,
+  "output_cost_per_token": 1.28e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/rekaai/reka-edge": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/rekaai/reka-flash-3": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/relace/relace-apply-3": {
+  "input_cost_per_token": 8.5e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/relace/relace-search": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/sao10k/l3-lunaris-8b": {
+  "input_cost_per_token": 4e-08,
+  "output_cost_per_token": 5e-08,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/sao10k/l3.1-70b-hanami-x1": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/sao10k/l3.1-euryale-70b": {
+  "input_cost_per_token": 8.5e-07,
+  "output_cost_per_token": 8.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/sao10k/l3.3-euryale-70b": {
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stealth/claude-opus-4.6": {
+  "input_cost_per_token": 4e-06,
+  "output_cost_per_token": 2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stealth/claude-opus-4.7": {
+  "input_cost_per_token": 4e-06,
+  "output_cost_per_token": 2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stealth/claude-opus-4.8": {
+  "input_cost_per_token": 4e-06,
+  "output_cost_per_token": 2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stealth/claude-sonnet-4.6": {
+  "input_cost_per_token": 2.4e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stealth/qwen3.6-plus": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stepfun/step-3.5-flash": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stepfun/step-3.7-flash": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.15e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/stepfun/step-3.7-flash:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/tencent/hunyuan-a13b-instruct": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 5.7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/tencent/hy3": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 5.8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/tencent/hy3-preview": {
+  "input_cost_per_token": 6.3e-08,
+  "output_cost_per_token": 2.1e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/tencent/hy3:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/thedrummer/cydonia-24b-v4.1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/thedrummer/rocinante-12b": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/thedrummer/skyfall-36b-v2": {
+  "input_cost_per_token": 5.5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/thedrummer/unslopnemo-12b": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/undi95/remm-slerp-l2-13b": {
+  "input_cost_per_token": 4.5e-07,
+  "output_cost_per_token": 6.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/upstage/solar-pro-3": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/writer/palmyra-x5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 6e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/x-ai/grok-4.20": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/x-ai/grok-4.20-multi-agent": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/x-ai/grok-4.3": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/x-ai/grok-build-0.1": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/xiaomi/mimo-v2.5": {
+  "input_cost_per_token": 1.05e-07,
+  "output_cost_per_token": 2.8e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/xiaomi/mimo-v2.5-pro": {
+  "input_cost_per_token": 4.35e-07,
+  "output_cost_per_token": 8.7e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.5-air": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 8.5e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.5v": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.8e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.6": {
+  "input_cost_per_token": 4.3e-07,
+  "output_cost_per_token": 1.75e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.6v": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.7": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.75e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-4.7-flash": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 4e-07,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.92e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-5-turbo": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-5.1": {
+  "input_cost_per_token": 1.4e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-5.2": {
+  "input_cost_per_token": 1.4e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/z-ai/glm-5v-turbo": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~anthropic/claude-fable-latest": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~anthropic/claude-haiku-latest": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~anthropic/claude-opus-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~anthropic/claude-sonnet-latest": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~google/gemini-flash-latest": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 9e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~google/gemini-pro-latest": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~moonshotai/kimi-latest": {
+  "input_cost_per_token": 6.6e-07,
+  "output_cost_per_token": 3.41e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~openai/gpt-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "Kilo/~openai/gpt-mini-latest": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 4.5e-06,
+  "source": "Kilo /models pricing (live), synced 2026-07-14"
+ },
+ "groq/llama-3.1-8b-instant": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 8e-08,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/llama-3.3-70b-versatile": {
+  "input_cost_per_token": 5.9e-07,
+  "output_cost_per_token": 7.9e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/meta-llama/llama-4-scout-17b-16e-instruct": {
+  "input_cost_per_token": 1.1e-07,
+  "output_cost_per_token": 3.4e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/meta-llama/llama-prompt-guard-2-22m": {
+  "input_cost_per_token": 3e-08,
+  "output_cost_per_token": 3e-08,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/meta-llama/llama-prompt-guard-2-86m": {
+  "input_cost_per_token": 4e-08,
+  "output_cost_per_token": 4e-08,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/openai/gpt-oss-120b": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/openai/gpt-oss-20b": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/openai/gpt-oss-safeguard-20b": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/qwen/qwen3-32b": {
+  "input_cost_per_token": 2.9e-07,
+  "output_cost_per_token": 5.9e-07,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "groq/qwen/qwen3.6-27b": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "groq /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/ai21/jamba-large-1.7": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/aion-labs/aion-2.0": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/aion-labs/aion-3.0": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/aion-labs/aion-3.0-mini": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 1.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/aion-labs/aion-rp-llama-3.1-8b": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/allenai/olmo-3-32b-think": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/amazon/nova-2-lite-v1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/amazon/nova-lite-v1": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 2.4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/amazon/nova-micro-v1": {
+  "input_cost_per_token": 3.5e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/amazon/nova-premier-v1": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.25e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/amazon/nova-pro-v1": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 3.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthracite-org/magnum-v4-72b": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-3-haiku": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-fable-5": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-haiku-4.5": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 7.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.1": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 7.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.5": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.6": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.7": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.7-fast": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00015,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.8": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-opus-4.8-fast": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-sonnet-4": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-sonnet-4.5": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-sonnet-4.6": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/anthropic/claude-sonnet-5": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/arcee-ai/coder-large": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/arcee-ai/trinity-large-thinking": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/arcee-ai/virtuoso-large": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/baidu/ernie-4.5-vl-424b-a47b": {
+  "input_cost_per_token": 4.2e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/bytedance-seed/seed-1.6": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/bytedance-seed/seed-1.6-flash": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/bytedance-seed/seed-2.0-lite": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/bytedance-seed/seed-2.0-mini": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/bytedance/ui-tars-1.5-7b": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cohere/command-a": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cohere/command-r-08-2024": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cohere/command-r-plus-08-2024": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cohere/command-r7b-12-2024": {
+  "input_cost_per_token": 3.75e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/cohere/north-mini-code:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepcogito/cogito-v2.1-671b": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-chat": {
+  "input_cost_per_token": 2.002e-07,
+  "output_cost_per_token": 8.001e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-chat-v3-0324": {
+  "input_cost_per_token": 2.4e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-chat-v3.1": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 9.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-r1": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-r1-0528": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 2.15e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-r1-distill-llama-70b": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-v3.1-terminus": {
+  "input_cost_per_token": 2.7e-07,
+  "output_cost_per_token": 9.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-v3.2": {
+  "input_cost_per_token": 2.145e-07,
+  "output_cost_per_token": 3.2175e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-v3.2-exp": {
+  "input_cost_per_token": 2.7e-07,
+  "output_cost_per_token": 4.1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-v4-flash": {
+  "input_cost_per_token": 9e-08,
+  "output_cost_per_token": 1.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/deepseek/deepseek-v4-pro": {
+  "input_cost_per_token": 4.35e-07,
+  "output_cost_per_token": 8.7e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-flash": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-flash-image": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-flash-lite": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-pro": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-pro-preview": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-2.5-pro-preview-05-06": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3-flash-preview": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3-pro-image": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3-pro-image-preview": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-flash-image": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-flash-image-preview": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-flash-lite": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-flash-lite-image": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-flash-lite-preview": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-pro-preview": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.1-pro-preview-customtools": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemini-3.5-flash": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 9e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-2-27b-it": {
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 6.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-3-12b-it": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-3-27b-it": {
+  "input_cost_per_token": 8e-08,
+  "output_cost_per_token": 1.6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-3-4b-it": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-3n-e4b-it": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 1.2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-4-26b-a4b-it": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 3.3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-4-26b-a4b-it:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-4-31b-it": {
+  "input_cost_per_token": 1.2e-07,
+  "output_cost_per_token": 3.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/gemma-4-31b-it:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/lyria-3-clip-preview": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/google/lyria-3-pro-preview": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/gryphe/mythomax-l2-13b": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 6e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/ibm-granite/granite-4.0-h-micro": {
+  "input_cost_per_token": 1.7e-08,
+  "output_cost_per_token": 1.12e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/ibm-granite/granite-4.1-8b": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inception/mercury-2": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inclusionai/ling-2.6-1t": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 6.25e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inclusionai/ling-2.6-flash": {
+  "input_cost_per_token": 1e-08,
+  "output_cost_per_token": 3e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inclusionai/ring-2.6-1t": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 6.25e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inflection/inflection-3-pi": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/inflection/inflection-3-productivity": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/kwaipilot/kat-coder-pro-v2": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mancer/weaver": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.1-70b-instruct": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.1-8b-instruct": {
+  "input_cost_per_token": 2e-08,
+  "output_cost_per_token": 3e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.2-11b-vision-instruct": {
+  "input_cost_per_token": 3.45e-07,
+  "output_cost_per_token": 3.45e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.2-1b-instruct": {
+  "input_cost_per_token": 2.7e-08,
+  "output_cost_per_token": 2.01e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.2-3b-instruct": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 3.3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.2-3b-instruct:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.3-70b-instruct": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3.2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-3.3-70b-instruct:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-4-maverick": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-4-scout": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/meta-llama/llama-guard-4-12b": {
+  "input_cost_per_token": 1.8e-07,
+  "output_cost_per_token": 1.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/microsoft/phi-4": {
+  "input_cost_per_token": 7e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/microsoft/wizardlm-2-8x22b": {
+  "input_cost_per_token": 6.2e-07,
+  "output_cost_per_token": 6.2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-01": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m1": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m2": {
+  "input_cost_per_token": 2.55e-07,
+  "output_cost_per_token": 1.02e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m2-her": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m2.1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m2.5": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m2.7": {
+  "input_cost_per_token": 2.4e-07,
+  "output_cost_per_token": 9.6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/minimax/minimax-m3": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/codestral-2508": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/devstral-2512": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/ministral-14b-2512": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/ministral-3b-2512": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/ministral-8b-2512": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-large": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-large-2407": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-large-2512": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-medium-3": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-medium-3-5": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 7.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-medium-3.1": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-nemo": {
+  "input_cost_per_token": 2e-08,
+  "output_cost_per_token": 3e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-saba": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-small-24b-instruct-2501": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 8e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-small-2603": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-small-3.1-24b-instruct": {
+  "input_cost_per_token": 3.51e-07,
+  "output_cost_per_token": 5.55e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mistral-small-3.2-24b-instruct": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/mixtral-8x22b-instruct": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/mistralai/voxtral-small-24b-2507": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2": {
+  "input_cost_per_token": 5.7e-07,
+  "output_cost_per_token": 2.3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2-0905": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2-thinking": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2.5": {
+  "input_cost_per_token": 3.75e-07,
+  "output_cost_per_token": 2.025e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2.6": {
+  "input_cost_per_token": 6.6e-07,
+  "output_cost_per_token": 3.41e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/moonshotai/kimi-k2.7-code": {
+  "input_cost_per_token": 7.19e-07,
+  "output_cost_per_token": 3.49e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/morph/morph-v3-fast": {
+  "input_cost_per_token": 8e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/morph/morph-v3-large": {
+  "input_cost_per_token": 9e-07,
+  "output_cost_per_token": 1.9e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nex-agi/nex-n2-mini": {
+  "input_cost_per_token": 2.5e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nex-agi/nex-n2-pro": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nousresearch/hermes-3-llama-3.1-405b": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nousresearch/hermes-3-llama-3.1-405b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nousresearch/hermes-3-llama-3.1-70b": {
+  "input_cost_per_token": 7e-07,
+  "output_cost_per_token": 7e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nousresearch/hermes-4-405b": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nousresearch/hermes-4-70b": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/llama-3.3-nemotron-super-49b-v1.5": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-nano-30b-a3b": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-nano-30b-a3b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-super-120b-a12b": {
+  "input_cost_per_token": 8e-08,
+  "output_cost_per_token": 4.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-super-120b-a12b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-ultra-550b-a55b": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-3.5-content-safety:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-nano-12b-v2-vl:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/nvidia/nemotron-nano-9b-v2:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-3.5-turbo": {
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-3.5-turbo-0613": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-3.5-turbo-16k": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-3.5-turbo-instruct": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 6e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4-turbo": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4-turbo-preview": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4.1": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4.1-mini": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4.1-nano": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-2024-05-13": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-2024-08-06": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-2024-11-20": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-mini": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-mini-2024-07-18": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-mini-search-preview": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-4o-search-preview": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-chat": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-codex": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-image": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-image-mini": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-mini": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-nano": {
+  "input_cost_per_token": 5e-08,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5-pro": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 0.00012,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.1": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.1-chat": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.1-codex": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.1-codex-max": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.1-codex-mini": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.2": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.2-chat": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.2-codex": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.2-pro": {
+  "input_cost_per_token": 2.1e-05,
+  "output_cost_per_token": 0.000168,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.3-chat": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.3-codex": {
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.4": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.4-image-2": {
+  "input_cost_per_token": 8e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.4-mini": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 4.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.4-nano": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.4-pro": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00018,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.5": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.5-pro": {
+  "input_cost_per_token": 3e-05,
+  "output_cost_per_token": 0.00018,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-luna": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-luna-pro": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-sol": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-sol-pro": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-terra": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-5.6-terra-pro": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-audio": {
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-audio-mini": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-chat-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-oss-120b": {
+  "input_cost_per_token": 3e-08,
+  "output_cost_per_token": 1.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-oss-20b": {
+  "input_cost_per_token": 2.9e-08,
+  "output_cost_per_token": 1.4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-oss-20b:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/gpt-oss-safeguard-20b": {
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o1": {
+  "input_cost_per_token": 1.5e-05,
+  "output_cost_per_token": 6e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o1-pro": {
+  "input_cost_per_token": 0.00015,
+  "output_cost_per_token": 0.0006,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o3": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o3-deep-research": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 4e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o3-mini": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o3-mini-high": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o3-pro": {
+  "input_cost_per_token": 2e-05,
+  "output_cost_per_token": 8e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o4-mini": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o4-mini-deep-research": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openai/o4-mini-high": {
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 4.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/openrouter/free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perceptron/perceptron-mk1": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 1.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perplexity/sonar": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perplexity/sonar-deep-research": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perplexity/sonar-pro": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perplexity/sonar-pro-search": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/perplexity/sonar-reasoning-pro": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/poolside/laguna-m.1": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/poolside/laguna-m.1:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/poolside/laguna-xs-2.1": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 1.2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/poolside/laguna-xs-2.1:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-2.5-72b-instruct": {
+  "input_cost_per_token": 3.6e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-2.5-7b-instruct": {
+  "input_cost_per_token": 4e-08,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-2.5-coder-32b-instruct": {
+  "input_cost_per_token": 6.6e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-plus": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 7.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-plus-2025-07-28": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 7.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen-plus-2025-07-28:thinking": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 7.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen2.5-vl-72b-instruct": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-14b": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2.4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-235b-a22b": {
+  "input_cost_per_token": 4.55e-07,
+  "output_cost_per_token": 1.82e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-235b-a22b-2507": {
+  "input_cost_per_token": 9e-08,
+  "output_cost_per_token": 5.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-235b-a22b-thinking-2507": {
+  "input_cost_per_token": 1.495e-07,
+  "output_cost_per_token": 1.495e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-30b-a3b": {
+  "input_cost_per_token": 1.2e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-30b-a3b-instruct-2507": {
+  "input_cost_per_token": 4.815e-08,
+  "output_cost_per_token": 1.9305e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-30b-a3b-thinking-2507": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 1.56e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-32b": {
+  "input_cost_per_token": 8e-08,
+  "output_cost_per_token": 2.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-8b": {
+  "input_cost_per_token": 1.17e-07,
+  "output_cost_per_token": 4.55e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder": {
+  "input_cost_per_token": 2.2e-07,
+  "output_cost_per_token": 1.8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder-30b-a3b-instruct": {
+  "input_cost_per_token": 7e-08,
+  "output_cost_per_token": 2.7e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder-flash": {
+  "input_cost_per_token": 1.95e-07,
+  "output_cost_per_token": 9.75e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder-next": {
+  "input_cost_per_token": 1.1e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder-plus": {
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 3.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-coder:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-max": {
+  "input_cost_per_token": 7.8e-07,
+  "output_cost_per_token": 3.9e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-max-thinking": {
+  "input_cost_per_token": 7.8e-07,
+  "output_cost_per_token": 3.9e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-next-80b-a3b-instruct": {
+  "input_cost_per_token": 9e-08,
+  "output_cost_per_token": 1.1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-next-80b-a3b-instruct:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-next-80b-a3b-thinking": {
+  "input_cost_per_token": 9.75e-08,
+  "output_cost_per_token": 7.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-235b-a22b-instruct": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 8.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-235b-a22b-thinking": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 2.6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-30b-a3b-instruct": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 5.2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-30b-a3b-thinking": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 1.56e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-32b-instruct": {
+  "input_cost_per_token": 1.04e-07,
+  "output_cost_per_token": 4.16e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-8b-instruct": {
+  "input_cost_per_token": 1.17e-07,
+  "output_cost_per_token": 4.55e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3-vl-8b-thinking": {
+  "input_cost_per_token": 1.17e-07,
+  "output_cost_per_token": 1.365e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-122b-a10b": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 2.08e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-27b": {
+  "input_cost_per_token": 1.95e-07,
+  "output_cost_per_token": 1.56e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-35b-a3b": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-397b-a17b": {
+  "input_cost_per_token": 3.85e-07,
+  "output_cost_per_token": 2.45e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-9b": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-flash-02-23": {
+  "input_cost_per_token": 6.5e-08,
+  "output_cost_per_token": 2.6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-plus-02-15": {
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 1.56e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.5-plus-20260420": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.6-27b": {
+  "input_cost_per_token": 2.89e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.6-35b-a3b": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 1e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.6-flash": {
+  "input_cost_per_token": 1.875e-07,
+  "output_cost_per_token": 1.125e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.6-max-preview": {
+  "input_cost_per_token": 1.04e-06,
+  "output_cost_per_token": 6.24e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.6-plus": {
+  "input_cost_per_token": 3.25e-07,
+  "output_cost_per_token": 1.95e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.7-max": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 3.75e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/qwen/qwen3.7-plus": {
+  "input_cost_per_token": 3.2e-07,
+  "output_cost_per_token": 1.28e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/rekaai/reka-edge": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/rekaai/reka-flash-3": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 2e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/relace/relace-apply-3": {
+  "input_cost_per_token": 8.5e-07,
+  "output_cost_per_token": 1.25e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/relace/relace-search": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/sakana/fugu-ultra": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/sao10k/l3-lunaris-8b": {
+  "input_cost_per_token": 4e-08,
+  "output_cost_per_token": 5e-08,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/sao10k/l3.1-70b-hanami-x1": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/sao10k/l3.1-euryale-70b": {
+  "input_cost_per_token": 8.5e-07,
+  "output_cost_per_token": 8.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/sao10k/l3.3-euryale-70b": {
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/stepfun/step-3.5-flash": {
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 3e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/stepfun/step-3.7-flash": {
+  "input_cost_per_token": 2e-07,
+  "output_cost_per_token": 1.15e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/tencent/hunyuan-a13b-instruct": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 5.7e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/tencent/hy3": {
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 5.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/tencent/hy3-preview": {
+  "input_cost_per_token": 6.3e-08,
+  "output_cost_per_token": 2.1e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/tencent/hy3:free": {
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/thedrummer/cydonia-24b-v4.1": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/thedrummer/rocinante-12b": {
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/thedrummer/skyfall-36b-v2": {
+  "input_cost_per_token": 5.5e-07,
+  "output_cost_per_token": 8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/thedrummer/unslopnemo-12b": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/undi95/remm-slerp-l2-13b": {
+  "input_cost_per_token": 4.5e-07,
+  "output_cost_per_token": 6.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/upstage/solar-pro-3": {
+  "input_cost_per_token": 1.5e-07,
+  "output_cost_per_token": 6e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/writer/palmyra-x5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/x-ai/grok-4.20": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/x-ai/grok-4.20-multi-agent": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/x-ai/grok-4.3": {
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/x-ai/grok-4.5": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/x-ai/grok-build-0.1": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/xiaomi/mimo-v2.5": {
+  "input_cost_per_token": 1.05e-07,
+  "output_cost_per_token": 2.8e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/xiaomi/mimo-v2.5-pro": {
+  "input_cost_per_token": 4.35e-07,
+  "output_cost_per_token": 8.7e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.2e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.5-air": {
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 8.5e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.5v": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.8e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.6": {
+  "input_cost_per_token": 4.3e-07,
+  "output_cost_per_token": 1.75e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.6v": {
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 9e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.7": {
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.75e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-4.7-flash": {
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 4e-07,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-5": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.92e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-5-turbo": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-5.1": {
+  "input_cost_per_token": 9.66e-07,
+  "output_cost_per_token": 3.036e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-5.2": {
+  "input_cost_per_token": 9.3e-07,
+  "output_cost_per_token": 3e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/z-ai/glm-5v-turbo": {
+  "input_cost_per_token": 1.2e-06,
+  "output_cost_per_token": 4e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~anthropic/claude-fable-latest": {
+  "input_cost_per_token": 1e-05,
+  "output_cost_per_token": 5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~anthropic/claude-haiku-latest": {
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~anthropic/claude-opus-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~anthropic/claude-sonnet-latest": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~google/gemini-flash-latest": {
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 9e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~google/gemini-pro-latest": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~moonshotai/kimi-latest": {
+  "input_cost_per_token": 6.6e-07,
+  "output_cost_per_token": 3.41e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~openai/gpt-latest": {
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~openai/gpt-mini-latest": {
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 4.5e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "openrouter/~x-ai/grok-latest": {
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "source": "openrouter /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/DeepSeek-V3.1": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 4.5e-06,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/DeepSeek-V3.2": {
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 4.5e-06,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/Meta-Llama-3.3-70B-Instruct": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.2e-06,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/MiniMax-M2.7": {
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 2.4e-06,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/gemma-4-31B-it": {
+  "input_cost_per_token": 3.8e-07,
+  "output_cost_per_token": 1.15e-06,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ },
+ "sambanova/gpt-oss-120b": {
+  "input_cost_per_token": 2.2e-07,
+  "output_cost_per_token": 5.9e-07,
+  "source": "sambanova /models pricing (live), synced 2026-07-14"
+ }
+}

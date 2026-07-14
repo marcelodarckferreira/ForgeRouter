@@ -1,0 +1,170 @@
+import json
+
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.registry import ProviderModel, ProviderRegistry
+
+client = TestClient(app)
+
+
+def model(model_id: str = "groq/llama-3.3-70b-versatile") -> ProviderModel:
+    return ProviderModel(
+        id=model_id,
+        provider="groq",
+        provider_model=model_id.split("/", 1)[1],
+        tier=1,
+        capabilities=["text", "tool_call"],
+        enabled=True,
+        healthy=True,
+        base_url="https://api.groq.com/openai/v1",
+        api_key_env="GROQ_API_KEY",
+    )
+
+
+RESPONSES_TOOLS = [
+    {
+        "type": "function",
+        "name": "get_weather",
+        "description": "Weather lookup",
+        "parameters": {"type": "object", "properties": {"city": {"type": "string"}}},
+    }
+]
+
+
+def test_responses_converts_tools_and_function_call_output(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    captured = {}
+
+    def fake_chat_completion(selected, payload):
+        captured.update(payload)
+        return 200, {
+            "choices": [{"message": {"role": "assistant", "content": "25C em SP"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 4},
+        }
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post(
+        "/v1/responses",
+        json={
+            "model": "groq/llama-3.3-70b-versatile",
+            "max_output_tokens": 64,
+            "instructions": "Be concise.",
+            "tools": RESPONSES_TOOLS,
+            "input": [
+                {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "clima em SP?"}]},
+                {"type": "function_call", "call_id": "call_1", "name": "get_weather", "arguments": '{"city": "SP"}'},
+                {"type": "function_call_output", "call_id": "call_1", "output": "25C"},
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    # Flat Responses tool shape must reach the provider as OpenAI function parameters.
+    tool = captured["tools"][0]
+    assert tool["type"] == "function"
+    assert tool["function"]["name"] == "get_weather"
+    assert tool["function"]["parameters"]["properties"]["city"]["type"] == "string"
+    # instructions become the system message; max_output_tokens maps to max_tokens.
+    assert captured["messages"][0] == {"role": "system", "content": "Be concise."}
+    assert captured["max_tokens"] == 64
+    # function_call becomes assistant tool_calls; function_call_output becomes a role:"tool" message.
+    assistant = next(m for m in captured["messages"] if m["role"] == "assistant")
+    call = assistant["tool_calls"][0]
+    assert call["id"] == "call_1"
+    assert call["function"]["name"] == "get_weather"
+    assert json.loads(call["function"]["arguments"]) == {"city": "SP"}
+    tool_message = next(m for m in captured["messages"] if m["role"] == "tool")
+    assert tool_message["tool_call_id"] == "call_1"
+    assert tool_message["content"] == "25C"
+
+
+def test_responses_returns_function_call_output_item(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(selected, payload):
+        return 200, {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": '{"city": "SP"}'}}
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 3},
+        }
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post(
+        "/v1/responses",
+        json={
+            "model": "groq/llama-3.3-70b-versatile",
+            "tools": RESPONSES_TOOLS,
+            "input": "clima em SP?",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    item = body["output"][0]
+    assert item["type"] == "function_call"
+    assert item["call_id"] == "call_1"
+    assert item["name"] == "get_weather"
+    assert json.loads(item["arguments"]) == {"city": "SP"}
+    assert body["usage"] == {"input_tokens": 9, "output_tokens": 3, "total_tokens": 12}
+
+
+def test_responses_plain_text_roundtrip(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.main.chat_completion",
+        lambda selected, payload: (
+            200,
+            {"choices": [{"message": {"role": "assistant", "content": "oi"}, "finish_reason": "stop"}], "usage": {}},
+        ),
+    )
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "oi"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["output"] == [
+        {"type": "message", "id": body["output"][0]["id"], "status": "completed", "role": "assistant", "content": [{"type": "output_text", "text": "oi", "annotations": []}]}
+    ]
+    assert body["status"] == "completed"
+
+
+def test_responses_incomplete_on_length_finish_reason(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.main.chat_completion",
+        lambda selected, payload: (
+            200,
+            {"choices": [{"message": {"role": "assistant", "content": "partial"}, "finish_reason": "length"}], "usage": {}},
+        ),
+    )
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "oi"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "incomplete"
+    assert body["incomplete_details"] == {"reason": "max_output_tokens"}

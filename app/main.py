@@ -4,6 +4,7 @@ from typing import Any, Iterable, Iterator
 import json
 import os
 import secrets
+import time
 import uuid
 
 from fastapi import FastAPI, Request
@@ -29,6 +30,7 @@ from app.storage import (
     agent_allowed_models,
     archive_old_route_events,
     authenticate_user,
+    backfill_reference_costs,
     change_credentials,
     context_compaction_enabled,
     count_active_admins,
@@ -475,7 +477,7 @@ def _stream_and_persist_usage(
             record_provider_success(selected.provider)
             record_sticky(agent_name, demand, selected.id)
             try:
-                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model)
             except Exception:
                 pass
 
@@ -651,7 +653,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     record_sticky(agent_name, demand, selected.id)
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
                     try:
-                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model)
                     except Exception:
                         pass
                     return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
@@ -707,6 +709,284 @@ def anthropic_messages(request: AnthropicMessagesRequest, raw_request: Request):
     if request.stream:
         return StreamingResponse(_anthropic_stream_from_message(message), media_type="text/event-stream", headers=headers)
     return JSONResponse(status_code=response.status_code, content=message, headers=headers)
+
+
+class ResponsesRequest(BaseModel):
+    model_config = {"extra": "allow"}
+
+    model: str = "auto"
+    input: Any = None
+    instructions: str | None = None
+    tools: list[dict[str, Any]] | None = None
+    temperature: float | None = None
+    max_output_tokens: int | None = None
+    stream: bool = False
+
+
+def _responses_text_from_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return "" if content is None else str(content)
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") in ("input_text", "output_text", "text"):
+            parts.append(str(block.get("text") or ""))
+    return "\n".join(part for part in parts if part)
+
+
+def _responses_content_to_openai(content: Any) -> Any:
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return content
+    converted: list[dict[str, Any]] = []
+    for block in content:
+        if not isinstance(block, dict):
+            converted.append({"type": "text", "text": str(block)})
+            continue
+        block_type = block.get("type")
+        if block_type in ("input_text", "output_text", "text"):
+            converted.append({"type": "text", "text": str(block.get("text") or "")})
+        elif block_type == "input_image":
+            url = block.get("image_url")
+            if isinstance(url, dict):
+                url = url.get("url")
+            if url:
+                converted.append({"type": "image_url", "image_url": {"url": url}})
+    return converted or ""
+
+
+def _responses_tools_to_openai(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+    # Responses API tools are flat ({"type":"function","name":...,"parameters":...});
+    # OpenAI-compatible Chat Completions providers expect the nested function wrapper.
+    converted = [
+        {
+            "type": "function",
+            "function": {
+                "name": tool["name"],
+                "description": tool.get("description") or "",
+                "parameters": tool.get("parameters") or {"type": "object", "properties": {}},
+            },
+        }
+        for tool in tools or []
+        if isinstance(tool, dict) and tool.get("type", "function") == "function" and tool.get("name")
+    ]
+    return converted or None
+
+
+def _responses_to_chat_request(request: ResponsesRequest) -> ChatCompletionRequest:
+    messages: list[ChatMessage] = []
+    if request.instructions:
+        messages.append(ChatMessage(role="system", content=request.instructions))
+
+    raw_input = request.input
+    if isinstance(raw_input, str):
+        items: list[Any] = [{"type": "message", "role": "user", "content": raw_input}]
+    elif isinstance(raw_input, list):
+        items = raw_input
+    else:
+        items = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("type") or "message"
+        if item_type == "message":
+            role = str(item.get("role") or "user")
+            messages.append(ChatMessage(role=role, content=_responses_content_to_openai(item.get("content"))))
+        elif item_type == "function_call":
+            call_id = str(item.get("call_id") or item.get("id") or f"call_{uuid.uuid4().hex[:24]}")
+            arguments = item.get("arguments")
+            messages.append(
+                ChatMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": str(item.get("name") or ""),
+                                "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments or {}),
+                            },
+                        }
+                    ],
+                )
+            )
+        elif item_type == "function_call_output":
+            output = item.get("output")
+            messages.append(
+                ChatMessage(
+                    role="tool",
+                    tool_call_id=str(item.get("call_id") or ""),
+                    content=output if isinstance(output, str) else _responses_text_from_content(output),
+                )
+            )
+        # Other item types (reasoning traces, etc.) carry provider-specific state
+        # we don't forward — the transcript text/tool pairing above already
+        # reconstructs everything a Chat Completions provider needs.
+
+    return ChatCompletionRequest(
+        model=request.model,
+        messages=messages,
+        tools=_responses_tools_to_openai(request.tools),
+        temperature=request.temperature,
+        max_tokens=request.max_output_tokens,
+        stream=False,
+    )
+
+
+def _chat_message_to_responses_output(message: dict[str, Any]) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    content = message.get("content")
+    text = content if isinstance(content, str) else _responses_text_from_content(content)
+    tool_calls = message.get("tool_calls") or []
+    if text or not tool_calls:
+        output.append(
+            {
+                "type": "message",
+                "id": f"msg_{uuid.uuid4().hex}",
+                "status": "completed",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": text, "annotations": []}],
+            }
+        )
+    for call in tool_calls:
+        function = (call or {}).get("function") or {}
+        output.append(
+            {
+                "type": "function_call",
+                "id": f"fc_{uuid.uuid4().hex}",
+                "call_id": str(call.get("id") or f"call_{uuid.uuid4().hex[:24]}"),
+                "name": str(function.get("name") or ""),
+                "arguments": function.get("arguments") or "{}",
+                "status": "completed",
+            }
+        )
+    return output
+
+
+def _responses_usage(openai_usage: Any) -> dict[str, int]:
+    usage = openai_usage if isinstance(openai_usage, dict) else {}
+    input_tokens = int(usage.get("prompt_tokens") or 0)
+    output_tokens = int(usage.get("completion_tokens") or 0)
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": int(usage.get("total_tokens") or (input_tokens + output_tokens)),
+    }
+
+
+def _chat_body_to_responses(body: dict[str, Any], requested_model: str) -> dict[str, Any]:
+    choices = body.get("choices") if isinstance(body.get("choices"), list) else []
+    choice = choices[0] if choices and isinstance(choices[0], dict) else {}
+    message = choice.get("message") if isinstance(choice.get("message"), dict) else {}
+    finish_reason = choice.get("finish_reason")
+    status = "incomplete" if finish_reason == "length" else "completed"
+    response: dict[str, Any] = {
+        "id": f"resp_{uuid.uuid4().hex}",
+        "object": "response",
+        "created_at": int(time.time()),
+        "status": status,
+        "model": body.get("model") or requested_model,
+        "output": _chat_message_to_responses_output(message),
+        "usage": _responses_usage(body.get("usage")),
+    }
+    if status == "incomplete":
+        response["incomplete_details"] = {"reason": "max_output_tokens"}
+    return response
+
+
+def _responses_stream_from_response(response: dict[str, Any]) -> Iterator[bytes]:
+    seq = 0
+
+    def emit(event_type: str, **fields: Any) -> bytes:
+        nonlocal seq
+        seq += 1
+        payload = {"type": event_type, "sequence_number": seq, **fields}
+        return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n".encode()
+
+    in_progress = {**response, "status": "in_progress", "output": []}
+    yield emit("response.created", response=in_progress)
+    yield emit("response.in_progress", response=in_progress)
+
+    output = response.get("output") if isinstance(response.get("output"), list) else []
+    for index, item in enumerate(output):
+        item_type = item.get("type")
+        start_item = dict(item)
+        if item_type == "message":
+            start_item["content"] = []
+        elif item_type == "function_call":
+            start_item["arguments"] = ""
+        yield emit("response.output_item.added", output_index=index, item=start_item)
+
+        if item_type == "message":
+            for content_index, part in enumerate(item.get("content") or []):
+                item_id = item["id"]
+                yield emit(
+                    "response.content_part.added",
+                    item_id=item_id,
+                    output_index=index,
+                    content_index=content_index,
+                    part={**part, "text": ""},
+                )
+                text = part.get("text") or ""
+                if text:
+                    yield emit(
+                        "response.output_text.delta",
+                        item_id=item_id,
+                        output_index=index,
+                        content_index=content_index,
+                        delta=text,
+                    )
+                yield emit(
+                    "response.output_text.done",
+                    item_id=item_id,
+                    output_index=index,
+                    content_index=content_index,
+                    text=text,
+                )
+                yield emit(
+                    "response.content_part.done",
+                    item_id=item_id,
+                    output_index=index,
+                    content_index=content_index,
+                    part=part,
+                )
+        elif item_type == "function_call":
+            arguments = item.get("arguments") or "{}"
+            yield emit("response.function_call_arguments.delta", item_id=item["id"], output_index=index, delta=arguments)
+            yield emit("response.function_call_arguments.done", item_id=item["id"], output_index=index, arguments=arguments)
+
+        yield emit("response.output_item.done", output_index=index, item=item)
+
+    yield emit("response.completed", response=response)
+
+
+@app.post("/v1/responses")
+def responses_endpoint(request: ResponsesRequest, raw_request: Request):
+    chat_request = _responses_to_chat_request(request)
+    response = chat_completions(chat_request, raw_request)
+    if not isinstance(response, JSONResponse):
+        return response
+    try:
+        body = json.loads(response.body.decode("utf-8"))
+    except Exception:
+        body = {}
+    if response.status_code >= 400:
+        return JSONResponse(status_code=response.status_code, content=body, headers=dict(response.headers))
+    result = _chat_body_to_responses(body, request.model)
+    headers = {
+        key: value
+        for key, value in dict(response.headers).items()
+        if key.lower().startswith("x-proxyrouter-")
+    }
+    if request.stream:
+        return StreamingResponse(_responses_stream_from_response(result), media_type="text/event-stream", headers=headers)
+    return JSONResponse(status_code=response.status_code, content=result, headers=headers)
 
 
 def require_admin(request: Request) -> JSONResponse | None:
@@ -1436,6 +1716,68 @@ def admin_context_compaction_set(payload: ContextCompactionPayload, request: Req
             content={"error": {"message": str(exc), "type": "settings_failed"}},
         )
     return {"status": "saved", "enabled": payload.enabled}
+
+
+@app.get("/admin/pricing/models")
+def admin_pricing_models():
+    # Read-only: no secrets, just which models have a resolvable reference
+    # price and where it came from — safe to load without a token.
+    from app.pricing import resolve_price_info
+
+    try:
+        registry = load_registry_with_db_health()
+    except Exception:
+        return {"models": []}
+    seen: dict[str, dict[str, Any]] = {}
+    for model in registry.models:
+        if model.id in seen:
+            continue
+        try:
+            info = resolve_price_info(model.id, model.provider_model)
+        except Exception:
+            info = None
+        seen[model.id] = {
+            "public_id": model.id,
+            "provider_model": model.provider_model,
+            "priced": info is not None,
+            "input_cost_per_token": info.get("input_cost_per_token") if info else None,
+            "output_cost_per_token": info.get("output_cost_per_token") if info else None,
+            "source": info.get("source") if info else None,
+        }
+    models = sorted(seen.values(), key=lambda item: (not item["priced"], item["public_id"]))
+    return {"models": models, "priced_count": sum(1 for m in models if m["priced"]), "total_count": len(models)}
+
+
+@app.post("/admin/pricing/sync")
+def admin_pricing_sync(request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    from app.pricing import sync_catalog_from_litellm, sync_provider_pricing
+
+    try:
+        catalog_entries = sync_catalog_from_litellm()
+    except Exception as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"message": str(exc), "type": "pricing_sync_failed"}},
+        )
+    try:
+        registry = load_registry_with_db_health()
+        live_entries = sync_provider_pricing(registry)
+    except Exception:
+        live_entries = 0
+    try:
+        checked, priced = backfill_reference_costs()
+    except Exception:
+        checked, priced = 0, 0
+    return {
+        "status": "synced",
+        "catalog_entries": catalog_entries,
+        "live_entries": live_entries,
+        "backfill_checked": checked,
+        "backfill_priced": priced,
+    }
 
 
 @app.get("/admin/providers/health")

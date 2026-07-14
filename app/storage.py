@@ -9,6 +9,7 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Json
 
+from app.pricing import reference_cost as estimate_reference_cost
 from app.validation.health import HealthResult
 
 
@@ -218,6 +219,7 @@ def persist_route_event(
     tokens_raw: int | None = None,
     tokens_compacted: int | None = None,
     demand: str | None = None,
+    provider_model: str | None = None,
 ) -> None:
     row = route_event_to_row(request_id, selected_model_id, required_capability, status, error_type)
     usage = usage or {}
@@ -229,6 +231,14 @@ def persist_route_event(
     row["prompt_tokens_raw"] = tokens_raw
     row["prompt_tokens_compacted"] = tokens_compacted
     row["demand"] = demand
+    row["reference_cost"] = None
+    if not row["cost"] and selected_model_id and (row["prompt_tokens"] or row["completion_tokens"]):
+        try:
+            row["reference_cost"] = estimate_reference_cost(
+                selected_model_id, provider_model or "", row["prompt_tokens"] or 0, row["completion_tokens"] or 0
+            )
+        except Exception:
+            row["reference_cost"] = None
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -236,19 +246,51 @@ def persist_route_event(
                 INSERT INTO ai_router.route_events
                     (request_id, selected_model_id, required_capability, status, error_type,
                      prompt_tokens, completion_tokens, total_tokens, cost, agent_id,
-                     prompt_tokens_raw, prompt_tokens_compacted, demand)
+                     prompt_tokens_raw, prompt_tokens_compacted, demand, reference_cost)
                 VALUES (
                     %(request_id)s,
                     (SELECT model_id FROM ai_router.models WHERE public_id = %(selected_model_id)s),
                     %(required_capability)s, %(status)s, %(error_type)s,
                     %(prompt_tokens)s, %(completion_tokens)s, %(total_tokens)s, %(cost)s,
                     (SELECT agent_id FROM ai_router.agents WHERE name = %(agent_name)s),
-                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s
+                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s, %(reference_cost)s
                 )
                 """,
                 row,
             )
         conn.commit()
+
+
+def backfill_reference_costs() -> tuple[int, int]:
+    """One-off/re-runnable pass: compute reference_cost for existing rows
+    that predate the feature, or predate a model being added to the pricing
+    catalog/overrides. Only touches rows where cost is 0/absent and
+    reference_cost is still NULL, so re-running after adding new priced
+    models only fills gaps. Returns (rows_checked, rows_priced)."""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.route_id, m.public_id, m.provider_model, r.prompt_tokens, r.completion_tokens
+                FROM ai_router.route_events r
+                JOIN ai_router.models m ON m.model_id = r.selected_model_id
+                WHERE r.status = 'success'
+                  AND (r.cost = 0 OR r.cost IS NULL)
+                  AND r.reference_cost IS NULL
+                """
+            )
+            rows = cur.fetchall()
+
+        priced = 0
+        for route_id, public_id, provider_model, prompt_tokens, completion_tokens in rows:
+            cost = estimate_reference_cost(public_id or "", provider_model or "", prompt_tokens or 0, completion_tokens or 0)
+            if cost is None:
+                continue
+            with conn.cursor() as cur:
+                cur.execute("UPDATE ai_router.route_events SET reference_cost = %s WHERE route_id = %s", (cost, route_id))
+            priced += 1
+        conn.commit()
+    return len(rows), priced
 
 
 def get_setting(key: str, default: str | None = None) -> str | None:
@@ -328,7 +370,8 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
         r.total_tokens,
         r.cost,
         a.name,
-        r.demand
+        r.demand,
+        r.reference_cost
     FROM ai_router.route_events r
     LEFT JOIN ai_router.models m ON m.model_id = r.selected_model_id
     LEFT JOIN ai_router.agents a ON a.agent_id = r.agent_id
@@ -353,6 +396,7 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
             "cost": float(row[8]) if row[8] is not None else 0.0,
             "agent": row[9],
             "demand": row[10],
+            "reference_cost": float(row[11]) if row[11] is not None else None,
         }
         for row in rows
     ]
@@ -366,7 +410,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
     SELECT r.created_at::date AS day,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     JOIN ai_router.agents a ON a.agent_id = r.agent_id
     WHERE r.created_at >= now() - make_interval(days => %(days)s)
@@ -378,7 +423,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
     SELECT m.public_id AS model_id,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     JOIN ai_router.models m ON m.model_id = r.selected_model_id
     JOIN ai_router.agents a ON a.agent_id = r.agent_id
@@ -392,7 +438,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
            r.created_at::date AS day,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     JOIN ai_router.agents a ON a.agent_id = r.agent_id
     WHERE r.created_at >= now() - make_interval(days => %(days)s)
@@ -404,7 +451,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
            m.public_id AS model_id,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     JOIN ai_router.models m ON m.model_id = r.selected_model_id
     JOIN ai_router.agents a ON a.agent_id = r.agent_id
@@ -438,7 +486,13 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
                 cur.execute(by_agent_model_query, {"days": days})
                 agent_model_rows = cur.fetchall()
     daily = [
-        {"day": row[0].isoformat(), "messages": row[1], "tokens": int(row[2]), "cost": float(row[3])}
+        {
+            "day": row[0].isoformat(),
+            "messages": row[1],
+            "tokens": int(row[2]),
+            "cost": float(row[3]),
+            "reference_cost": float(row[4]),
+        }
         for row in daily_rows
     ]
     total_tokens = sum(item["tokens"] for item in daily)
@@ -448,21 +502,36 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             "messages": row[1],
             "tokens": int(row[2]),
             "cost": float(row[3]),
+            "reference_cost": float(row[4]),
             "pct_total": round(100 * int(row[2]) / total_tokens, 1) if total_tokens else 0.0,
         }
         for row in model_rows
     ]
     by_agent: dict[str, dict[str, Any]] = {}
-    for agent, day, messages, tokens, cost in agent_daily_rows:
+    for agent, day, messages, tokens, cost, reference_cost in agent_daily_rows:
         entry = by_agent.setdefault(
             agent,
-            {"agent": agent, "totals": {"messages": 0, "tokens": 0, "cost": 0.0}, "daily": [], "by_model": []},
+            {
+                "agent": agent,
+                "totals": {"messages": 0, "tokens": 0, "cost": 0.0, "reference_cost": 0.0},
+                "daily": [],
+                "by_model": [],
+            },
         )
         entry["totals"]["messages"] += messages
         entry["totals"]["tokens"] += int(tokens)
         entry["totals"]["cost"] = round(entry["totals"]["cost"] + float(cost), 6)
-        entry["daily"].append({"day": day.isoformat(), "messages": messages, "tokens": int(tokens), "cost": float(cost)})
-    for agent, model_id, messages, tokens, cost in agent_model_rows:
+        entry["totals"]["reference_cost"] = round(entry["totals"]["reference_cost"] + float(reference_cost), 6)
+        entry["daily"].append(
+            {
+                "day": day.isoformat(),
+                "messages": messages,
+                "tokens": int(tokens),
+                "cost": float(cost),
+                "reference_cost": float(reference_cost),
+            }
+        )
+    for agent, model_id, messages, tokens, cost, reference_cost in agent_model_rows:
         entry = by_agent.get(agent)
         if not entry:
             continue
@@ -473,6 +542,7 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
                 "messages": messages,
                 "tokens": int(tokens),
                 "cost": float(cost),
+                "reference_cost": float(reference_cost),
                 "pct_total": round(100 * int(tokens) / agent_tokens, 1) if agent_tokens else 0.0,
             }
         )
@@ -484,6 +554,7 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             "messages": sum(item["messages"] for item in daily),
             "tokens": total_tokens,
             "cost": round(sum(item["cost"] for item in daily), 6),
+            "reference_cost": round(sum(item["reference_cost"] for item in daily), 6),
             "tokens_raw": tokens_raw,
             "tokens_saved": tokens_saved,
             "pct_saved": round(100 * tokens_saved / tokens_raw, 1) if tokens_raw else 0.0,
@@ -775,7 +846,8 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
            r.created_at::date AS day,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     JOIN ai_router.agents a ON a.agent_id = r.agent_id
     WHERE r.created_at >= now() - make_interval(days => %(days)s)
@@ -808,6 +880,7 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
             "messages": 0,
             "tokens": 0,
             "cost": 0.0,
+            "reference_cost": 0.0,
             "daily": [],
             "models": [],
             "models_off": [],
@@ -817,14 +890,23 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
     for name, public_id, model_enabled in model_rows:
         if name in agents:
             agents[name]["models" if model_enabled else "models_off"].append(public_id)
-    for name, day, messages, tokens, cost in usage_rows:
+    for name, day, messages, tokens, cost, reference_cost in usage_rows:
         agent = agents.get(name)
         if not agent:
             continue
         agent["messages"] += messages
         agent["tokens"] += int(tokens)
         agent["cost"] = round(agent["cost"] + float(cost), 6)
-        agent["daily"].append({"day": day.isoformat(), "messages": messages, "tokens": int(tokens), "cost": float(cost)})
+        agent["reference_cost"] = round(agent["reference_cost"] + float(reference_cost), 6)
+        agent["daily"].append(
+            {
+                "day": day.isoformat(),
+                "messages": messages,
+                "tokens": int(tokens),
+                "cost": float(cost),
+                "reference_cost": float(reference_cost),
+            }
+        )
     return list(agents.values())
 
 
