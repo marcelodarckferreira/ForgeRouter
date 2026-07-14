@@ -11,7 +11,7 @@ type AgentUsage = { agent: string; totals: { messages: number; tokens: number; c
 type UsageTotals = { messages: number; tokens: number; cost: number; reference_cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number };
 type Usage = { days: number; totals: UsageTotals; daily: UsageDay[]; by_model: UsageModel[]; by_agent?: AgentUsage[] };
 type UsageMetric = 'messages' | 'tokens' | 'cost' | 'reference_cost';
-type MonthlyTotals = { messages: number; tokens: number; cost: number };
+type MonthlyTotals = { messages: number; tokens: number; cost: number; reference_cost: number };
 type YearlyAgentUsage = { agent: string; months: Record<string, MonthlyTotals>; totals: MonthlyTotals };
 type YearlyUsage = { year: number; by_agent: YearlyAgentUsage[] };
 type ProviderReady = { provider: string; tier: number; enabled: boolean; api_key_env: string; api_key_required: boolean; api_key_configured: boolean; api_key_source?: string; api_key_masked?: string; models: string[]; };
@@ -1086,7 +1086,7 @@ function App() {
   const [savingAgentModels, setSavingAgentModels] = useState(false);
   const [taskMap, setTaskMap] = useState<{ task: string; hint: string; model: string }[]>(HERMES_TASK_MAP);
   const [pricingModels, setPricingModels] = useState<PriceModel[]>([]);
-  const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number }>({ priced_count: 0, total_count: 0 });
+  const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number; last_synced: string | null }>({ priced_count: 0, total_count: 0, last_synced: null });
   const [pricingSyncing, setPricingSyncing] = useState(false);
   const [pricingSearch, setPricingSearch] = useState('');
   const [demandData, setDemandData] = useState<DemandData | null>(null);
@@ -1401,7 +1401,7 @@ function App() {
       try {
         const pricing = await fetchJson('/admin/pricing/models');
         setPricingModels(pricing.models ?? []);
-        setPricingMeta({ priced_count: pricing.priced_count ?? 0, total_count: pricing.total_count ?? 0 });
+        setPricingMeta({ priced_count: pricing.priced_count ?? 0, total_count: pricing.total_count ?? 0, last_synced: pricing.last_synced ?? null });
       } catch {
         // pricing catalog coverage is optional UI data
       }
@@ -3003,7 +3003,7 @@ function App() {
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
             {error && <div className="alert">{error}</div>}
 
-            <Panel title="Model pricing catalog" meta={`${visiblePricingModels.length}/${pricingModels.length} shown · ${pricingMeta.priced_count}/${pricingMeta.total_count} priced`}>
+            <Panel title="Model pricing catalog" meta={`${visiblePricingModels.length}/${pricingModels.length} shown · ${pricingMeta.priced_count}/${pricingMeta.total_count} priced · last synced ${pricingMeta.last_synced ? formatDate(pricingMeta.last_synced) : 'never'}`}>
               <div className="row pricing head"><span>Model</span><span>Status</span><span>Input $/1M</span><span>Output $/1M</span><span>Source</span></div>
               <div className="tableScroll">
               {visiblePricingModels.map((item) => (

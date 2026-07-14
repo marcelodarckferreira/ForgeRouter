@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-ForgeRouter (formerly ProxyRouter; Hermes AI Proxy Router): a FastAPI service exposing one OpenAI-compatible API (`/v1/chat/completions`, `/v1/models`) that routes requests across multiple LLM providers (local Ollama, Groq, OpenRouter, Mistral) with health-based selection and automatic fallback. Listens on port 2100. The PRD lives in `docs/HERMES_AI_PROXY_ROUTER_PRD_v2.md`.
+ForgeRouter (formerly ProxyRouter; Hermes AI Proxy Router): a FastAPI service exposing one OpenAI-compatible API (`/v1/chat/completions`, `/v1/models`) that routes requests across multiple LLM providers (local Ollama, Groq, OpenRouter, Mistral) with health-based selection and automatic fallback. Two protocol translators sit in front of the same routing/fallback path: `/v1/messages` (Anthropic Messages API, for Claude Code) and `/v1/responses` (OpenAI Responses API, for the Codex CLI — it requires `wire_api = "responses"` since v0.138 and has no Chat Completions fallback). Listens on port 2100. The PRD lives in `docs/HERMES_AI_PROXY_ROUTER_PRD_v2.md`.
 
 ## Commands
 
@@ -29,6 +29,11 @@ docker compose -f docker-compose.local.yml up -d --build
 docker run --rm --network host --env-file .env \
   forgerouter:latest python -m app.validation.scanner --persist
 
+# Reference-cost pricing sync (catalog + live provider pricing + historical backfill;
+# same three steps as clicking Sync on the LLM Pricing dashboard page — put this in cron)
+docker run --rm --network host --env-file .env -e PYTHONPATH=/app \
+  forgerouter:latest python3 scripts/sync_pricing.py
+
 # Health check
 curl http://127.0.0.1:2100/health
 ```
@@ -47,6 +52,8 @@ Key modules:
 
 - `app/registry.py` — YAML registry parsing, DB health overlay, provider readiness (reports whether API-key env vars are set, never the values).
 - `app/providers/openai_compatible.py` — the default provider client (OpenAI-compatible `/chat/completions`). Each provider has an `api_format` (`openai`, the default, or `anthropic`); `anthropic` providers route through `app/providers/anthropic_compatible.py`, a generic Anthropic Messages API (`/v1/messages`) client that reuses the Claude Code adapter's payload/stream translation without the OAuth particularities — the router, scanner and usage accounting keep speaking chat completions either way. Plan handlers (`app/providers/plans.py`) take precedence over `api_format`.
+- Incoming protocol translators (`app/main.py`), ahead of the same `chat_completions()` routing/fallback path: `/v1/messages` (Anthropic Messages API, for Claude Code) and `/v1/responses` (OpenAI Responses API, for Codex CLI — required since Codex dropped `wire_api = "chat"` in v0.138). Both build a `ChatCompletionRequest`, call `chat_completions()` internally, then translate the result back; a streaming client gets a synthesized SSE burst (the full message replayed as an event sequence after the fact), not real incremental provider streaming.
+- `app/pricing.py` — reference/notional cost estimation for free-tier requests: real `usage.cost` is almost always absent because paid models are excluded at discovery (see below), so this estimates what a request would have cost at public commercial rates for an equivalent model, purely as an opportunity-cost figure — never billed, never confused with real `cost`. Three-tier lookup, highest priority first: live pricing read from each registered provider's own `/models` response (`config/model_pricing_live.json`, the literal endpoint being routed through) → hand-curated `config/model_pricing_overrides.json` (sourced, for models neither other tier covers) → vendored LiteLLM catalog `config/model_pricing.json`. Never guesses — no match means no reference cost. `POST /admin/pricing/sync` (admin-gated) refreshes all three tiers and backfills historical `route_events`/`usage_monthly`; `scripts/sync_pricing.py` runs the same thing for cron.
 - `app/validation/scanner.py` + `app/validation/health.py` — health scanner sends a real chat completion to each model and classifies the response. `health.py` detects "silent failures": HTTP 200 responses with empty content or quota/billing/auth error text in the body are marked unhealthy.
 - `app/storage.py` — all PostgreSQL access (psycopg, raw SQL against schema `ai_router`).
 
@@ -64,7 +71,7 @@ Design rules baked into the code:
 
 ## Database
 
-PostgreSQL is Foundation-managed (separate `forgerouter` database, `proxyrouter_user` user, `ai_router` schema — rationale in `docs/DATABASE_DECISION.md`). Connection comes from `DATABASE_URL` in `.env` (never commit `.env`). Schema/seed SQL lives in `db/*.sql` (numbered files, applied manually — there is no migration tool). Tables: `providers` (with `access_type` subscription/api_key/local, `cost_type` free/paid, `api_format` openai/anthropic — the endpoint's wire protocol, `auth_config` JSONB for subscription particularities like extra headers — tokens always go in `api_key`), `models`, `provider_health` (append-only health history), `route_events` (one row per provider attempt, with `agent_id` attribution), `agents` (per-agent API keys), `agent_models` (per-agent model controls), `users` + `sessions` (dashboard login), `subscription_catalog` (seeded coding-plan providers listed by `GET /admin/subscriptions/catalog`). Migrations must be applied as the `foundation` superuser (`docker exec -i foundation_postgres psql -U foundation -d forgerouter`) — `proxyrouter_user` does not own the tables. Models are joined by `public_id` (e.g. `local/qwen2.5:1.5b`), which must match the `id` in `config/providers.yaml`.
+PostgreSQL is Foundation-managed (separate `forgerouter` database, `proxyrouter_user` user, `ai_router` schema — rationale in `docs/DATABASE_DECISION.md`). Connection comes from `DATABASE_URL` in `.env` (never commit `.env`). Schema/seed SQL lives in `db/*.sql` (numbered files, applied manually — there is no migration tool). Tables: `providers` (with `access_type` subscription/api_key/local, `cost_type` free/paid, `api_format` openai/anthropic — the endpoint's wire protocol, `auth_config` JSONB for subscription particularities like extra headers — tokens always go in `api_key`), `models`, `provider_health` (append-only health history), `route_events` (one row per provider attempt, with `agent_id` attribution; `reference_cost` is the notional cost estimate from `app/pricing.py`, only ever set when the real `cost` is absent/zero), `usage_monthly` (per-agent/year/month rollup written by `POST /admin/usage/archive`, mirrors `cost` and `reference_cost` so yearly usage survives raw-row pruning), `agents` (per-agent API keys), `agent_models` (per-agent model controls), `users` + `sessions` (dashboard login), `subscription_catalog` (seeded coding-plan providers listed by `GET /admin/subscriptions/catalog`), `settings` (generic key/value — `pricing_last_synced` is the ISO timestamp of the last `POST /admin/pricing/sync`). Migrations must be applied as the `foundation` superuser (`docker exec -i foundation_postgres psql -U foundation -d forgerouter`) — `proxyrouter_user` does not own the tables. Models are joined by `public_id` (e.g. `local/qwen2.5:1.5b`), which must match the `id` in `config/providers.yaml`.
 
 ## Testing conventions
 

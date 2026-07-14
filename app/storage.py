@@ -573,7 +573,7 @@ def yearly_usage_by_agent(year: int | None = None) -> dict[str, Any]:
     resolved_year = year or datetime.now(timezone.utc).year
     query = """
     WITH archived AS (
-        SELECT u.agent_id, u.month, u.messages, u.tokens, u.cost
+        SELECT u.agent_id, u.month, u.messages, u.tokens, u.cost, u.reference_cost
         FROM ai_router.usage_monthly u
         WHERE u.year = %(year)s
     ),
@@ -582,7 +582,8 @@ def yearly_usage_by_agent(year: int | None = None) -> dict[str, Any]:
                extract(month FROM r.created_at)::int AS month,
                count(*) AS messages,
                coalesce(sum(r.total_tokens), 0) AS tokens,
-               coalesce(sum(r.cost), 0) AS cost
+               coalesce(sum(r.cost), 0) AS cost,
+               coalesce(sum(r.reference_cost), 0) AS reference_cost
         FROM ai_router.route_events r
         WHERE r.agent_id IS NOT NULL
           AND extract(year FROM r.created_at)::int = %(year)s
@@ -597,7 +598,8 @@ def yearly_usage_by_agent(year: int | None = None) -> dict[str, Any]:
            c.month,
            sum(c.messages) AS messages,
            sum(c.tokens) AS tokens,
-           sum(c.cost) AS cost
+           sum(c.cost) AS cost,
+           sum(c.reference_cost) AS reference_cost
     FROM combined c
     JOIN ai_router.agents a ON a.agent_id = c.agent_id
     GROUP BY 1, 2
@@ -609,19 +611,21 @@ def yearly_usage_by_agent(year: int | None = None) -> dict[str, Any]:
             rows = cur.fetchall()
 
     by_agent: dict[str, dict[str, Any]] = {}
-    for agent, month, messages, tokens, cost in rows:
+    for agent, month, messages, tokens, cost, reference_cost in rows:
         entry = by_agent.setdefault(
             agent,
-            {"agent": agent, "months": {}, "totals": {"messages": 0, "tokens": 0, "cost": 0.0}},
+            {"agent": agent, "months": {}, "totals": {"messages": 0, "tokens": 0, "cost": 0.0, "reference_cost": 0.0}},
         )
         entry["months"][int(month)] = {
             "messages": messages,
             "tokens": int(tokens),
             "cost": float(cost),
+            "reference_cost": float(reference_cost),
         }
         entry["totals"]["messages"] += messages
         entry["totals"]["tokens"] += int(tokens)
         entry["totals"]["cost"] = round(entry["totals"]["cost"] + float(cost), 6)
+        entry["totals"]["reference_cost"] = round(entry["totals"]["reference_cost"] + float(reference_cost), 6)
 
     return {
         "year": resolved_year,
@@ -639,19 +643,21 @@ def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
            extract(month FROM r.created_at)::int AS month,
            count(*) AS messages,
            coalesce(sum(r.total_tokens), 0) AS tokens,
-           coalesce(sum(r.cost), 0) AS cost
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
     FROM ai_router.route_events r
     WHERE r.agent_id IS NOT NULL
       AND r.created_at < %(cutoff)s
     GROUP BY 1, 2, 3
     """
     upsert_query = """
-    INSERT INTO ai_router.usage_monthly (agent_id, year, month, messages, tokens, cost)
-    VALUES (%(agent_id)s, %(year)s, %(month)s, %(messages)s, %(tokens)s, %(cost)s)
+    INSERT INTO ai_router.usage_monthly (agent_id, year, month, messages, tokens, cost, reference_cost)
+    VALUES (%(agent_id)s, %(year)s, %(month)s, %(messages)s, %(tokens)s, %(cost)s, %(reference_cost)s)
     ON CONFLICT (agent_id, year, month) DO UPDATE SET
         messages = ai_router.usage_monthly.messages + EXCLUDED.messages,
         tokens = ai_router.usage_monthly.tokens + EXCLUDED.tokens,
         cost = ai_router.usage_monthly.cost + EXCLUDED.cost,
+        reference_cost = ai_router.usage_monthly.reference_cost + EXCLUDED.reference_cost,
         archived_at = now()
     """
     delete_query = "DELETE FROM ai_router.route_events WHERE created_at < %(cutoff)s"
@@ -665,7 +671,7 @@ def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
             cutoff = cur.fetchone()[0]
             cur.execute(aggregate_query, {"cutoff": cutoff})
             rows = cur.fetchall()
-            for agent_id, year, month, messages, tokens, cost in rows:
+            for agent_id, year, month, messages, tokens, cost, reference_cost in rows:
                 cur.execute(
                     upsert_query,
                     {
@@ -675,6 +681,7 @@ def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
                         "messages": messages,
                         "tokens": int(tokens),
                         "cost": float(cost),
+                        "reference_cost": float(reference_cost),
                     },
                 )
             cur.execute(delete_query, {"cutoff": cutoff})

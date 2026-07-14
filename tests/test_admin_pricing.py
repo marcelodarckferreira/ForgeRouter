@@ -46,11 +46,14 @@ def test_admin_pricing_sync_refreshes_catalog_and_backfills(monkeypatch):
     monkeypatch.setattr("app.pricing.sync_catalog_from_litellm", lambda: 2214)
     monkeypatch.setattr("app.pricing.sync_provider_pricing", lambda registry: 57)
     monkeypatch.setattr("app.main.backfill_reference_costs", lambda: (100, 42))
+    monkeypatch.setattr("app.main.set_setting", lambda key, value: None)
 
     response = client.post("/admin/pricing/sync", headers={"Authorization": "Bearer secret"})
 
     assert response.status_code == 200
     body = response.json()
+    last_synced = body.pop("last_synced")
+    assert last_synced  # non-empty ISO timestamp; exact value isn't asserted
     assert body == {
         "status": "synced",
         "catalog_entries": 2214,

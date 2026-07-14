@@ -6,6 +6,7 @@ import os
 import secrets
 import time
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -53,9 +54,11 @@ from app.storage import (
     user_permissions,
     get_agent_api_key,
     get_demand_routes,
+    get_setting,
     has_any_agent,
     set_demand_routes,
     set_context_compaction_enabled,
+    set_setting,
     latest_provider_health_rows,
     list_agents_with_usage,
     mark_runtime_failure_unhealthy,
@@ -1745,7 +1748,16 @@ def admin_pricing_models():
             "source": info.get("source") if info else None,
         }
     models = sorted(seen.values(), key=lambda item: (not item["priced"], item["public_id"]))
-    return {"models": models, "priced_count": sum(1 for m in models if m["priced"]), "total_count": len(models)}
+    try:
+        last_synced = get_setting("pricing_last_synced")
+    except Exception:
+        last_synced = None
+    return {
+        "models": models,
+        "priced_count": sum(1 for m in models if m["priced"]),
+        "total_count": len(models),
+        "last_synced": last_synced,
+    }
 
 
 @app.post("/admin/pricing/sync")
@@ -1771,12 +1783,18 @@ def admin_pricing_sync(request: Request):
         checked, priced = backfill_reference_costs()
     except Exception:
         checked, priced = 0, 0
+    last_synced = datetime.now(timezone.utc).isoformat()
+    try:
+        set_setting("pricing_last_synced", last_synced)
+    except Exception:
+        pass
     return {
         "status": "synced",
         "catalog_entries": catalog_entries,
         "live_entries": live_entries,
         "backfill_checked": checked,
         "backfill_priced": priced,
+        "last_synced": last_synced,
     }
 
 

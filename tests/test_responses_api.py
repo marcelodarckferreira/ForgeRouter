@@ -168,3 +168,39 @@ def test_responses_incomplete_on_length_finish_reason(monkeypatch):
     body = response.json()
     assert body["status"] == "incomplete"
     assert body["incomplete_details"] == {"reason": "max_output_tokens"}
+
+
+def test_responses_no_healthy_provider_returns_openai_error_shape(monkeypatch):
+    # Empty registry: no candidate for any capability — chat_completions
+    # short-circuits with 503 before ever calling chat_completion. /v1/responses
+    # must pass that error straight through, same shape Codex's own Responses
+    # API client expects ({"error": {"message", "type"}}).
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([]))
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "oi"},
+    )
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["error"]["type"] == "no_healthy_provider"
+    assert "message" in body["error"]
+
+
+def test_responses_all_providers_failed_returns_502(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.main.chat_completion",
+        lambda selected, payload: (500, {"error": {"message": "upstream on fire", "type": "server_error"}}),
+    )
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "oi"},
+    )
+
+    assert response.status_code == 502
+    body = response.json()
+    assert body["error"]["type"] == "all_providers_failed"

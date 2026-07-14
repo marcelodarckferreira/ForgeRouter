@@ -4,9 +4,12 @@
 app/pricing.py estimates a notional/opportunity-cost value for free-tier
 requests (see its docstring). The catalog is a vendored snapshot, not a live
 fetch, so it drifts out of date as LiteLLM updates prices — re-run this
-occasionally to refresh it. The same logic is also exposed as
-`POST /admin/pricing/sync` (app/pricing.py::sync_catalog_from_litellm) for
-refreshing from the dashboard instead of the CLI.
+occasionally to refresh it.
+
+This is the LiteLLM-catalog step only. For the full sync (LiteLLM catalog +
+live provider /models pricing + historical backfill — the same three steps
+as clicking Sync in the dashboard, or POST /admin/pricing/sync), use
+scripts/sync_pricing.py instead; that's also the one to put in cron.
 
     python3 scripts/update_pricing.py
 
