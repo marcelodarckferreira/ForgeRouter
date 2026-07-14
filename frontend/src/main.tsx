@@ -25,7 +25,7 @@ type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string;
 type Attachment = { id: string; url: string; name: string };
 
 type AgentDaily = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
-type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; daily: AgentDaily[]; models: string[]; models_off?: string[] };
+type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[] };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
 
@@ -1660,6 +1660,30 @@ function App() {
     }
   }
 
+  async function editAgentBudget(name: string, currentLimit: number | null, currentAction: string) {
+    const limitInput = window.prompt(`Monthly reference-cost budget for "${name}" (USD, e.g. 10.00 — leave blank for no limit)`, currentLimit != null ? String(currentLimit) : '');
+    if (limitInput === null) return;
+    const trimmed = limitInput.trim();
+    const limitUsd = trimmed ? Number(trimmed) : null;
+    if (trimmed && (Number.isNaN(limitUsd as number) || (limitUsd as number) < 0)) {
+      setError('Budget limit must be a non-negative number');
+      return;
+    }
+    let action = currentAction;
+    if (limitUsd !== null) {
+      const actionInput = window.prompt(`Action once "${name}" reaches its budget — type "alert" (dashboard-only, default) or "block" (also rejects new requests with 429 until next month)`, currentAction);
+      if (actionInput === null) return;
+      action = actionInput.trim().toLowerCase() === 'block' ? 'block' : 'alert';
+    }
+    try {
+      await fetchJson(`/admin/agents/${encodeURIComponent(name)}/budget`, { method: 'PUT', body: JSON.stringify({ limit_usd: limitUsd, action }) });
+      setScanStatus(limitUsd != null ? `${name}: budget set to $${limitUsd.toFixed(2)}/mo (${action})` : `${name}: budget limit removed`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save the agent budget');
+    }
+  }
+
   // Exclusive role: making an agent the auxiliary-tasks agent clears the previous holder.
   async function setAuxTasksAgent(name: string) {
     try {
@@ -2239,6 +2263,26 @@ function App() {
                   <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}{agent.aux_tasks && <b className="status healthy">aux tasks</b>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
                   <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)} billed · {formatCost(agent.reference_cost)} ref.</span><span /></div>
+                  <div className="setupRow">
+                    <span>Monthly budget</span>
+                    <span>
+                      {agent.budget_limit_usd != null ? (
+                        <>
+                          {formatCost(agent.month_spend)} / {formatCost(agent.budget_limit_usd)} this month
+                          {agent.month_spend >= agent.budget_limit_usd ? (
+                            <b className={`status ${agent.budget_action === 'block' ? 'unhealthy' : 'unknown'}`} title="Reference-cost spend has reached the configured limit">
+                              {agent.budget_action === 'block' ? 'blocked' : 'over budget'}
+                            </b>
+                          ) : (
+                            <b className="status healthy">{agent.budget_action}</b>
+                          )}
+                        </>
+                      ) : (
+                        <span className="muted">no limit set</span>
+                      )}
+                    </span>
+                    <button className="iconButton" title="Set a monthly reference-cost budget for this agent" onClick={() => void editAgentBudget(agent.name, agent.budget_limit_usd, agent.budget_action)}><Pencil size={13} /></button>
+                  </div>
                   <div className="setupRow">
                     <span>Actions</span>
                     <span className="rowActions">

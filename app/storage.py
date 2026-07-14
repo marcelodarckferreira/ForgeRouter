@@ -844,9 +844,16 @@ def delete_provider(name: str) -> bool:
 
 def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
     agents_query = """
-    SELECT name, api_key, enabled, created_at, description, aux_tasks
+    SELECT name, api_key, enabled, created_at, description, aux_tasks, budget_limit_usd, budget_action
     FROM ai_router.agents
     ORDER BY created_at, name
+    """
+    month_spend_query = """
+    SELECT a.name, coalesce(sum(r.cost), 0) + coalesce(sum(r.reference_cost), 0) AS month_spend
+    FROM ai_router.route_events r
+    JOIN ai_router.agents a ON a.agent_id = r.agent_id
+    WHERE date_trunc('month', r.created_at) = date_trunc('month', now())
+    GROUP BY 1
     """
     usage_query = """
     SELECT a.name,
@@ -876,6 +883,8 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
             usage_rows = cur.fetchall()
             cur.execute(models_query)
             model_rows = cur.fetchall()
+            cur.execute(month_spend_query)
+            month_spend_rows = cur.fetchall()
     agents = {
         row[0]: {
             "name": row[0],
@@ -884,6 +893,9 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
             "created_at": row[3].isoformat() if row[3] else None,
             "description": row[4] or "",
             "aux_tasks": bool(row[5]),
+            "budget_limit_usd": float(row[6]) if row[6] is not None else None,
+            "budget_action": row[7] or "alert",
+            "month_spend": 0.0,
             "messages": 0,
             "tokens": 0,
             "cost": 0.0,
@@ -894,6 +906,9 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
         }
         for row in agent_rows
     }
+    for name, month_spend in month_spend_rows:
+        if name in agents:
+            agents[name]["month_spend"] = float(month_spend)
     for name, public_id, model_enabled in model_rows:
         if name in agents:
             agents[name]["models" if model_enabled else "models_off"].append(public_id)
@@ -1111,6 +1126,52 @@ def find_agent_by_key(api_key: str) -> str | None:
             )
             row = cur.fetchone()
     return row[0] if row else None
+
+
+def get_agent_budget(agent_name: str) -> tuple[float | None, str] | None:
+    """(limit_usd, action) for an agent, or None if the agent doesn't exist.
+    limit_usd is None when no budget is configured (the default — opt-in)."""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT budget_limit_usd, budget_action FROM ai_router.agents WHERE name = %s",
+                (agent_name,),
+            )
+            row = cur.fetchone()
+    if not row:
+        return None
+    limit_usd = float(row[0]) if row[0] is not None else None
+    return limit_usd, row[1] or "alert"
+
+
+def set_agent_budget(agent_name: str, limit_usd: float | None, action: str) -> bool:
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE ai_router.agents SET budget_limit_usd = %s, budget_action = %s WHERE name = %s",
+                (limit_usd, action, agent_name),
+            )
+            updated = cur.rowcount > 0
+        conn.commit()
+    return updated
+
+
+def agent_month_spend(agent_name: str) -> float:
+    """Real cost + reference cost for this agent so far in the current
+    calendar month. Real cost is almost always 0 (free-tier-only router) —
+    reference_cost is what actually drives a budget guard here."""
+    query = """
+    SELECT coalesce(sum(r.cost), 0) + coalesce(sum(r.reference_cost), 0)
+    FROM ai_router.route_events r
+    JOIN ai_router.agents a ON a.agent_id = r.agent_id
+    WHERE a.name = %(agent_name)s
+      AND date_trunc('month', r.created_at) = date_trunc('month', now())
+    """
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, {"agent_name": agent_name})
+            row = cur.fetchone()
+    return float(row[0]) if row and row[0] is not None else 0.0
 
 
 _PBKDF2_ITERATIONS = 200_000

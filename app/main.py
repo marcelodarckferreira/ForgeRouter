@@ -46,6 +46,9 @@ from app.storage import (
     duplicate_agent,
     ensure_default_user,
     find_agent_by_key,
+    agent_month_spend,
+    get_agent_budget,
+    set_agent_budget,
     first_user,
     list_profiles,
     list_users,
@@ -520,6 +523,32 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     }
                 },
             )
+    if agent_name:
+        # Opt-in monthly budget guard: only agents with budget_limit_usd set are
+        # ever affected, and only 'block' mode short-circuits routing — 'alert'
+        # (the default once a limit is set) stays visible-only on the dashboard.
+        # Real cost is almost always 0 (free-tier-only router), so this is
+        # measured against reference_cost — see app/pricing.py.
+        try:
+            budget = get_agent_budget(agent_name)
+        except Exception:
+            budget = None
+        if budget and budget[0] is not None:
+            limit_usd, action = budget
+            try:
+                spend = agent_month_spend(agent_name)
+            except Exception:
+                spend = None
+            if spend is not None and spend >= limit_usd and action == "block":
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": {
+                            "message": f"Agent '{agent_name}' reached its monthly budget (${limit_usd:.2f} reference cost, ${spend:.2f} spent so far) — raise the limit or switch it to alert-only on the Agents dashboard page.",
+                            "type": "budget_exceeded",
+                        }
+                    },
+                )
     registry = load_registry_with_db_health()
     capability = infer_capability(request)
     candidates = registry.healthy_for_capability(capability)
@@ -1557,6 +1586,41 @@ def admin_agent_set_description(name: str, payload: AgentDescriptionPayload, req
             content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
         )
     return {"status": "saved", "agent": name, "description": payload.description.strip()}
+
+
+class AgentBudgetPayload(BaseModel):
+    limit_usd: float | None = None  # None = no limit (opt-out)
+    action: str = "alert"  # "alert" | "block"
+
+
+@app.put("/admin/agents/{name}/budget")
+def admin_agent_set_budget(name: str, payload: AgentBudgetPayload, request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    if payload.action not in ("alert", "block"):
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"message": "action must be 'alert' or 'block'", "type": "invalid_budget_action"}},
+        )
+    if payload.limit_usd is not None and payload.limit_usd < 0:
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"message": "limit_usd must be >= 0 or null", "type": "invalid_budget_limit"}},
+        )
+    try:
+        updated = set_agent_budget(name, payload.limit_usd, payload.action)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"message": str(exc), "type": "agent_budget_failed"}},
+        )
+    if not updated:
+        return JSONResponse(
+            status_code=404,
+            content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
+        )
+    return {"status": "saved", "agent": name, "limit_usd": payload.limit_usd, "action": payload.action}
 
 
 @app.put("/admin/agents/{name}/aux-tasks")

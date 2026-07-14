@@ -170,59 +170,78 @@ def _parse_aggregator_price(value: Any) -> float | None:
     return parsed if parsed >= 0 else None
 
 
-def sync_provider_pricing(registry: Any, timeout: float = 10.0) -> int:
+def _fetch_provider_pricing(
+    provider_name: str, base_url: str, models: list[Any], timeout: float, synced_at: str
+) -> dict[str, Any]:
+    import os
+
+    import httpx
+
+    result: dict[str, Any] = {}
+    if not base_url:
+        return result
+    api_key = next((m.api_key for m in models if m.api_key), "")
+    if not api_key:
+        env_name = next((m.api_key_env for m in models if m.api_key_env), "")
+        api_key = os.environ.get(env_name, "") if env_name else ""
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    try:
+        response = httpx.get(base_url.rstrip("/") + "/models", headers=headers, timeout=timeout)
+        body = response.json()
+    except Exception:
+        return result
+    items = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(items, list):
+        return result
+    for item in items:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        pricing = item.get("pricing")
+        if not isinstance(pricing, dict):
+            continue
+        input_cost = _parse_aggregator_price(pricing.get("prompt"))
+        output_cost = _parse_aggregator_price(pricing.get("completion"))
+        if input_cost is None or output_cost is None:
+            continue
+        public_id = f"{provider_name}/{item['id']}"
+        result[public_id] = {
+            "input_cost_per_token": input_cost,
+            "output_cost_per_token": output_cost,
+            "source": f"{provider_name} /models pricing (live), synced {synced_at}",
+        }
+    return result
+
+
+def sync_provider_pricing(registry: Any, timeout: float = 10.0, max_workers: int = 8) -> int:
     """Read live pricing straight from the /models response of every provider
     ForgeRouter is currently registered against (one request per distinct
-    base_url, not per model). Aggregators like OpenRouter and Kilo publish a
-    `pricing: {prompt, completion}` object per model — the same field
+    base_url, not per model, fetched in parallel — same ThreadPoolExecutor
+    pattern as _discover_provider_models's health scan in app/main.py, so one
+    slow/dead provider doesn't serialize the whole sync behind its timeout).
+    Aggregators like OpenRouter and Kilo publish a `pricing: {prompt,
+    completion}` object per model — the same field
     app/ranking.py::is_free_model already reads to classify free vs paid —
     this captures the actual numbers instead of discarding them.
 
     A provider with no /models endpoint, no pricing field, or that errors/
     times out is silently skipped; sync must never fail because one provider
     is unreachable. Returns the number of priced entries written."""
-    import os
-
-    import httpx
+    from concurrent.futures import ThreadPoolExecutor
 
     by_provider: dict[tuple[str, str], list[Any]] = {}
     for model in registry.models:
         by_provider.setdefault((model.provider, model.base_url), []).append(model)
 
     synced_at = datetime.now(timezone.utc).date().isoformat()
+
+    def fetch_entry(entry: tuple[tuple[str, str], list[Any]]) -> dict[str, Any]:
+        (provider_name, base_url), models = entry
+        return _fetch_provider_pricing(provider_name, base_url, models, timeout, synced_at)
+
     live: dict[str, Any] = {}
-    for (provider_name, base_url), models in by_provider.items():
-        if not base_url:
-            continue
-        api_key = next((m.api_key for m in models if m.api_key), "")
-        if not api_key:
-            env_name = next((m.api_key_env for m in models if m.api_key_env), "")
-            api_key = os.environ.get(env_name, "") if env_name else ""
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        try:
-            response = httpx.get(base_url.rstrip("/") + "/models", headers=headers, timeout=timeout)
-            body = response.json()
-        except Exception:
-            continue
-        items = body.get("data") if isinstance(body, dict) else None
-        if not isinstance(items, list):
-            continue
-        for item in items:
-            if not isinstance(item, dict) or not item.get("id"):
-                continue
-            pricing = item.get("pricing")
-            if not isinstance(pricing, dict):
-                continue
-            input_cost = _parse_aggregator_price(pricing.get("prompt"))
-            output_cost = _parse_aggregator_price(pricing.get("completion"))
-            if input_cost is None or output_cost is None:
-                continue
-            public_id = f"{provider_name}/{item['id']}"
-            live[public_id] = {
-                "input_cost_per_token": input_cost,
-                "output_cost_per_token": output_cost,
-                "source": f"{provider_name} /models pricing (live), synced {synced_at}",
-            }
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for partial in executor.map(fetch_entry, by_provider.items()):
+            live.update(partial)
 
     global _live, _live_failed
     with open(_LIVE_PATH, "w", encoding="utf-8") as fh:
