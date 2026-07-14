@@ -112,7 +112,7 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .pctBar{display:inline-block;width:80px;height:4px;background:var(--border);border-radius:999px;overflow:hidden}
 .pctBar i{display:block;height:100%;background:#2dd4bf;border-radius:999px}
 .appShell{display:flex;min-height:100vh}
-.sidebar{width:215px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface2);padding:22px 12px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar{width:215px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface2);padding:22px 12px;position:sticky;top:0;height:100vh}
 .brand{padding:0 10px 18px;border-bottom:1px solid var(--border);margin-bottom:14px}
 .brand strong{font-size:18px;letter-spacing:-.02em}
 .navSection{color:var(--faint);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:700;margin:16px 10px 6px}
@@ -161,6 +161,14 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .brandRow .eyebrow{margin:0;font-size:10px}
 .brandRow strong{display:block;margin-top:1px}
 .collapseBtn{flex-shrink:0}
+.logoExpandBtn{position:relative;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:0;background:transparent;border-radius:10px;cursor:pointer;color:inherit}
+.logoExpandBtn:hover{background:var(--hover)}
+.logoExpandBtn svg:first-child{transition:opacity .15s}
+.logoExpandBtn:hover svg:first-child{opacity:0}
+.logoExpandIcon{position:absolute;opacity:0;transition:opacity .15s}
+.logoExpandBtn:hover .logoExpandIcon{opacity:1}
+.sidebarTooltip{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:10px;white-space:nowrap;background:var(--text);color:var(--bg);font-size:12px;font-weight:600;padding:5px 9px;border-radius:7px;opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}
+.logoExpandBtn:hover .sidebarTooltip{opacity:1}
 .sidebar.collapsed{width:62px;padding:22px 8px}
 .sidebar.collapsed .brand{flex-direction:column;align-items:center;gap:10px;justify-content:center;padding:0 0 18px}
 .sidebar.collapsed .navSection{text-align:center;margin:16px 0 6px}
@@ -379,6 +387,8 @@ label.check input{width:auto;cursor:pointer}
 .userMenu>button:hover{background:var(--hover);color:var(--text)}
 .userMenu>button svg:first-child{color:#8b5cf6}
 .userMenuSection{color:var(--faint);text-transform:uppercase;letter-spacing:.12em;font-size:10px;font-weight:700;margin:8px 12px 4px;border-top:1px solid var(--border);padding-top:10px}
+.userMenuDivider{border-top:1px solid var(--border);margin:6px 4px}
+.userMenu>button.userMenuLogout{color:var(--muted)}
 .userMenu .activeTheme{margin-left:auto;color:#2dd4bf}
 .modalOverlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);padding:20px}
 .modalCard{width:400px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 48px rgba(0,0,0,.45)}

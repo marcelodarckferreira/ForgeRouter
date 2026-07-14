@@ -544,13 +544,16 @@ const THEME_OPTIONS: Array<{ id: ThemePref; label: string; icon: React.ReactNode
 
 /** Avatar menu in the sidebar footer — same process as ForgeHub's
  * UserSettingsMenu: account editing, password change, theme choice. */
-function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThemeChange, collapsed }: {
+function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThemeChange, collapsed, autoRefresh, onToggleAutoRefresh, onLogout }: {
   authUser: AuthUser;
   fetchJson: FetchJson;
   onUserUpdated: (user: AuthUser) => void;
   themePref: ThemePref;
   onThemeChange: (pref: ThemePref) => void;
   collapsed: boolean;
+  autoRefresh: boolean;
+  onToggleAutoRefresh: () => void;
+  onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<'account' | 'password' | null>(null);
@@ -657,6 +660,17 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
               {themePref === option.id && <Check size={13} className="activeTheme" />}
             </button>
           ))}
+          <div className="userMenuDivider" />
+          <button
+            onClick={() => { onToggleAutoRefresh(); setOpen(false); }}
+            title={autoRefresh ? 'Auto-refresh on (every 5s) — click to turn the sync off' : 'Auto-refresh off — data only reloads on demand; click to turn the sync back on'}
+          >
+            {autoRefresh ? <RefreshCw size={14} /> : <Pause size={14} />} {autoRefresh ? 'Sync: on' : 'Sync: off'}
+          </button>
+          <div className="userMenuDivider" />
+          <button className="userMenuLogout" onClick={() => { setOpen(false); onLogout(); }}>
+            <LogOut size={14} /> Sair
+          </button>
         </div>
       )}
       {modal === 'account' && (
@@ -2075,27 +2089,31 @@ function App() {
     <div className="appShell">
       <aside className={`sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sbHeader">
-          <span className="brandRow">
-            <Logo size={sidebarCollapsed ? 30 : 28} />
-            {!sidebarCollapsed && (
-              <span>
-                <p className="eyebrow">Hermes AI Runtime</p>
-                <strong>ForgeRouter</strong>
-              </span>
-            )}
-          </span>
-          {!sidebarCollapsed && (
-            <button className="iconButton collapseBtn" title="Collapse sidebar" onClick={toggleSidebar}>
-              <PanelLeftClose size={15} />
+          {sidebarCollapsed ? (
+            // Icon-rail mode: the logo itself is the expand trigger — hover
+            // swaps the mark for the expand icon, same affordance as the
+            // dedicated collapse button in expanded mode below.
+            <button type="button" className="logoExpandBtn" onClick={toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
+              <Logo size={30} />
+              <PanelLeftOpen size={16} className="logoExpandIcon" />
+              <span className="sidebarTooltip">Expand sidebar</span>
             </button>
+          ) : (
+            <>
+              <span className="brandRow">
+                <Logo size={28} />
+                <span>
+                  <p className="eyebrow">Hermes AI Runtime</p>
+                  <strong>ForgeRouter</strong>
+                </span>
+              </span>
+              <button className="iconButton collapseBtn" title="Collapse sidebar" onClick={toggleSidebar}>
+                <PanelLeftClose size={15} />
+              </button>
+            </>
           )}
         </div>
         <nav className="sbNav">
-          {sidebarCollapsed && (
-            <button className="navItem" title="Expand sidebar" onClick={toggleSidebar}>
-              <PanelLeftOpen size={15} />
-            </button>
-          )}
           {['Monitoring', 'Manage', 'Administration'].map((section) => {
             const visibleItems = PAGES.filter((item) => item.section === section && canView(item.id));
             if (!visibleItems.length) return null;
@@ -2126,13 +2144,10 @@ function App() {
             themePref={themePref}
             onThemeChange={setThemePref}
             collapsed={sidebarCollapsed}
+            autoRefresh={autoRefresh}
+            onToggleAutoRefresh={toggleAutoRefresh}
+            onLogout={() => void logout()}
           />
-          <button className="navItem" title={autoRefresh ? 'Auto-refresh on (every 5s) — click to turn the sync off' : 'Auto-refresh off — data only reloads on demand; click to turn the sync back on'} onClick={toggleAutoRefresh}>
-            {autoRefresh ? <RefreshCw size={15} /> : <Pause size={15} />}{!sidebarCollapsed && (autoRefresh ? 'Sync: on' : 'Sync: off')}
-          </button>
-          <button className="navItem" title={`Sign out (${authUser.username})`} onClick={() => void logout()}>
-            <LogOut size={15} />{!sidebarCollapsed && 'Log out'}
-          </button>
         </div>
       </aside>
 
