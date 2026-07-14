@@ -1954,8 +1954,6 @@ function App() {
     const names = Object.keys(healthByProvider);
     return { healthy: names.filter((name) => healthByProvider[name].healthy > 0).length, total: names.length };
   }, [healthByProvider]);
-  // Auxiliary tasks authenticate as one dedicated agent (exclusive aux_tasks role).
-  const auxHolder = agents.find((agent) => agent.aux_tasks);
   // Healthy models grouped by demand class — mirrors the per-agent breakdown on the Agents page.
   const taskGroups = useMemo(() => {
     const groups = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0, code: 0 };
@@ -2340,14 +2338,9 @@ function App() {
                 <strong>{healthy}/{providers.length}</strong>
                 <span className="metricSub">Providers <b className={providerTotals.healthy ? 'agentHealthy' : 'agentUnhealthy'}>{providerTotals.healthy}/{providerTotals.total}</b></span>
               </div>
-              <Metric icon={<Route />} label="Messages (30d)" value={`${usage?.totals.messages ?? 0}`} accent="accent-blue" />
-              <Metric icon={<Wrench />} label="Auxiliary agent" value={auxHolder?.name ?? '—'} accent="accent-amber" />
-              <div className="metric">
-                <div className="metricIcon accent-teal"><Layers /></div>
-                <span>Aux tasks usage (30d)</span>
-                <strong>{formatTokens(auxHolder?.tokens ?? 0)}</strong>
-                <span className="metricSub">Messages <b>{auxHolder?.messages ?? 0}</b></span>
-              </div>
+              <Metric icon={<Route />} label={`Messages (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={`${usage?.totals.messages ?? 0}`} accent="accent-blue" />
+              <Metric icon={<DollarSign />} label={`Real cost (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={formatCost(usage?.totals.cost ?? 0)} accent="accent-green" />
+              <Metric icon={<DollarSign />} label={`Reference cost (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={formatCost(usage?.totals.reference_cost ?? 0)} accent="accent-amber" />
             </section>
             <Panel title={<><span className="panelIcon accent-pink"><Layers size={15} /></span>Model groups</>} meta={`${healthy} healthy models · last ${usage?.days ?? 30} days`}>
               <div className="row taskGroups head">
