@@ -1102,6 +1102,8 @@ function App() {
   const [pricingModels, setPricingModels] = useState<PriceModel[]>([]);
   const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number; last_synced: string | null }>({ priced_count: 0, total_count: 0, last_synced: null });
   const [pricingSyncing, setPricingSyncing] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [refreshingHealth, setRefreshingHealth] = useState(false);
   const [pricingSearch, setPricingSearch] = useState('');
   const [demandData, setDemandData] = useState<DemandData | null>(null);
   const [demandDrafts, setDemandDrafts] = useState<Record<string, string[]>>({});
@@ -1286,7 +1288,9 @@ function App() {
   }
 
   async function runScan() {
+    if (scanning) return;
     // Full sync: re-discover, catalog and health-scan the free models of every provider.
+    setScanning(true);
     try {
       setScanStatus('full sync running… (may take a few minutes)');
       const data = await fetchJson('/admin/providers/resync', { method: 'POST' });
@@ -1302,11 +1306,15 @@ function App() {
     } catch (err) {
       setScanStatus('failed');
       setError(err instanceof Error ? err.message : 'Unknown scan error');
+    } finally {
+      setScanning(false);
     }
   }
 
   async function refreshHealth() {
+    if (refreshingHealth) return;
     // Light validation: re-check status and latency of the registered (enabled) models.
+    setRefreshingHealth(true);
     try {
       setScanStatus('validating status & latency…');
       const data = await fetchJson('/admin/providers/rescan', { method: 'POST' });
@@ -1327,6 +1335,8 @@ function App() {
     } catch (err) {
       setScanStatus('failed');
       setError(err instanceof Error ? err.message : 'Unknown refresh error');
+    } finally {
+      setRefreshingHealth(false);
     }
   }
 
@@ -2161,8 +2171,12 @@ function App() {
               </div>
               <div className="actions">
                 <button className="button" onClick={() => { setConnectOpen(!connectOpen); if (!connectOpen) setNewAgentKey(generateAgentKey()); }}><Plus size={15} /> Connect Agent</button>
-                <button className="button secondary" title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>Run scan</button>
-                <button className="button" title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>Refresh</button>
+                <button className="button secondary" disabled={scanning || refreshingHealth} title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>
+                  {scanning ? <Loader2 size={14} className="spin" /> : null} {scanning ? 'Scanning…' : 'Run scan'}
+                </button>
+                <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
+                  {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
+                </button>
               </div>
             </header>
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
@@ -2539,8 +2553,12 @@ function App() {
               <div className="actions">
                 {agentSelectRequired}
                 <button className="button secondary" onClick={() => openEditor(EMPTY_PROVIDER, null)}><Plus size={15} /> Add provider</button>
-                <button className="button secondary" title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>Run scan</button>
-                <button className="button" title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>Refresh</button>
+                <button className="button secondary" disabled={scanning || refreshingHealth} title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>
+                  {scanning ? <Loader2 size={14} className="spin" /> : null} {scanning ? 'Scanning…' : 'Run scan'}
+                </button>
+                <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
+                  {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
+                </button>
               </div>
             </header>
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
@@ -2740,7 +2758,9 @@ function App() {
                 <p className="subtitle">Distribute models by demand class. <span className="mono">forgerouter/auto</span> analyzes each request and routes it to the matching chain; unhealthy models are skipped automatically and re-enter when they recover.</p>
               </div>
               <div className="actions">
-                <button className="button" title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>Refresh</button>
+                <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
+                  {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
+                </button>
               </div>
             </header>
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
