@@ -40,3 +40,9 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    networks:
+      - foundation_network
+
+networks:
+  foundation_network:
+    external: true
