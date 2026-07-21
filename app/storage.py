@@ -965,6 +965,17 @@ def set_agent_description(name: str, description: str) -> bool:
     return updated
 
 
+def rename_agent(name: str, new_name: str) -> bool:
+    """Rename an agent. Safe to do at any time: route_events/agent_models/agent_providers
+    reference the agent by its stable agent_id, never by name."""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE ai_router.agents SET name = %s WHERE name = %s", (new_name, name))
+            updated = cur.rowcount > 0
+        conn.commit()
+    return updated
+
+
 def rotate_agent_key(name: str, api_key: str) -> bool:
     """Replace only the API key; the agent identity and its model controls are preserved."""
     with db_connect() as conn:

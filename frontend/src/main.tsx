@@ -1672,6 +1672,19 @@ function App() {
     }
   }
 
+  async function renameAgent(name: string) {
+    const newName = window.prompt(`Rename agent "${name}" to…`, name);
+    if (!newName?.trim() || newName.trim() === name) return;
+    try {
+      const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/name`, { method: 'PUT', body: JSON.stringify({ name: newName.trim() }) });
+      setScanStatus(`${name} renamed to ${data.agent}`);
+      setSelectedAgent(data.agent);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename agent');
+    }
+  }
+
   async function editAgentDescription(name: string, current: string) {
     const description = window.prompt(`Description for "${name}" — e.g. used by the Hermes auxiliary tasks`, current);
     if (description === null) return;
@@ -2221,7 +2234,7 @@ function App() {
                 // Task-group sizes over the agent's healthy models, mirroring the
                 // automatic chain bands: rank <30 simple, 30–49 standard, ≥50 complex;
                 // reasoning/vision/audio by catalog capability (a model may serve several groups).
-                const groups: Record<string, number> = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0 };
+                const groups: Record<string, number> = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0, code: 0 };
                 const categories: Record<string, number> = Object.fromEntries(CAPABILITIES.map((cap) => [cap, 0]));
                 const costs: Record<string, number> = { free: 0, paid: 0, local: 0 };
                 for (const id of agent.models) {
@@ -2233,6 +2246,7 @@ function App() {
                   if (caps.includes('reasoning')) groups.reasoning += 1;
                   if (caps.includes('vision')) groups.vision += 1;
                   if (caps.includes('audio')) groups.audio += 1;
+                  if (caps.includes('code')) groups.code += 1;
                   if (score >= 50) groups.complex += 1;
                   else if (score >= 30) groups.standard += 1;
                   else groups.simple += 1;
@@ -2284,7 +2298,10 @@ function App() {
               const agent = agents.find((item) => item.name === selectedAgent);
               if (!agent) return null;
               return (
-                <Panel title={`Set up agent: ${agent.name}`} meta={`created ${agent.created_at ? `${agent.created_at.slice(8, 10)}/${agent.created_at.slice(5, 7)}/${agent.created_at.slice(0, 4)}` : '-'}`}>
+                <Panel
+                  title={<>Set up agent: {agent.name} <button className="iconButton" title="Rename agent" onClick={() => void renameAgent(agent.name)}><Pencil size={13} /></button></>}
+                  meta={`created ${agent.created_at ? `${agent.created_at.slice(8, 10)}/${agent.created_at.slice(5, 7)}/${agent.created_at.slice(0, 4)}` : '-'}`}
+                >
                   <div className="setupRow"><span>API base URL</span><span className="mono">{window.location.origin}/v1</span><button className="iconButton" title="Copy base URL" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'base URL copied' : 'copy failed'))}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
@@ -2323,6 +2340,16 @@ function App() {
                       <h3>Model controls <span className="muted">— the agent only routes through its associated models; register providers on the Routing page with this agent selected, or search to add models manually</span></h3>
                       <div className="filters">
                         <input className="searchBox" type="search" placeholder="Search model to add…" value={agentModelSearch} onChange={(e) => setAgentModelSearch(e.target.value)} />
+                        <button
+                          className="button secondary"
+                          title="Add healthy models the agent doesn't already have (active or disabled)"
+                          onClick={() => setAgentModelsDraft((draft) => {
+                            const known = new Set([...draft, ...(agent.models_off ?? [])]);
+                            const newHealthyIds = registry.flatMap((provider) => provider.models.map((model) => model.id))
+                              .filter((id) => healthByModel[id] === 'healthy' && !known.has(id));
+                            return [...draft, ...newHealthyIds];
+                          })}
+                        >Add all healthy</button>
                         <button className="button secondary" disabled={savingAgentModels} onClick={() => void saveAgentModels(agent.name)}>{savingAgentModels ? 'Saving…' : `Save models (${agentModelsDraft.length})`}</button>
                       </div>
                     </div>

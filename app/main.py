@@ -68,6 +68,7 @@ from app.storage import (
     persist_health_results,
     persist_route_event,
     recent_route_events,
+    rename_agent,
     rotate_agent_key,
     runtime_degraded_models,
     session_user,
@@ -1586,6 +1587,37 @@ def admin_agent_set_description(name: str, payload: AgentDescriptionPayload, req
             content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
         )
     return {"status": "saved", "agent": name, "description": payload.description.strip()}
+
+
+class AgentNamePayload(BaseModel):
+    name: str
+
+
+@app.put("/admin/agents/{name}/name")
+def admin_agent_rename(name: str, payload: AgentNamePayload, request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    new_name = payload.name.strip()
+    if not new_name:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"message": "New agent name is required", "type": "invalid_payload"}},
+        )
+    try:
+        updated = rename_agent(name, new_name)
+    except Exception as exc:
+        duplicate = "unique" in str(exc).lower() or "duplicate" in str(exc).lower()
+        return JSONResponse(
+            status_code=409 if duplicate else 500,
+            content={"error": {"message": f"Agent already exists: {new_name}" if duplicate else str(exc), "type": "agent_rename_failed"}},
+        )
+    if not updated:
+        return JSONResponse(
+            status_code=404,
+            content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
+        )
+    return {"status": "saved", "agent": new_name, "previous": name}
 
 
 class AgentBudgetPayload(BaseModel):
