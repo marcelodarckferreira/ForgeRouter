@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.demand import classify_request, default_chain, resolve_demand
-from app.main import app
+from app.main import ChatCompletionRequest, ChatMessage, app, infer_capability
 from app.registry import ProviderModel, ProviderRegistry
 
 client = TestClient(app)
@@ -55,6 +55,43 @@ def test_classify_request_with_images_is_vision():
         {"type": "image_url", "image_url": {"url": "data:image/png;base64,xyz"}},
     ]}
     assert classify_request([image_msg], has_tools=False) == "vision"
+
+
+def test_infer_capability_prefers_vision_over_tool_call():
+    # An agentic request commonly attaches both tools and an image (e.g. a
+    # function-calling agent describing a screenshot). Images are a hard
+    # requirement — a non-vision model cannot read them at all — so vision
+    # must win over tool_call, or candidate selection silently drops every
+    # vision-capable model that lacks tool_call support.
+    request = ChatCompletionRequest(
+        model="forgerouter/auto",
+        tools=[{"type": "function", "function": {"name": "noop"}}],
+        messages=[
+            ChatMessage(role="user", content=[
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,xyz"}},
+                {"type": "text", "text": "o que aparece na imagem?"},
+            ])
+        ],
+    )
+    assert infer_capability(request) == "vision"
+
+
+def test_infer_capability_prefers_code_and_audio_demand_over_tool_call():
+    # Same intersection bug as vision: an agentic harness typically attaches
+    # tools to every request regardless of task type, so a code/audio demand
+    # must still hard-gate on its own catalog capability (default_chain's
+    # existing behaviour) instead of being narrowed to tool_call-only models
+    # first.
+    request = ChatCompletionRequest(
+        model="forgerouter/auto",
+        tools=[{"type": "function", "function": {"name": "noop"}}],
+        messages=[ChatMessage(role="user", content="refatore a função de login")],
+    )
+    assert infer_capability(request, demand="code") == "code"
+    assert infer_capability(request, demand="audio") == "audio"
+    # Demands that aren't catalog-gated (simple/standard/complex/reasoning) keep
+    # the existing tool_call/text behaviour.
+    assert infer_capability(request, demand="complex") == "tool_call"
 
 
 def test_default_chain_vision_only_uses_vision_capable():

@@ -113,11 +113,21 @@ class AnthropicMessagesRequest(BaseModel):
     stream: bool = False
 
 
-def infer_capability(request: ChatCompletionRequest) -> str:
-    if request.tools:
-        return "tool_call"
+def infer_capability(request: ChatCompletionRequest, demand: str | None = None) -> str:
+    # Images are a hard requirement (a non-vision model cannot read them at all),
+    # so they take priority over tool_call — an agentic request that attaches both
+    # tools and an image must still land on a vision-capable model.
     if messages_have_images(request.messages):
         return "vision"
+    # Audio/code are catalog particularities too (default_chain gates them the
+    # same way): an agentic request commonly attaches tools regardless of task
+    # type, so without this a code/audio-capable model that lacks tool_call
+    # support would be excluded from the initial candidate pool before
+    # default_chain ever gets to apply its own capability filter.
+    if demand in ("audio", "code"):
+        return demand
+    if request.tools:
+        return "tool_call"
     return "text"
 
 
@@ -551,7 +561,8 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     },
                 )
     registry = load_registry_with_db_health()
-    capability = infer_capability(request)
+    demand = resolve_demand(request.model, request.messages, bool(request.tools))
+    capability = infer_capability(request, demand)
     candidates = registry.healthy_for_capability(capability)
     allowed: set[str] | None = None
     if agent_name:
@@ -592,7 +603,6 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 ),
                 key=lambda model: (model.tier, -intelligence_score(model.id)),
             )
-    demand = resolve_demand(request.model, request.messages, bool(request.tools))
     if demand:
         # Demand-based routing (auto / forgerouter/<demand>): try the configured chain for
         # the demand class first (or the rank-derived default), then every other healthy
