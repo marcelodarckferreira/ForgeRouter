@@ -308,6 +308,7 @@ def test_usage_endpoint_returns_summary(monkeypatch):
         "totals": {"messages": 4, "tokens": 900, "cost": 0.0},
         "daily": [{"day": "2026-06-10", "messages": 4, "tokens": 900, "cost": 0.0}],
         "by_model": [{"model_id": "local/qwen2.5:1.5b", "messages": 4, "tokens": 900, "cost": 0.0, "pct_total": 100.0}],
+        "by_demand": [{"demand": "code", "messages": 4, "tokens": 900, "cost": 0.0, "reference_cost": 0.0, "pct_total": 100.0}],
     }
     monkeypatch.setattr("app.storage.usage_summary", lambda days=30, agent_name=None: summary)
 
@@ -315,6 +316,30 @@ def test_usage_endpoint_returns_summary(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == summary
+
+
+def test_usage_yearly_by_demand_endpoint(monkeypatch):
+    yearly = {
+        "year": 2026,
+        "by_demand": [
+            {"demand": "code", "months": {"7": {"messages": 150, "tokens": 4100000, "cost": 0.0, "reference_cost": 9.97}}, "totals": {"messages": 150, "tokens": 4100000, "cost": 0.0, "reference_cost": 9.97}},
+        ],
+    }
+    monkeypatch.setattr("app.storage.yearly_usage_by_demand", lambda year=None: yearly)
+
+    response = client.get("/admin/usage/yearly-by-demand")
+
+    assert response.status_code == 200
+    assert response.json() == yearly
+
+
+def test_usage_yearly_by_demand_endpoint_empty_fallback(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    response = client.get("/admin/usage/yearly-by-demand")
+
+    assert response.status_code == 200
+    assert response.json()["by_demand"] == []
 
 
 def test_provider_key_requires_token_when_configured(monkeypatch):

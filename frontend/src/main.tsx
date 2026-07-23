@@ -7,13 +7,16 @@ type ProviderHealth = { provider: string; model_id: string; tier: number; status
 type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; };
 type UsageDay = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
 type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
+type UsageDemand = { demand: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
 type AgentUsage = { agent: string; totals: { messages: number; tokens: number; cost: number; reference_cost: number }; daily: UsageDay[]; by_model: UsageModel[] };
 type UsageTotals = { messages: number; tokens: number; cost: number; reference_cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number; code_downgrades?: number };
-type Usage = { days: number; totals: UsageTotals; daily: UsageDay[]; by_model: UsageModel[]; by_agent?: AgentUsage[] };
+type Usage = { days: number; totals: UsageTotals; daily: UsageDay[]; by_model: UsageModel[]; by_demand?: UsageDemand[]; by_agent?: AgentUsage[] };
 type UsageMetric = 'messages' | 'tokens' | 'cost' | 'reference_cost';
 type MonthlyTotals = { messages: number; tokens: number; cost: number; reference_cost: number };
 type YearlyAgentUsage = { agent: string; months: Record<string, MonthlyTotals>; totals: MonthlyTotals };
 type YearlyUsage = { year: number; by_agent: YearlyAgentUsage[] };
+type YearlyDemandUsage = { demand: string; months: Record<string, MonthlyTotals>; totals: MonthlyTotals };
+type YearlyUsageByDemand = { year: number; by_demand: YearlyDemandUsage[] };
 type ProviderReady = { provider: string; tier: number; enabled: boolean; api_key_env: string; api_key_required: boolean; api_key_configured: boolean; api_key_source?: string; api_key_masked?: string; models: string[]; };
 type HealthInfo = { status: string; http_code: number | null; latency_ms: number | null; error: string | null };
 type RegistryModel = { id: string; provider_model: string; capabilities: string[]; enabled: boolean; healthy?: boolean; score?: number; health?: string; health_detail?: HealthInfo };
@@ -1074,6 +1077,7 @@ function App() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [usageMetric, setUsageMetric] = useState<UsageMetric>('messages');
   const [yearlyUsage, setYearlyUsage] = useState<YearlyUsage | null>(null);
+  const [yearlyDemandUsage, setYearlyDemandUsage] = useState<YearlyUsageByDemand | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<string | null>(null);
@@ -1431,6 +1435,12 @@ function App() {
         setYearlyUsage(yearly);
       } catch {
         // yearly usage is optional UI data
+      }
+      try {
+        const yearlyDemand = await fetchJson('/admin/usage/yearly-by-demand');
+        setYearlyDemandUsage(yearlyDemand);
+      } catch {
+        // yearly demand usage is optional UI data
       }
       try {
         const pricing = await fetchJson('/admin/pricing/models');
@@ -2018,8 +2028,10 @@ function App() {
     }
     return groups;
   }, [providers, scoreByModel, capsByModel]);
-  // Messages/tokens routed through each demand class, last `usage.days` days —
-  // a model may count toward more than one group (e.g. a complex vision model).
+  // Messages/tokens actually classified into each demand class, last `usage.days`
+  // days — real ground truth from route_events.demand (set by app/demand.py at
+  // request time), not inferred from which models happen to serve that capability.
+  // A message counts toward exactly one group, its resolved demand.
   const taskGroupUsage = useMemo(() => {
     const groups = {
       simple: { messages: 0, tokens: 0 },
@@ -2030,18 +2042,11 @@ function App() {
       audio: { messages: 0, tokens: 0 },
       code: { messages: 0, tokens: 0 },
     };
-    for (const item of usage?.by_model ?? []) {
-      const score = scoreByModel[item.model_id] ?? 0;
-      const caps = capsByModel[item.model_id] ?? [];
-      const memberGroups = new Set<keyof typeof groups>(caps.filter((cap): cap is keyof typeof groups => cap in groups));
-      memberGroups.add(score >= 50 ? 'complex' : score >= 30 ? 'standard' : 'simple');
-      for (const group of memberGroups) {
-        groups[group].messages += item.messages;
-        groups[group].tokens += item.tokens;
-      }
+    for (const item of usage?.by_demand ?? []) {
+      if (item.demand in groups) groups[item.demand as keyof typeof groups] = { messages: item.messages, tokens: item.tokens };
     }
     return groups;
-  }, [usage, scoreByModel, capsByModel]);
+  }, [usage]);
   // Manage Models lists the full catalog — every model is associated to every agent
   // by default; the Agent column shows (and toggles) the filtered agent's opt-out.
   const visibleProviders = providers
@@ -2485,6 +2490,44 @@ function App() {
                         <span><i className="legendDot" style={{ background: agentColor(index) }} />{agentRow.agent}</span>
                         {months.map((m) => <span key={m}>{formatMetricValue(agentRow.months[m]?.[usageMetric] ?? 0, usageMetric)}</span>)}
                         <span><b>{formatMetricValue(agentRow.totals[usageMetric], usageMetric)}</b></span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="row monthly foot" style={{ gridTemplateColumns: gridCols }}>
+                    <span>Total</span>
+                    {months.map((m) => <span key={m}>{formatMetricValue(monthTotals[m], usageMetric)}</span>)}
+                    <span><b>{formatMetricValue(grandTotal, usageMetric)}</b></span>
+                  </div>
+                </Panel>
+              );
+            })()}
+            {yearlyDemandUsage && yearlyDemandUsage.by_demand.length > 0 && (() => {
+              const currentMonth = new Date().getMonth() + 1;
+              const months = Array.from({ length: currentMonth }, (_, i) => i + 1);
+              const gridCols = `1.6fr ${months.map(() => '.8fr').join(' ')} .9fr`;
+              const monthTotals: Record<number, number> = {};
+              for (const month of months) monthTotals[month] = 0;
+              for (const demandRow of yearlyDemandUsage.by_demand) {
+                for (const month of months) monthTotals[month] += demandRow.months[month]?.[usageMetric] ?? 0;
+              }
+              const grandTotal = yearlyDemandUsage.by_demand.reduce((sum, d) => sum + d.totals[usageMetric], 0);
+              return (
+                <Panel
+                  title={<><span className="panelIcon accent-orange"><Code size={15} /></span>Monthly usage by demand</>}
+                  meta={`${yearlyDemandUsage.year} · resets every January`}
+                  extra={<span className="muted" title="Requests routed by a concrete model id (no forgerouter/auto or forgerouter/<demand>) have no demand and are not counted here">demand-routed only</span>}
+                >
+                  <div className="row monthly head" style={{ gridTemplateColumns: gridCols }}>
+                    <span>Demand</span>
+                    {months.map((m) => <span key={m}>{MONTH_LABELS[m - 1]}</span>)}
+                    <span>Total</span>
+                  </div>
+                  <div className="tableScroll">
+                    {yearlyDemandUsage.by_demand.map((demandRow) => (
+                      <div className="row monthly" style={{ gridTemplateColumns: gridCols }} key={demandRow.demand}>
+                        <span><DemandTag demand={demandRow.demand} /></span>
+                        {months.map((m) => <span key={m}>{formatMetricValue(demandRow.months[m]?.[usageMetric] ?? 0, usageMetric)}</span>)}
+                        <span><b>{formatMetricValue(demandRow.totals[usageMetric], usageMetric)}</b></span>
                       </div>
                     ))}
                   </div>

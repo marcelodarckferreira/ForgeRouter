@@ -1957,7 +1957,7 @@ def admin_usage(request: Request, days: int = 30, agent: str = ""):
     try:
         return usage_summary(max(1, min(days, 365)), agent_name=agent.strip() or None)
     except Exception:
-        return {"days": days, "totals": {"messages": 0, "tokens": 0, "cost": 0.0}, "daily": [], "by_model": []}
+        return {"days": days, "totals": {"messages": 0, "tokens": 0, "cost": 0.0}, "daily": [], "by_model": [], "by_demand": []}
 
 
 @app.get("/admin/usage/yearly")
@@ -1970,6 +1970,18 @@ def admin_usage_yearly(request: Request, year: int = 0):
         return yearly_usage_by_agent(year or None)
     except Exception:
         return {"year": year, "by_agent": []}
+
+
+@app.get("/admin/usage/yearly-by-demand")
+def admin_usage_yearly_by_demand(request: Request, year: int = 0):
+    # Read-only: per-demand-class monthly totals for the current year, combining
+    # archived ai_router.usage_monthly_demand rollups with live route_events.
+    from app.storage import yearly_usage_by_demand
+
+    try:
+        return yearly_usage_by_demand(year or None)
+    except Exception:
+        return {"year": year, "by_demand": []}
 
 
 @app.post("/admin/usage/archive")

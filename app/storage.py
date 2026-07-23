@@ -433,6 +433,20 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
     GROUP BY 1
     ORDER BY 3 DESC, 2 DESC
     """
+    by_demand_query = """
+    SELECT r.demand,
+           count(*) AS messages,
+           coalesce(sum(r.total_tokens), 0) AS tokens,
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
+    FROM ai_router.route_events r
+    JOIN ai_router.agents a ON a.agent_id = r.agent_id
+    WHERE r.created_at >= now() - make_interval(days => %(days)s)
+      AND (%(agent_name)s::text IS NULL OR a.name = %(agent_name)s)
+      AND r.demand IS NOT NULL
+    GROUP BY 1
+    ORDER BY 3 DESC, 2 DESC
+    """
     by_agent_daily_query = """
     SELECT a.name AS agent,
            r.created_at::date AS day,
@@ -490,6 +504,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             daily_rows = cur.fetchall()
             cur.execute(by_model_query, {"days": days, "agent_name": agent_name})
             model_rows = cur.fetchall()
+            cur.execute(by_demand_query, {"days": days, "agent_name": agent_name})
+            demand_rows = cur.fetchall()
             cur.execute(compaction_query, {"days": days, "agent_name": agent_name})
             compaction_row = cur.fetchone()
             cur.execute(code_downgrade_query, {"days": days, "agent_name": agent_name})
@@ -522,6 +538,17 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             "pct_total": round(100 * int(row[2]) / total_tokens, 1) if total_tokens else 0.0,
         }
         for row in model_rows
+    ]
+    by_demand = [
+        {
+            "demand": row[0],
+            "messages": row[1],
+            "tokens": int(row[2]),
+            "cost": float(row[3]),
+            "reference_cost": float(row[4]),
+            "pct_total": round(100 * int(row[2]) / total_tokens, 1) if total_tokens else 0.0,
+        }
+        for row in demand_rows
     ]
     by_agent: dict[str, dict[str, Any]] = {}
     for agent, day, messages, tokens, cost, reference_cost in agent_daily_rows:
@@ -579,6 +606,7 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
         },
         "daily": daily,
         "by_model": by_model,
+        "by_demand": by_demand,
         "by_agent": list(by_agent.values()),
     }
 
@@ -651,10 +679,82 @@ def yearly_usage_by_agent(year: int | None = None) -> dict[str, Any]:
     }
 
 
+def yearly_usage_by_demand(year: int | None = None) -> dict[str, Any]:
+    # Mirrors yearly_usage_by_agent, keyed by demand instead of agent: combines
+    # ai_router.usage_monthly_demand (written by archive_old_route_events) with
+    # live route_events for months not yet archived. Requests without a demand
+    # (a concrete model id was requested) are excluded — demand-routing-only.
+    # Caveat: usage_monthly_demand only exists from db/035 onward, so months
+    # archived (and their raw rows deleted) before that migration have no
+    # recoverable demand breakdown and will read 0 here even if the per-agent
+    # totals for the same month are non-zero.
+    resolved_year = year or datetime.now(timezone.utc).year
+    query = """
+    WITH archived AS (
+        SELECT u.demand, u.month, u.messages, u.tokens, u.cost, u.reference_cost
+        FROM ai_router.usage_monthly_demand u
+        WHERE u.year = %(year)s
+    ),
+    live AS (
+        SELECT r.demand,
+               extract(month FROM r.created_at)::int AS month,
+               count(*) AS messages,
+               coalesce(sum(r.total_tokens), 0) AS tokens,
+               coalesce(sum(r.cost), 0) AS cost,
+               coalesce(sum(r.reference_cost), 0) AS reference_cost
+        FROM ai_router.route_events r
+        WHERE r.demand IS NOT NULL
+          AND extract(year FROM r.created_at)::int = %(year)s
+        GROUP BY 1, 2
+    ),
+    combined AS (
+        SELECT * FROM archived
+        UNION ALL
+        SELECT * FROM live
+    )
+    SELECT demand,
+           month,
+           sum(messages) AS messages,
+           sum(tokens) AS tokens,
+           sum(cost) AS cost,
+           sum(reference_cost) AS reference_cost
+    FROM combined
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+    """
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, {"year": resolved_year})
+            rows = cur.fetchall()
+
+    by_demand: dict[str, dict[str, Any]] = {}
+    for demand, month, messages, tokens, cost, reference_cost in rows:
+        entry = by_demand.setdefault(
+            demand,
+            {"demand": demand, "months": {}, "totals": {"messages": 0, "tokens": 0, "cost": 0.0, "reference_cost": 0.0}},
+        )
+        entry["months"][int(month)] = {
+            "messages": messages,
+            "tokens": int(tokens),
+            "cost": float(cost),
+            "reference_cost": float(reference_cost),
+        }
+        entry["totals"]["messages"] += messages
+        entry["totals"]["tokens"] += int(tokens)
+        entry["totals"]["cost"] = round(entry["totals"]["cost"] + float(cost), 6)
+        entry["totals"]["reference_cost"] = round(entry["totals"]["reference_cost"] + float(reference_cost), 6)
+
+    return {
+        "year": resolved_year,
+        "by_demand": sorted(by_demand.values(), key=lambda item: item["demand"]),
+    }
+
+
 def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
     # Keeps the most recent `keep_months` months of raw route_events for the
     # Messages page; older rows are rolled up per agent/year/month into
-    # ai_router.usage_monthly and then deleted, bounding database/disk growth.
+    # ai_router.usage_monthly (and per demand/year/month into
+    # ai_router.usage_monthly_demand) and then deleted, bounding database/disk growth.
     aggregate_query = """
     SELECT r.agent_id,
            extract(year FROM r.created_at)::int AS year,
@@ -678,6 +778,31 @@ def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
         reference_cost = ai_router.usage_monthly.reference_cost + EXCLUDED.reference_cost,
         archived_at = now()
     """
+    # Requests without a demand (a concrete model id was requested, not forgerouter/
+    # auto or forgerouter/<demand>) are excluded — this rollup is demand-routing-only.
+    demand_aggregate_query = """
+    SELECT r.demand,
+           extract(year FROM r.created_at)::int AS year,
+           extract(month FROM r.created_at)::int AS month,
+           count(*) AS messages,
+           coalesce(sum(r.total_tokens), 0) AS tokens,
+           coalesce(sum(r.cost), 0) AS cost,
+           coalesce(sum(r.reference_cost), 0) AS reference_cost
+    FROM ai_router.route_events r
+    WHERE r.demand IS NOT NULL
+      AND r.created_at < %(cutoff)s
+    GROUP BY 1, 2, 3
+    """
+    demand_upsert_query = """
+    INSERT INTO ai_router.usage_monthly_demand (demand, year, month, messages, tokens, cost, reference_cost)
+    VALUES (%(demand)s, %(year)s, %(month)s, %(messages)s, %(tokens)s, %(cost)s, %(reference_cost)s)
+    ON CONFLICT (demand, year, month) DO UPDATE SET
+        messages = ai_router.usage_monthly_demand.messages + EXCLUDED.messages,
+        tokens = ai_router.usage_monthly_demand.tokens + EXCLUDED.tokens,
+        cost = ai_router.usage_monthly_demand.cost + EXCLUDED.cost,
+        reference_cost = ai_router.usage_monthly_demand.reference_cost + EXCLUDED.reference_cost,
+        archived_at = now()
+    """
     delete_query = "DELETE FROM ai_router.route_events WHERE created_at < %(cutoff)s"
 
     with db_connect() as conn:
@@ -694,6 +819,21 @@ def archive_old_route_events(keep_months: int = 2) -> dict[str, Any]:
                     upsert_query,
                     {
                         "agent_id": agent_id,
+                        "year": year,
+                        "month": month,
+                        "messages": messages,
+                        "tokens": int(tokens),
+                        "cost": float(cost),
+                        "reference_cost": float(reference_cost),
+                    },
+                )
+            cur.execute(demand_aggregate_query, {"cutoff": cutoff})
+            demand_rows = cur.fetchall()
+            for demand, year, month, messages, tokens, cost, reference_cost in demand_rows:
+                cur.execute(
+                    demand_upsert_query,
+                    {
+                        "demand": demand,
                         "year": year,
                         "month": month,
                         "messages": messages,
