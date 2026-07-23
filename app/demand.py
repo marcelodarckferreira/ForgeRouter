@@ -79,9 +79,23 @@ HISTORY_DISCOUNT = 4
 # ordinary chat to a fill-in-the-middle code model. Stripped before classification.
 _MEMORY_CONTEXT_RE = re.compile(r"<memory-context>.*?</memory-context>", re.DOTALL | re.IGNORECASE)
 
+# A second, untagged injection source: each Hermes profile's `pre_llm_call` hook
+# (knowledge_cycle.py, on every profile — not just Hindsight/Athos) appends its own
+# Foundation/Knowledge-Base excerpt to the user message with no wrapper at all, only
+# a fixed literal header, and always as the last thing in the message (turn_context.py
+# appends memory-context, then this hook's output, in that order). No tag to match —
+# truncate from the literal marker to the end of the string instead. Root-caused
+# 2026-07-23 on Athos: the memory-context strip alone didn't stop demand="code",
+# because this second block (which quotes file paths/skill docs) was still intact.
+_FOUNDATION_CONTEXT_MARKER = "[FOUNDATION / KNOWLEDGE BASE — CONTEXTO OPERACIONAL AUTOMÁTICO]"
+
 
 def _strip_injected_context(text: str) -> str:
-    return _MEMORY_CONTEXT_RE.sub("", text)
+    text = _MEMORY_CONTEXT_RE.sub("", text)
+    marker_index = text.find(_FOUNDATION_CONTEXT_MARKER)
+    if marker_index != -1:
+        text = text[:marker_index]
+    return text
 
 
 def _message_text(content: Any) -> str:
@@ -115,7 +129,23 @@ def messages_have_images(messages: list[Any]) -> bool:
     return False
 
 
+# How far into the last user message the code-hint/file-extension scan looks.
+# Clients that inject extra context (not just the known <memory-context> block —
+# e.g. a Hermes plugin's pre_llm_call "user_message" target, appended raw with no
+# wrapper tag at all) always append it *after* the human's own text
+# (turn_context.py: compose_user_api_content does `content + "\n\n" + injections`).
+# A software-engineering ecosystem's injected boilerplate is near-guaranteed to
+# contain a file extension or code-ish word somewhere in a multi-KB dump, which
+# made an unrelated one-word reply ("teste") classify as "code" — same failure
+# class as the <memory-context> incident, just via an injection with no tag to
+# strip. Bounding the scan to what a human plausibly typed avoids needing to know
+# every injection format a client might use.
+CODE_HINT_SCAN_CHARS = 2_000
+
+
 def _looks_like_code(text: str, lowered: str) -> bool:
+    text = text[:CODE_HINT_SCAN_CHARS]
+    lowered = lowered[:CODE_HINT_SCAN_CHARS]
     if "```" in text:
         return True
     return bool(_CODE_HINTS_RE.search(lowered) or _FILE_EXT_RE.search(lowered))
