@@ -540,7 +540,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 status_code=401,
                 content={
                     "error": {
-                        "message": "A valid agent API key is required (Authorization: Bearer hermes_…) — register the agent on the dashboard Agents page",
+                        "message": "A valid agent API key is required (Authorization: Bearer <agent-name>_…) — register the agent on the dashboard Agents page",
                         "type": "invalid_agent_key",
                     }
                 },
@@ -1513,11 +1513,14 @@ def auth_logout(request: Request):
 
 
 def _generate_agent_key(name: str) -> str:
-    # The agent name is baked into the key itself (hermes_<random>_<slug>) so a key
-    # pasted into the wrong agent's config is visually obvious at a glance — this
-    # is what actually would have caught Scriba silently running with Athos's key.
+    # The agent name is baked into the key itself, as a PREFIX (<slug>_<random>) rather
+    # than a suffix, because every masked display (mask_secret, dashboards) only ever
+    # shows the first few characters of a secret, never the tail — a key pasted into
+    # the wrong agent's config is only visually obvious at a glance if the name is the
+    # part that survives truncation. This is what actually would have caught Scriba
+    # silently running with Athos's key.
     slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-") or "agent"
-    return f"hermes_{secrets.token_urlsafe(30)}_{slug}"
+    return f"{slug}_{secrets.token_urlsafe(30)}"
 
 
 class AgentPayload(BaseModel):

@@ -51,7 +51,7 @@ def test_agent_create_generates_key(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["agent"] == "athos"
-    assert body["api_key"].startswith("hermes_")
+    assert body["api_key"].startswith("athos_")
     assert created == {"name": "athos", "api_key": body["api_key"], "description": ""}
 
 
@@ -87,7 +87,7 @@ def test_agent_rotate_key_keeps_identity(monkeypatch):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["api_key"].startswith("hermes_")
+    assert body["api_key"].startswith("athos_")
     assert rotated == {"name": "athos", "api_key": body["api_key"]}
 
 

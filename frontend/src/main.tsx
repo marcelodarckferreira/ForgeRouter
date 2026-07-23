@@ -1039,14 +1039,15 @@ function ProfilesAdminPage({ fetchJson }: { fetchJson: FetchJson }) {
 }
 
 // Client-side token generator for the agent registration form (same shape the server generates).
-// The agent name is baked in as a suffix so a key pasted into the wrong agent's
-// config is visually obvious at a glance (hermes_<random>_<slug>).
+// The agent name is baked in as a PREFIX (<slug>_<random>), not a suffix — masked displays
+// only ever show the first few characters of a secret, so the name has to be the part that
+// survives truncation for a key pasted into the wrong agent's config to look wrong at a glance.
 function generateAgentKey(name: string = ''): string {
   const bytes = new Uint8Array(30);
   crypto.getRandomValues(bytes);
   const base64 = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'agent';
-  return `hermes_${base64}_${slug}`;
+  return `${slug}_${base64}`;
 }
 
 /** Trusted SSO handoff from ForgeHub: the embedding page passes a freshly
