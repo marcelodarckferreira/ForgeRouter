@@ -70,14 +70,30 @@ STANDARD_MAX_CHARS = 8_000
 HISTORY_DISCOUNT = 4
 
 
+# Some clients (e.g. Hermes agents with the Hindsight memory plugin) inject recalled
+# memory/context directly into the user message's own text rather than a separate
+# system message. That block reflects the agent's persistent memory, not what the
+# human actually typed — for a software-engineering ecosystem it is near-guaranteed
+# to mention code, file paths or extensions, which made demand classification return
+# "code" for every single message regardless of content ("Oi", "Sim", ...), sending
+# ordinary chat to a fill-in-the-middle code model. Stripped before classification.
+_MEMORY_CONTEXT_RE = re.compile(r"<memory-context>.*?</memory-context>", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_injected_context(text: str) -> str:
+    return _MEMORY_CONTEXT_RE.sub("", text)
+
+
 def _message_text(content: Any) -> str:
     if isinstance(content, str):
-        return content
+        return _strip_injected_context(content)
     if isinstance(content, list):
-        return " ".join(
-            str(part.get("text", ""))
-            for part in content
-            if isinstance(part, dict) and part.get("type") == "text"
+        return _strip_injected_context(
+            " ".join(
+                str(part.get("text", ""))
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
         )
     return ""
 
