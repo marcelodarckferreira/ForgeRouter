@@ -11,8 +11,13 @@ ForgeRouter (formerly ProxyRouter; Hermes AI Proxy Router): a FastAPI service ex
 Everything runs in Docker — the host Python runtime does not have the required dependencies.
 
 ```bash
-# Build image
-docker compose build
+# Build image — always use this, not a bare `docker compose build`: it bakes the
+# commit into the image (GET /health exposes it) and retags the result as
+# forgerouter:<VERSION file> + forgerouter:latest, so every `docker run` below
+# always runs current code. (A plain `docker compose build` only produces
+# forgerouter-forgerouter:latest — the forgerouter:latest tag other tooling and
+# cron reference then goes stale silently; this bit us for over a week once.)
+./scripts/build.sh
 
 # Run all tests
 docker compose run --rm forgerouter pytest -q
@@ -25,16 +30,28 @@ docker compose run --rm forgerouter pytest tests/test_chat_fallback.py::test_cha
 # Ollama on 127.0.0.1:11434; the bridge-network docker-compose.yml cannot)
 docker compose -f docker-compose.local.yml up -d --build
 
-# Provider health scan (writes to DB with --persist)
-docker run --rm --network host --env-file .env \
-  forgerouter:latest python -m app.validation.scanner --persist
+# Provider health scan (writes to DB with --persist). Networking: the live service
+# joins foundation_network (docker-compose.yml), so one-off `docker run` invocations
+# (cron, ad hoc) must join the same network and re-add the host-gateway mapping
+# `docker compose` injects automatically (docker-compose.yml `extra_hosts`) — plain
+# --network host resolves host.docker.internal to a different address that
+# foundation_postgres's pg_hba.conf rejects, so DATABASE_URL connects fail silently.
+docker run --rm --network foundation_network --add-host=host.docker.internal:host-gateway \
+  --env-file .env forgerouter:latest python -m app.validation.scanner --persist
+
+# Rotating-batch health scan for cron (scans a % of the model pool per run instead of
+# all of it, so a frequent cadence doesn't burn free-tier quotas — see script docstring
+# for the suggested crontab line, flock guard and --percent tuning)
+docker run --rm --network foundation_network --add-host=host.docker.internal:host-gateway \
+  --env-file .env -e PYTHONPATH=/app forgerouter:latest python3 scripts/health_scan_sync.py --percent 20
 
 # Reference-cost pricing sync (catalog + live provider pricing + historical backfill;
 # same three steps as clicking Sync on the LLM Pricing dashboard page — put this in cron)
-docker run --rm --network host --env-file .env -e PYTHONPATH=/app \
-  forgerouter:latest python3 scripts/sync_pricing.py
+docker run --rm --network foundation_network --add-host=host.docker.internal:host-gateway \
+  --env-file .env -e PYTHONPATH=/app forgerouter:latest python3 scripts/sync_pricing.py
 
-# Health check
+# Health check (also reports version/git_sha — compare against `docker images`
+# or `git rev-parse HEAD` to catch a stale running container)
 curl http://127.0.0.1:2100/health
 ```
 

@@ -5,13 +5,14 @@ Same three steps as POST /admin/pricing/sync, runnable from the CLI/cron so
 pricing data doesn't only update when someone happens to click Sync in the
 dashboard — mirrors the health scanner's cron pattern (see CLAUDE.md).
 
-    docker run --rm --network host --env-file .env -e PYTHONPATH=/app \
-        forgerouter:latest python3 scripts/sync_pricing.py
+    docker run --rm --network foundation_network --add-host=host.docker.internal:host-gateway \
+        --env-file .env -e PYTHONPATH=/app forgerouter:latest python3 scripts/sync_pricing.py
 
 Suggested host crontab (weekly, prices don't move fast enough to need more):
-    0 6 * * 1 cd /path/to/forgerouter && docker run --rm --network host \
-        --env-file .env -e PYTHONPATH=/app forgerouter:latest \
-        python3 scripts/sync_pricing.py >> /var/log/forgerouter-pricing-sync.log 2>&1
+    0 6 * * 1 cd /path/to/forgerouter && docker run --rm --network foundation_network \
+        --add-host=host.docker.internal:host-gateway --env-file .env -e PYTHONPATH=/app \
+        forgerouter:latest python3 scripts/sync_pricing.py \
+        >> /var/log/forgerouter-pricing-sync.log 2>&1
 """
 
 from __future__ import annotations

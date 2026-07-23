@@ -185,9 +185,19 @@ def frontend_index():
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
     return {"service": "ForgeRouter", "dashboard": "not_built"}
 
+def _read_version() -> str:
+    try:
+        return Path("VERSION").read_text(encoding="utf-8").strip()
+    except Exception:
+        return "unknown"
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    # version/git_sha identify exactly what code is running — compare against
+    # `docker images`/`git rev-parse HEAD` to catch a stale image before it bites
+    # (see CLAUDE.md: forgerouter:latest went stale for over a week undetected).
+    return {"status": "ok", "version": _read_version(), "git_sha": os.environ.get("FORGEROUTER_GIT_SHA", "unknown")}
 
 
 @app.get("/v1/models")
