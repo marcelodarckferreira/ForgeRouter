@@ -11,6 +11,14 @@ ENV FORGEROUTER_GIT_SHA=$GIT_SHA
 
 WORKDIR /app
 
+# systemctl + the D-Bus client: talks to the HOST's systemd over the mounted
+# /run/systemd + /run/dbus sockets (docker-compose.yml) so POST
+# /admin/agents/{name}/rotate-key can restart that agent's gateway service
+# after writing its new key to its config file. This container does not run
+# its own systemd — these are just the client tools.
+RUN apt-get update && apt-get install -y --no-install-recommends systemd dbus \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 

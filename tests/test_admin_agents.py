@@ -81,6 +81,8 @@ def test_agent_key_reveal_requires_admin_token(monkeypatch):
 
 def test_agent_rotate_key_keeps_identity(monkeypatch):
     rotated = {}
+    monkeypatch.setattr("app.main.get_agent_api_key", lambda name: "athos_oldkey")
+    monkeypatch.setattr("app.main.get_agent_deploy_config", lambda name: None)
     monkeypatch.setattr("app.main.rotate_agent_key", lambda name, api_key: rotated.update(name=name, api_key=api_key) or True)
 
     response = client.post("/admin/agents/athos/rotate-key")
@@ -89,6 +91,27 @@ def test_agent_rotate_key_keeps_identity(monkeypatch):
     body = response.json()
     assert body["api_key"].startswith("athos_")
     assert rotated == {"name": "athos", "api_key": body["api_key"]}
+    assert body["deploy"]["status"] == "no_config"
+
+
+def test_agent_rotate_key_applies_deploy_config(monkeypatch, tmp_path):
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("providers:\n  forgerouter:\n    api_key: athos_oldkey\n")
+    monkeypatch.setattr("app.main.get_agent_api_key", lambda name: "athos_oldkey")
+    monkeypatch.setattr(
+        "app.main.get_agent_deploy_config",
+        lambda name: {"config_path": str(config_file), "config_format": "yaml", "config_key": "providers.forgerouter.api_key", "restart_service": None},
+    )
+    monkeypatch.setattr("app.main.rotate_agent_key", lambda name, api_key: True)
+
+    response = client.post("/admin/agents/athos/rotate-key")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deploy"]["applied"] is True
+    assert body["deploy"]["status"] == "written"
+    assert body["api_key"] in config_file.read_text()
+    assert "athos_oldkey" not in config_file.read_text()
 
 
 def test_agent_duplicate_copies_controls(monkeypatch):

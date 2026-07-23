@@ -27,6 +27,7 @@ from app.routing_state import (
 )
 from app.registry import load_registry, load_registry_with_db_health, provider_readiness
 from app.providers.openai_compatible import build_chat_payload, chat_completion
+from app.deploy_config import apply_agent_deploy_config
 from app.validation.health import detect_silent_failure
 from app.storage import (
     agent_allowed_models,
@@ -57,6 +58,8 @@ from app.storage import (
     update_user,
     user_permissions,
     get_agent_api_key,
+    get_agent_deploy_config,
+    set_agent_deploy_config,
     get_demand_routes,
     get_setting,
     has_any_agent,
@@ -1569,10 +1572,15 @@ def admin_agent_create(payload: AgentPayload, request: Request):
 
 @app.post("/admin/agents/{name}/rotate-key")
 def admin_agent_rotate_key(name: str, request: Request):
-    """Generate a new API key for the agent. Model/provider controls are kept (tied to the agent, not the key)."""
+    """Generate a new API key for the agent. Model/provider controls are kept (tied to the agent, not the key).
+    If the agent has a deploy-config (PUT /admin/agents/{name}/deploy-config), the new key is also
+    written into the agent's own runtime config file and its service restarted — synchronously, in
+    this same request, so a failure is reported back immediately rather than left as a silent stale
+    key (see the Scriba/Athos key-mixup incident, 06-INCIDENTE-KEY-TROCADA-ENTRE-AGENTES.md)."""
     auth_error = require_admin(request)
     if auth_error:
         return auth_error
+    old_key = get_agent_api_key(name)
     api_key = _generate_agent_key(name)
     try:
         rotated = rotate_agent_key(name, api_key)
@@ -1586,7 +1594,20 @@ def admin_agent_rotate_key(name: str, request: Request):
             status_code=404,
             content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
         )
-    return {"status": "rotated", "agent": name, "api_key": api_key}
+    deploy_result = {"applied": False, "status": "no_config", "detail": "No deploy-config set for this agent — key rotated in the database only."}
+    if old_key:
+        try:
+            deploy_config = get_agent_deploy_config(name) or {}
+        except Exception:
+            deploy_config = {}
+        deploy_result = apply_agent_deploy_config(
+            old_key,
+            api_key,
+            deploy_config.get("config_path"),
+            deploy_config.get("config_format"),
+            deploy_config.get("restart_service"),
+        )
+    return {"status": "rotated", "agent": name, "api_key": api_key, "deploy": deploy_result}
 
 
 @app.post("/admin/agents/{name}/duplicate")
@@ -1640,6 +1661,55 @@ def admin_agent_set_description(name: str, payload: AgentDescriptionPayload, req
             content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
         )
     return {"status": "saved", "agent": name, "description": payload.description.strip()}
+
+
+class AgentDeployConfigPayload(BaseModel):
+    config_path: str = ""  # empty = clear (rotate-key goes back to DB-only for this agent)
+    config_format: str = ""  # "yaml" | "env" | "" (clear)
+    config_key: str = ""  # documentation only today (e.g. providers.forgerouter.api_key or FORGEROUTER_API_KEY) — the actual write is an exact-match string replace, not a parser
+    restart_service: str = ""  # systemd unit to restart after the write; empty = nothing to restart
+
+
+@app.get("/admin/agents/{name}/deploy-config")
+def admin_agent_get_deploy_config(name: str, request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    try:
+        config = get_agent_deploy_config(name)
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": {"message": str(exc), "type": "agent_deploy_config_failed"}})
+    if config is None:
+        return JSONResponse(status_code=404, content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}})
+    return {"agent": name, **config}
+
+
+@app.put("/admin/agents/{name}/deploy-config")
+def admin_agent_set_deploy_config(name: str, payload: AgentDeployConfigPayload, request: Request):
+    """Where this agent's own runtime config lives, so rotate-key can write the new key there
+    directly (and restart its service) instead of leaving it silently stale."""
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    config_format = payload.config_format.strip() or None
+    if config_format is not None and config_format not in ("yaml", "env"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"message": "config_format must be 'yaml', 'env', or empty", "type": "invalid_payload"}},
+        )
+    try:
+        updated = set_agent_deploy_config(
+            name,
+            payload.config_path.strip() or None,
+            config_format,
+            payload.config_key.strip() or None,
+            payload.restart_service.strip() or None,
+        )
+    except Exception as exc:
+        return JSONResponse(status_code=500, content={"error": {"message": str(exc), "type": "agent_deploy_config_failed"}})
+    if not updated:
+        return JSONResponse(status_code=404, content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}})
+    return {"status": "saved", "agent": name}
 
 
 class AgentNamePayload(BaseModel):

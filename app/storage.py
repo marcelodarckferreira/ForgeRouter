@@ -1002,7 +1002,8 @@ def delete_provider(name: str) -> bool:
 
 def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
     agents_query = """
-    SELECT name, api_key, enabled, created_at, description, aux_tasks, budget_limit_usd, budget_action
+    SELECT name, api_key, enabled, created_at, description, aux_tasks, budget_limit_usd, budget_action,
+           config_path, config_format, config_key, restart_service
     FROM ai_router.agents
     ORDER BY created_at, name
     """
@@ -1053,6 +1054,10 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
             "aux_tasks": bool(row[5]),
             "budget_limit_usd": float(row[6]) if row[6] is not None else None,
             "budget_action": row[7] or "alert",
+            "config_path": row[8] or "",
+            "config_format": row[9] or "",
+            "config_key": row[10] or "",
+            "restart_service": row[11] or "",
             "month_spend": 0.0,
             "messages": 0,
             "tokens": 0,
@@ -1319,6 +1324,49 @@ def set_agent_budget(agent_name: str, limit_usd: float | None, action: str) -> b
             cur.execute(
                 "UPDATE ai_router.agents SET budget_limit_usd = %s, budget_action = %s WHERE name = %s",
                 (limit_usd, action, agent_name),
+            )
+            updated = cur.rowcount > 0
+        conn.commit()
+    return updated
+
+
+def get_agent_deploy_config(agent_name: str) -> dict | None:
+    """Where an agent's own runtime config lives, so rotate-key can write the
+    freshly rotated key there directly. None fields (the default) mean
+    rotate-key stays DB-only for that agent, exactly like before this existed."""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT config_path, config_format, config_key, restart_service FROM ai_router.agents WHERE name = %s",
+                (agent_name,),
+            )
+            row = cur.fetchone()
+    if not row:
+        return None
+    return {
+        "config_path": row[0],
+        "config_format": row[1],
+        "config_key": row[2],
+        "restart_service": row[3],
+    }
+
+
+def set_agent_deploy_config(
+    agent_name: str,
+    config_path: str | None,
+    config_format: str | None,
+    config_key: str | None,
+    restart_service: str | None,
+) -> bool:
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE ai_router.agents
+                SET config_path = %s, config_format = %s, config_key = %s, restart_service = %s
+                WHERE name = %s
+                """,
+                (config_path, config_format, config_key, restart_service, agent_name),
             )
             updated = cur.rowcount > 0
         conn.commit()

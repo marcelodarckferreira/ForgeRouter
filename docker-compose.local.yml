@@ -32,6 +32,16 @@ services:
       # actually persists across deploys, the same way the repo file does.
       - ./config/model_pricing.json:/app/config/model_pricing.json
       - ./config/model_pricing_live.json:/app/config/model_pricing_live.json
+      # --- Agent deploy-config + systemd/D-Bus client sockets: see docker-compose.yml
+      # for the full rationale (db/036_agent_deploy_config.sql, rotate-key auto-apply).
+      - ~/.hermes/profiles:/root/.hermes/profiles
+      - ~/.claude/.env:/root/.claude/.env
+      - ~/.codex/.env:/root/.codex/.env
+      - ~/.gemini/config/.env:/root/.gemini/config/.env
+      - ~/.openclaw/.env:/root/.openclaw/.env
+      - /run/systemd:/run/systemd
+      - /run/dbus:/run/dbus
+    pid: host
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:2100/health', timeout=5)"]

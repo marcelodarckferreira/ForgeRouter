@@ -28,7 +28,7 @@ type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string;
 type Attachment = { id: string; url: string; name: string };
 
 type AgentDaily = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
-type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[] };
+type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
 
@@ -1663,11 +1663,62 @@ function App() {
     if (!window.confirm(`Generate a new API key for "${name}"? The current key stops working immediately, but the agent keeps all of its provider/model controls.`)) return;
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/rotate-key`, { method: 'POST' });
-      setScanStatus((await copyText(data.api_key)) ? `${name}: new API key copied — update the agent's connection settings` : `${name}: new key is ${data.api_key}`);
+      const deploy = data.deploy as { applied?: boolean; status?: string; detail?: string } | undefined;
+      if (deploy && deploy.applied && (deploy.status === 'applied' || deploy.status === 'written')) {
+        // Config file + service already updated by the backend — nothing left for the operator to paste.
+        setScanStatus(`${name}: key rotated — ${deploy.detail}`);
+      } else if (deploy && deploy.status !== 'no_config') {
+        // A deploy-config exists but applying it failed — the DB key IS new; the file is NOT.
+        // This must read as an error, not a quiet status line, or it's exactly the silent-stale-key bug again.
+        setError(`${name}: key rotated in the database, but the config file was NOT updated — ${deploy.detail}`);
+      } else {
+        setScanStatus((await copyText(data.api_key)) ? `${name}: new API key copied — update the agent's connection settings` : `${name}: new key is ${data.api_key}`);
+      }
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rotate the agent key');
     }
+  }
+
+  async function saveAgentDeployConfig(name: string, config: { config_path: string; config_format: string; config_key: string; restart_service: string }) {
+    try {
+      await fetchJson(`/admin/agents/${encodeURIComponent(name)}/deploy-config`, { method: 'PUT', body: JSON.stringify(config) });
+      setScanStatus(`${name}: deploy-config saved`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save deploy-config');
+    }
+  }
+
+  async function editAgentDeployConfig(name: string, agent: AgentInfo) {
+    const configPath = window.prompt(
+      `Config file path for "${name}" (as seen INSIDE the forgerouter container — e.g. /root/.hermes/profiles/${name.toLowerCase()}/config.yaml or /root/.claude/.env). Leave blank to clear — rotate-key then stays DB-only for this agent.`,
+      agent.config_path || '',
+    );
+    if (configPath === null) return;
+    if (!configPath.trim()) {
+      await saveAgentDeployConfig(name, { config_path: '', config_format: '', config_key: '', restart_service: '' });
+      return;
+    }
+    const formatInput = window.prompt(`Config format for "${name}" — type "yaml" (nested key in a YAML file) or "env" (KEY=value line)`, agent.config_format || 'env');
+    if (formatInput === null) return;
+    const configFormat = formatInput.trim().toLowerCase() === 'yaml' ? 'yaml' : 'env';
+    const configKey = window.prompt(
+      `Key name for "${name}" — documentation only (the write itself replaces the old key value verbatim): e.g. providers.forgerouter.api_key (yaml) or FORGEROUTER_API_KEY (env)`,
+      agent.config_key || (configFormat === 'yaml' ? 'providers.forgerouter.api_key' : 'FORGEROUTER_API_KEY'),
+    );
+    if (configKey === null) return;
+    const restartService = window.prompt(
+      `systemd service to restart after writing the new key for "${name}" (leave blank if nothing needs restarting — e.g. CLI-invoked agents like Aramis/Porthos/Dartan pick it up on their next run)`,
+      agent.restart_service || `hermes-gateway-${name.toLowerCase()}.service`,
+    );
+    if (restartService === null) return;
+    await saveAgentDeployConfig(name, {
+      config_path: configPath.trim(),
+      config_format: configFormat,
+      config_key: configKey.trim(),
+      restart_service: restartService.trim(),
+    });
   }
 
   async function duplicateAgent(name: string) {
@@ -2345,6 +2396,19 @@ function App() {
                       )}
                     </span>
                     <button className="iconButton" title="Set a monthly reference-cost budget for this agent" onClick={() => void editAgentBudget(agent.name, agent.budget_limit_usd, agent.budget_action)}><Pencil size={13} /></button>
+                  </div>
+                  <div className="setupRow">
+                    <span>Deploy-config</span>
+                    <span>
+                      {agent.config_path ? (
+                        <>
+                          <span className="mono">{agent.config_path}</span> ({agent.config_format || 'env'}){agent.restart_service ? <> · restarts <span className="mono">{agent.restart_service}</span></> : null}
+                        </>
+                      ) : (
+                        <span className="muted">not set — Rotate only updates the database key</span>
+                      )}
+                    </span>
+                    <button className="iconButton" title="Set where this agent's own runtime config lives, so Rotate can write the new key there and restart it" onClick={() => void editAgentDeployConfig(agent.name, agent)}><Pencil size={13} /></button>
                   </div>
                   <div className="setupRow">
                     <span>Actions</span>

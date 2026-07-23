@@ -32,6 +32,30 @@ services:
       # actually persists across deploys, the same way the repo file does.
       - ./config/model_pricing.json:/app/config/model_pricing.json
       - ./config/model_pricing_live.json:/app/config/model_pricing_live.json
+      # --- Agent deploy-config (read-write): lets POST /admin/agents/{name}/rotate-key
+      # write the freshly rotated key straight into the agent's own runtime config
+      # (db/036_agent_deploy_config.sql: agents.config_path/config_format/config_key),
+      # instead of leaving the agent silently stuck on a stale key until someone
+      # notices — see the Scriba/Athos key-mixup incident, 2026-07-23. Each mount
+      # below is deliberately scoped to exactly the file the deploy-config write
+      # touches, not the whole profile directory. The ~/.codex and ~/.gemini
+      # entries above stay read-only for OAuth token safety; the .env mount for
+      # each is a more specific nested bind that overrides just that one file.
+      - ~/.hermes/profiles:/root/.hermes/profiles
+      - ~/.claude/.env:/root/.claude/.env
+      - ~/.codex/.env:/root/.codex/.env
+      - ~/.gemini/config/.env:/root/.gemini/config/.env
+      - ~/.openclaw/.env:/root/.openclaw/.env
+      # --- systemd/D-Bus client sockets (read-write; matched by `pid: host` below):
+      # required for `systemctl restart <unit>` run inside the container to reach
+      # the HOST's systemd instance and actually restart an agent's gateway after
+      # its config is rewritten. Verified empirically 2026-07-23: the D-Bus
+      # handshake fails ("Failed to connect to bus") without pid: host, even with
+      # these sockets mounted — systemd authenticates over peer credentials that
+      # require the same PID namespace.
+      - /run/systemd:/run/systemd
+      - /run/dbus:/run/dbus
+    pid: host
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
