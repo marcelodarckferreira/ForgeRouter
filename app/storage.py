@@ -470,6 +470,20 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
       AND r.prompt_tokens_raw IS NOT NULL
       AND r.prompt_tokens_compacted IS NOT NULL
     """
+    # Requests classified as "code" that had to be served off the general pool
+    # because zero code-capable models were healthy at the time (app/main.py's
+    # capability downgrade) — required_capability then reads something other
+    # than "code". Counted separately from misclassification: this is a
+    # capacity signal ("no code option was available"), not a routing mistake.
+    code_downgrade_query = """
+    SELECT count(*)
+    FROM ai_router.route_events r
+    JOIN ai_router.agents a ON a.agent_id = r.agent_id
+    WHERE r.created_at >= now() - make_interval(days => %(days)s)
+      AND (%(agent_name)s::text IS NULL OR a.name = %(agent_name)s)
+      AND r.demand = 'code'
+      AND r.required_capability IS DISTINCT FROM 'code'
+    """
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(daily_query, {"days": days, "agent_name": agent_name})
@@ -478,6 +492,8 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             model_rows = cur.fetchall()
             cur.execute(compaction_query, {"days": days, "agent_name": agent_name})
             compaction_row = cur.fetchone()
+            cur.execute(code_downgrade_query, {"days": days, "agent_name": agent_name})
+            code_downgrade_row = cur.fetchone()
             agent_daily_rows: list = []
             agent_model_rows: list = []
             if agent_name is None:
@@ -548,6 +564,7 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
         )
     tokens_raw = int(compaction_row[0]) if compaction_row else 0
     tokens_saved = int(compaction_row[1]) if compaction_row else 0
+    code_downgrades = int(code_downgrade_row[0]) if code_downgrade_row else 0
     return {
         "days": days,
         "totals": {
@@ -558,6 +575,7 @@ def usage_summary(days: int = 30, agent_name: str | None = None) -> dict[str, An
             "tokens_raw": tokens_raw,
             "tokens_saved": tokens_saved,
             "pct_saved": round(100 * tokens_saved / tokens_raw, 1) if tokens_raw else 0.0,
+            "code_downgrades": code_downgrades,
         },
         "daily": daily,
         "by_model": by_model,

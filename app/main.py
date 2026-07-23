@@ -564,6 +564,18 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     demand = resolve_demand(request.model, request.messages, bool(request.tools))
     capability = infer_capability(request, demand)
     candidates = registry.healthy_for_capability(capability)
+    capability_downgraded = False
+    if demand == "code" and not candidates:
+        # Code-capable is a quality preference, not a hard requirement like vision
+        # (a non-code model can still write code, just not as well) — so instead of
+        # hard-failing when zero code-capable models are healthy, fall back to the
+        # general pool. required_capability on the persisted route event records
+        # the downgrade: demand="code" with required_capability != "code" is the
+        # countable "no code option available" signal, distinct from ordinary
+        # misclassification (where required_capability would still read "code").
+        capability = "tool_call" if request.tools else "text"
+        candidates = registry.healthy_for_capability(capability)
+        capability_downgraded = True
     allowed: set[str] | None = None
     if agent_name:
         # Per-agent model controls: the agent routes only to its associated models.
@@ -607,12 +619,21 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         # Demand-based routing (auto / forgerouter/<demand>): try the configured chain for
         # the demand class first (or the rank-derived default), then every other healthy
         # candidate — small jobs stay on small models, preserving free-tier quotas.
-        try:
-            chain_ids = get_demand_routes().get(demand) or []
-        except Exception:
-            chain_ids = []
-        if not chain_ids:
-            chain_ids = [model.id for model in default_chain(candidates, demand, performance=model_performance_cached())]
+        if capability_downgraded:
+            # No configured/default chain applies to the downgraded general pool —
+            # rank every healthy candidate best-to-worst (same dynamic_score used
+            # to order every other chain) instead of a fixed demand-specific list.
+            from app.ranking import dynamic_score
+
+            performance = model_performance_cached()
+            chain_ids = [model.id for model in sorted(candidates, key=lambda model: -dynamic_score(model.id, performance))]
+        else:
+            try:
+                chain_ids = get_demand_routes().get(demand) or []
+            except Exception:
+                chain_ids = []
+            if not chain_ids:
+                chain_ids = [model.id for model in default_chain(candidates, demand, performance=model_performance_cached())]
         order = {model_id: position for position, model_id in enumerate(chain_ids)}
         # Sticky routing: the last model that succeeded for this agent+demand goes
         # first (even ahead of the chain head) — staying on the same model across a

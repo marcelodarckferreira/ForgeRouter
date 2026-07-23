@@ -185,6 +185,42 @@ def test_chat_demand_chain_falls_back(monkeypatch):
     assert calls == ["local/qwen2.5:1.5b", "groq/llama-3.3-70b-versatile"]
 
 
+def test_chat_code_demand_falls_back_when_no_code_capable_model(monkeypatch):
+    # No model in the pool has the "code" capability — the old behaviour hard-failed
+    # (503 no_healthy_provider) here. Code-capable is a quality preference, not a
+    # hard requirement like vision, so this must still route (to the best general
+    # model) instead of blocking, and the persisted event must record the downgrade
+    # (demand="code" but required_capability != "code") as the countable
+    # "no code option available" signal.
+    big = model("openrouter/deepseek-r1:free", 2, ["text", "reasoning"])
+    small = model("local/qwen2.5:1.5b", 4)
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([small, big]))
+    monkeypatch.setattr("app.main.get_demand_routes", lambda: {})
+    persisted = {}
+
+    def fake_persist(request_id, model_id, capability, *args, **kwargs):
+        persisted.update(kwargs)
+        persisted["capability"] = capability
+
+    monkeypatch.setattr("app.main.persist_route_event", fake_persist)
+
+    calls = []
+
+    def fake_chat_completion(selected, payload):
+        calls.append(selected.id)
+        return 200, {"choices": [{"message": {"content": "OK"}}]}
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post("/v1/chat/completions", json={"model": "forgerouter/code", "messages": [msg("refatore a função de login")]})
+
+    assert response.status_code == 200
+    # Ranked best-to-worst across the general pool: the higher-scored model goes first.
+    assert calls == ["openrouter/deepseek-r1:free"]
+    assert persisted["demand"] == "code"
+    assert persisted["capability"] != "code"
+
+
 def test_models_endpoint_exposes_virtual_models(monkeypatch):
     monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model("p1/m", 1)]))
 

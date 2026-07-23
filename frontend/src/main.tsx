@@ -4,11 +4,11 @@ import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDo
 import './style.css';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
-type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; };
+type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; };
 type UsageDay = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
 type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
 type AgentUsage = { agent: string; totals: { messages: number; tokens: number; cost: number; reference_cost: number }; daily: UsageDay[]; by_model: UsageModel[] };
-type UsageTotals = { messages: number; tokens: number; cost: number; reference_cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number };
+type UsageTotals = { messages: number; tokens: number; cost: number; reference_cost: number; tokens_raw?: number; tokens_saved?: number; pct_saved?: number; code_downgrades?: number };
 type Usage = { days: number; totals: UsageTotals; daily: UsageDay[]; by_model: UsageModel[]; by_agent?: AgentUsage[] };
 type UsageMetric = 'messages' | 'tokens' | 'cost' | 'reference_cost';
 type MonthlyTotals = { messages: number; tokens: number; cost: number; reference_cost: number };
@@ -61,6 +61,16 @@ const DEMAND_GROUP_STYLE: Record<string, { accent: string; icon: React.ReactNode
   audio: { accent: 'accent-teal', icon: <AudioLines size={13} /> },
   code: { accent: 'accent-orange', icon: <Code size={13} /> },
 };
+
+function DemandTag({ demand }: { demand: string | null }) {
+  if (!demand) return <span className="muted">-</span>;
+  const style = DEMAND_GROUP_STYLE[demand];
+  return (
+    <span className={`demandTag ${style ? style.accent.replace('accent-', 'text-') : ''}`}>
+      {style?.icon}{demand}
+    </span>
+  );
+}
 
 const EMPTY_PROVIDER: RegistryProvider = { name: '', tier: 3, base_url: '', api_key_env: '', api_key: '', enabled: true, models: [], access_type: 'api_key', cost_type: 'free', api_format: 'openai', auth_config: {} };
 
@@ -2415,6 +2425,11 @@ function App() {
                     <div className="groupStats">
                       <span className="statRow">Messages <b>{taskGroupUsage[group].messages}</b></span>
                       <span className="statRow">Tokens <b>{formatTokens(taskGroupUsage[group].tokens)}</b></span>
+                      {group === 'code' && (
+                        <span className="statRow" title="Code requests served off the general model pool because zero code-capable models were healthy at the time — a capacity gap, not a misclassification">
+                          No provider <b>{usage?.totals.code_downgrades ?? 0}</b>
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -2540,7 +2555,7 @@ function App() {
             </header>
             {error && <div className="alert">{error}</div>}
             <Panel title="Messages" meta={`${visibleRoutes.length}/${routes.length} shown`}>
-              <div className="row msg head"><span>Date</span><span>Status</span><span>Model</span><span>Agent</span><span>Tokens</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span><span>% total</span><span /></div>
+              <div className="row msg head"><span>Date</span><span>Status</span><span>Model</span><span title="Demand class the request was classified into (forgerouter/auto and forgerouter/<demand> requests only)">Demand</span><span>Agent</span><span>Tokens</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span><span>% total</span><span /></div>
               <div className="tableScroll">
               {visibleRoutes.map((route) => (
                 <React.Fragment key={route.route_id}>
@@ -2548,6 +2563,7 @@ function App() {
                     <span className="mono small">{formatDate(route.created_at)}</span>
                     <span><b className={`status ${route.status}`}>{route.status}</b></span>
                     <span className="mono">{route.model_id ?? '-'}</span>
+                    <span><DemandTag demand={route.demand} /></span>
                     <span className="caps">{route.agent ? <i className="cap agentChip">{route.agent}</i> : <span className="muted">-</span>}</span>
                     <span>{formatTokens(route.total_tokens)}</span>
                     <span>{route.total_tokens ? formatCost(route.cost) : '-'}</span>
@@ -2559,7 +2575,7 @@ function App() {
                     <div className="msgDetail">
                       <p><b>Message</b></p>
                       <p>ID <span className="mono">{route.request_id}</span> · Route #{route.route_id} · Capability <span className="mono">{route.required_capability}</span> · Agent <span className="mono">{route.agent ?? '-'}</span></p>
-                      <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.reference_cost != null ? <> · Ref. cost {formatCost(route.reference_cost)}</> : null}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
+                      <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Demand <span className="mono">{route.demand ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.reference_cost != null ? <> · Ref. cost {formatCost(route.reference_cost)}</> : null}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
                     </div>
                   )}
                 </React.Fragment>
