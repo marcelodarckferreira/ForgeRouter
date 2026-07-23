@@ -1039,11 +1039,14 @@ function ProfilesAdminPage({ fetchJson }: { fetchJson: FetchJson }) {
 }
 
 // Client-side token generator for the agent registration form (same shape the server generates).
-function generateAgentKey(): string {
+// The agent name is baked in as a suffix so a key pasted into the wrong agent's
+// config is visually obvious at a glance (hermes_<random>_<slug>).
+function generateAgentKey(name: string = ''): string {
   const bytes = new Uint8Array(30);
   crypto.getRandomValues(bytes);
   const base64 = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `hermes_${base64}`;
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'agent';
+  return `hermes_${base64}_${slug}`;
 }
 
 /** Trusted SSO handoff from ForgeHub: the embedding page passes a freshly
@@ -2198,7 +2201,7 @@ function App() {
                 <p className="subtitle">View and manage all your connected AI agents. Each agent authenticates with its own API key.</p>
               </div>
               <div className="actions">
-                <button className="button" onClick={() => { setConnectOpen(!connectOpen); if (!connectOpen) setNewAgentKey(generateAgentKey()); }}><Plus size={15} /> Connect Agent</button>
+                <button className="button" onClick={() => { setConnectOpen(!connectOpen); if (!connectOpen) setNewAgentKey(generateAgentKey(newAgentName)); }}><Plus size={15} /> Connect Agent</button>
                 <button className="button secondary" disabled={scanning || refreshingHealth} title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>
                   {scanning ? <Loader2 size={14} className="spin" /> : null} {scanning ? 'Scanning…' : 'Run scan'}
                 </button>
@@ -2222,12 +2225,12 @@ function App() {
                 <div className="panelHeader"><h2>Connect a new agent</h2><span>saved to the agents registry (PostgreSQL)</span></div>
                 <div className="form">
                   <div className="formGrid">
-                    <label>Agent name<input value={newAgentName} placeholder="e.g. athos" onChange={(e) => setNewAgentName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
+                    <label>Agent name<input value={newAgentName} placeholder="e.g. athos" onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                     <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by the Hermes auxiliary tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                     <label>API key — auto-generated, stored in the agent's registration; paste it into the agent's connection settings
                       <span className="keyGen">
                         <input className="mono" readOnly value={newAgentKey} />
-                        <button className="iconButton" title="Generate a new key" onClick={() => setNewAgentKey(generateAgentKey())}><RefreshCw size={14} /></button>
+                        <button className="iconButton" title="Generate a new key" onClick={() => setNewAgentKey(generateAgentKey(newAgentName))}><RefreshCw size={14} /></button>
                         <button className="iconButton" title="Copy key" onClick={() => void copyText(newAgentKey).then((ok) => setScanStatus(ok ? 'agent key copied' : 'copy failed'))}><Copy size={14} /></button>
                       </span>
                     </label>
