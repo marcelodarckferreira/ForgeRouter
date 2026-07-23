@@ -126,6 +126,16 @@ def _pricing_is_free(pricing: dict[str, Any]) -> bool:
 
 REASONING_MARKERS = ("reasoning", "thinking", "-r1", "qwq", "deepseek-r", "qwen3", "gpt-oss", "o3-", "o4-", "glm-4.5", "glm-4.6", "glm-5", "claude-opus", "claude-sonnet")
 CODE_MARKERS = ("coder", "-code", "codestral", "starcoder", "codellama")
+# Fill-in-the-middle / raw code-completion endpoints, not instruction-following chat
+# models: routing ordinary conversation to them produces the same degenerate short
+# reply turn after turn regardless of what was actually typed (see
+# 07-INCIDENTE-MEMORY-CONTEXT-FORCAVA-DEMANDA-CODE — the FIM model itself is the
+# second, structural half of that incident, independent of the demand-classification
+# bug that first routed a chat message to "code"). These must only ever serve the
+# "code" demand, never the general text/tool_call pool — so unlike ordinary
+# CODE_MARKERS hits (e.g. an instruct-tuned "-coder" chat model), they do not get the
+# default "text" capability.
+CODE_ONLY_MARKERS = ("codestral", "mistral-code", "-fim-", "fim-latest")
 VISION_MARKERS = ("vision", "-vl", ":vl", "omni", "llama-4-scout", "llama-4-maverick", "pixtral", "gemma-3", "claude-")
 EMBEDDING_MARKERS = ("embed",)
 # Model families known to handle OpenAI tool calling even when the provider's
@@ -141,7 +151,13 @@ TOOL_CALL_MARKERS = (
 def infer_capabilities(item: dict[str, Any]) -> list[str]:
     """Catalog a model from provider metadata (OpenRouter-style) plus name heuristics."""
     model_id = str(item.get("id", "")).lower()
-    caps: set[str] = {"text"}
+    code_only = any(marker in model_id for marker in CODE_ONLY_MARKERS)
+    # Only text-only or genuinely multimodal (text + vision/audio/…) models are safe
+    # for the general routing pool. A code-completion-only endpoint isn't a chat
+    # model — it errors/degenerates on plain conversation, so it must stay confined
+    # to the "code" demand group instead of defaulting into "text" like every other
+    # discovered model.
+    caps: set[str] = set() if code_only else {"text"}
 
     architecture = item.get("architecture") or {}
     inputs = [str(value).lower() for value in architecture.get("input_modalities") or []]
@@ -155,11 +171,13 @@ def infer_capabilities(item: dict[str, Any]) -> list[str]:
         caps.add("audio")
     if "embedding" in outputs or any(marker in model_id for marker in EMBEDDING_MARKERS):
         caps.add("embedding")
-    if "tools" in supported or "tool_choice" in supported or any(marker in model_id for marker in TOOL_CALL_MARKERS):
+    if not code_only and (
+        "tools" in supported or "tool_choice" in supported or any(marker in model_id for marker in TOOL_CALL_MARKERS)
+    ):
         caps.add("tool_call")
     if "reasoning" in supported or "include_reasoning" in supported or any(marker in model_id for marker in REASONING_MARKERS):
         caps.add("reasoning")
-    if any(marker in model_id for marker in CODE_MARKERS):
+    if code_only or any(marker in model_id for marker in CODE_MARKERS):
         caps.add("code")
     if any(marker in model_id for marker in VISION_MARKERS):
         caps.add("vision")
