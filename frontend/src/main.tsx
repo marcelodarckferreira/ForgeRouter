@@ -1145,7 +1145,8 @@ function App() {
   const [contextCompaction, setContextCompaction] = useState(true);
   const [savingCompaction, setSavingCompaction] = useState(false);
   const [contextTruncation, setContextTruncation] = useState(false);
-  const [contextTruncationMaxTokens, setContextTruncationMaxTokens] = useState(60000);
+  const [contextTruncationMaxTokens, setContextTruncationMaxTokens] = useState(32000);
+  const [contextTruncationTriggerPercent, setContextTruncationTriggerPercent] = useState(80);
   const [savingTruncation, setSavingTruncation] = useState(false);
 
   function markDemandEditing(demand: string) {
@@ -1194,8 +1195,27 @@ function App() {
     }
   }
 
-  async function editContextTruncationLimit() {
-    const input = await showPrompt('Max prompt tokens before the oldest turns get dropped (estimate, tiktoken cl100k_base)', String(contextTruncationMaxTokens));
+  async function editContextTruncationTriggerPercent() {
+    const input = await showPrompt('Trigger truncation once the prompt fills this % of the selected model\'s real context window (10-100, matches the 80% hermes-agent\'s own compression already uses)', String(contextTruncationTriggerPercent));
+    if (input === null) return;
+    const value = Number(input.trim());
+    if (!Number.isFinite(value) || value < 10 || value > 100) {
+      setError('trigger_percent must be a number between 10 and 100');
+      return;
+    }
+    setSavingTruncation(true);
+    try {
+      await fetchJson('/admin/settings/context-truncation', { method: 'POST', body: JSON.stringify({ enabled: contextTruncation, trigger_percent: value }) });
+      setContextTruncationTriggerPercent(value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update the trigger percent');
+    } finally {
+      setSavingTruncation(false);
+    }
+  }
+
+  async function editContextTruncationFallbackLimit() {
+    const input = await showPrompt('Fallback token budget — only used when the selected model\'s real context window isn\'t in the pricing catalog', String(contextTruncationMaxTokens));
     if (input === null) return;
     const value = Number(input.trim());
     if (!Number.isFinite(value) || value < 1000) {
@@ -1207,7 +1227,7 @@ function App() {
       await fetchJson('/admin/settings/context-truncation', { method: 'POST', body: JSON.stringify({ enabled: contextTruncation, max_tokens: value }) });
       setContextTruncationMaxTokens(value);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update the truncation limit');
+      setError(err instanceof Error ? err.message : 'Failed to update the fallback limit');
     } finally {
       setSavingTruncation(false);
     }
@@ -1482,7 +1502,8 @@ function App() {
       try {
         const truncation = await fetchJson('/admin/settings/context-truncation');
         setContextTruncation(truncation.enabled ?? false);
-        setContextTruncationMaxTokens(truncation.max_tokens ?? 60000);
+        setContextTruncationMaxTokens(truncation.max_tokens ?? 32000);
+        setContextTruncationTriggerPercent(truncation.trigger_percent ?? 80);
       } catch {
         // context truncation setting defaults to disabled
       }
@@ -2655,7 +2676,7 @@ function App() {
             </Panel>
             <Panel
               title={<><span className="panelIcon accent-amber"><Scissors size={15} /></span>Context truncation</>}
-              meta="lossy — drops the oldest turns once a request crosses the limit below"
+              meta="lossy — an LLM summarizes the oldest turns once a request fills the % below of the selected model's real context window"
               extra={
                 <label className="check">
                   <input type="checkbox" checked={contextTruncation} disabled={savingTruncation} onChange={() => void toggleContextTruncation()} />
@@ -2664,11 +2685,21 @@ function App() {
               }
             >
               <div className="setupRow">
-                <span>Max prompt tokens</span>
-                <span className="mono">{contextTruncationMaxTokens.toLocaleString()}</span>
-                <button className="iconButton" title="Edit the token budget — oldest turns are dropped past this, system prompt and the current turn are always kept" onClick={() => void editContextTruncationLimit()}><Pencil size={13} /></button>
+                <span>Trigger at</span>
+                <span className="mono">{contextTruncationTriggerPercent}% of context window</span>
+                <button className="iconButton" title="% of the selected model's real context window (from the pricing catalog) that must fill up before truncation kicks in — mirrors hermes-agent's own 80% compression threshold" onClick={() => void editContextTruncationTriggerPercent()}><Pencil size={13} /></button>
               </div>
-              <p className="muted small">Off by default — unlike context compaction above, this can drop conversation history. See the Messages page for which requests were affected.</p>
+              <div className="setupRow">
+                <span>Fallback budget</span>
+                <span className="mono">{contextTruncationMaxTokens.toLocaleString()} tokens</span>
+                <button className="iconButton" title="Only used when the selected model isn't in the pricing catalog, so its real context window is unknown" onClick={() => void editContextTruncationFallbackLimit()}><Pencil size={13} /></button>
+              </div>
+              <p className="muted small">
+                System prompt and the current turn are always kept. The oldest turns past the trigger are summarized by
+                a cheap model (preserving names, decisions, numbers) rather than discarded outright; if the summary
+                call fails for any reason, they're dropped instead — a missing summary is always safe, a request that
+                never gets answered isn't. Off by default. See the Messages page for which requests were affected.
+              </p>
             </Panel>
             {usagePanel}
             {yearlyUsage && yearlyUsage.by_agent.length > 0 && (() => {

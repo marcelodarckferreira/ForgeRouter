@@ -341,14 +341,33 @@ def set_context_truncation_enabled(enabled: bool) -> None:
 
 
 def context_truncation_max_tokens() -> int:
+    """Fallback budget (flat tokens) used only when the selected model's real
+    context window isn't in the pricing catalog — see
+    context_truncation_trigger_percent for the normal, model-aware path."""
     try:
-        return int(get_setting("context_truncation_max_tokens", "60000") or "60000")
+        return int(get_setting("context_truncation_max_tokens", "32000") or "32000")
     except ValueError:
-        return 60000
+        return 32000
 
 
 def set_context_truncation_max_tokens(value: int) -> None:
     set_setting("context_truncation_max_tokens", str(value))
+
+
+def context_truncation_trigger_percent() -> int:
+    """Percent of the selected model's real context window (from the LiteLLM
+    catalog) that must be filled before truncation kicks in — mirrors the
+    0.8 threshold hermes-agent's own compression already uses, so both
+    systems agree on "how full is too full" instead of ForgeRouter guessing
+    a flat number that's wrong for a 8k model and wrong again for a 262k one."""
+    try:
+        return int(get_setting("context_truncation_trigger_percent", "80") or "80")
+    except ValueError:
+        return 80
+
+
+def set_context_truncation_trigger_percent(value: int) -> None:
+    set_setting("context_truncation_trigger_percent", str(value))
 
 
 def latest_provider_health_rows() -> list[dict[str, Any]]:

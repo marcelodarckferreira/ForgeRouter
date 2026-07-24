@@ -112,6 +112,19 @@ def _lookup(public_id: str, provider_model: str) -> dict[str, Any] | None:
     return None
 
 
+def context_window(public_id: str, provider_model: str) -> int | None:
+    """The model's real input context window in tokens, when the LiteLLM
+    catalog has it — used to scale the context-truncation trigger to the
+    actual model being called instead of one constant for every model.
+    live/overrides entries don't carry this field, only the LiteLLM catalog
+    tier does, so this only ever resolves through that final fallback."""
+    entry = _lookup(public_id or "", provider_model or "")
+    if not entry:
+        return None
+    window = entry.get("context_window")
+    return int(window) if isinstance(window, (int, float)) and window > 0 else None
+
+
 def reference_cost(public_id: str, provider_model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
     """Notional USD cost had this request been billed at public commercial
     rates for an equivalent model. None when the model has no catalog match."""
@@ -141,7 +154,15 @@ def _trim_litellm_catalog(raw: dict[str, Any]) -> dict[str, Any]:
         output_cost = entry.get("output_cost_per_token")
         if not isinstance(input_cost, (int, float)) or not isinstance(output_cost, (int, float)):
             continue
-        trimmed[model_id] = {"input_cost_per_token": input_cost, "output_cost_per_token": output_cost}
+        kept = {"input_cost_per_token": input_cost, "output_cost_per_token": output_cost}
+        # Context window — used by app/normalize.py's truncation trigger (percent
+        # of the *actual* selected model's window, not a one-size-fits-all
+        # constant). max_input_tokens is the input-side limit; max_tokens is
+        # older LiteLLM data's only field for models that predate the split.
+        window = entry.get("max_input_tokens") or entry.get("max_tokens")
+        if isinstance(window, (int, float)) and window > 0:
+            kept["context_window"] = int(window)
+        trimmed[model_id] = kept
     return trimmed
 
 

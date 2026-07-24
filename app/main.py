@@ -38,6 +38,7 @@ from app.storage import (
     context_compaction_enabled,
     context_truncation_enabled,
     context_truncation_max_tokens,
+    context_truncation_trigger_percent,
     count_active_admins,
     create_agent,
     create_session,
@@ -69,6 +70,7 @@ from app.storage import (
     set_context_compaction_enabled,
     set_context_truncation_enabled,
     set_context_truncation_max_tokens,
+    set_context_truncation_trigger_percent,
     set_setting,
     latest_provider_health_rows,
     list_agents_with_usage,
@@ -546,6 +548,56 @@ def _prompt_preview(messages: list[Any]) -> str | None:
     return preview or None
 
 
+_SUMMARY_SYSTEM_PROMPT = (
+    "Summarize the following excerpt from an earlier part of this conversation in 3-6 concise "
+    "sentences. Preserve names, decisions, numbers, file paths, and any fact a later turn might "
+    "still need to reference. Do not add commentary, do not address the reader, just the summary."
+)
+
+
+def _summarize_dropped_context(dropped_messages: list[dict[str, Any]], registry: Any) -> str | None:
+    """Best-effort LLM summary of the conversation turns context-truncation is
+    about to discard, so a runaway history loses detail rather than losing
+    the turns outright. Routes through the same "simple" chain forgerouter/
+    auto would pick for a short task — this is deliberately cheap, since it
+    runs in front of every truncated request. Returns None on ANY failure
+    (bad response, no candidate, provider error, exception) so the caller
+    falls back to the plain mechanical drop already computed — a missing
+    summary is always safe; a broken summarizer blocking the real request
+    never is.
+    """
+    if not dropped_messages:
+        return None
+    try:
+        candidates = registry.healthy_for_capability("text")
+        chain = default_chain(candidates, "simple") or default_chain(candidates, "standard")
+        if not chain:
+            return None
+        transcript = "\n\n".join(
+            f"{m.get('role', '?')}: {_message_text(m.get('content'))}" for m in dropped_messages
+        )[:24_000]
+        if not transcript.strip():
+            return None
+        payload = build_chat_payload(
+            chain[0],
+            [
+                {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
+                {"role": "user", "content": transcript},
+            ],
+            temperature=0.2,
+            max_tokens=400,
+            tools=None,
+            stream=False,
+        )
+        status_code, body = chat_completion(chain[0], payload, timeout=20.0)
+        if status_code >= 400 or not isinstance(body, dict):
+            return None
+        content = body.get("choices", [{}])[0].get("message", {}).get("content")
+        return content.strip() if isinstance(content, str) and content.strip() else None
+    except Exception:
+        return None
+
+
 @app.post("/v1/chat/completions")
 def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     # Attribute the request to the agent whose API key is on the Authorization header.
@@ -732,9 +784,27 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     messages_dropped = 0
     try:
         if context_truncation_enabled():
-            messages_for_payload, messages_dropped = truncate_messages(
-                messages_for_payload, context_truncation_max_tokens(), request.tools
+            from app.pricing import context_window as _model_context_window
+
+            top_model = candidates[0] if candidates else None
+            window = _model_context_window(top_model.id, top_model.provider_model) if top_model else None
+            budget = (
+                int(window * context_truncation_trigger_percent() / 100)
+                if window
+                else context_truncation_max_tokens()
             )
+            messages_for_payload, messages_dropped, dropped_messages = truncate_messages(
+                messages_for_payload, budget, request.tools
+            )
+            if messages_dropped:
+                summary = _summarize_dropped_context(dropped_messages, registry)
+                if summary:
+                    insert_at = sum(1 for m in messages_for_payload if m.get("role") == "system")
+                    summary_message = {
+                        "role": "system",
+                        "content": f"[Earlier conversation summary — {messages_dropped} message(s) condensed to save context]\n{summary}",
+                    }
+                    messages_for_payload = messages_for_payload[:insert_at] + [summary_message] + messages_for_payload[insert_at:]
     except Exception:
         messages_dropped = 0
     try:
@@ -2022,7 +2092,8 @@ def admin_context_compaction_set(payload: ContextCompactionPayload, request: Req
 
 class ContextTruncationPayload(BaseModel):
     enabled: bool
-    max_tokens: int | None = None
+    max_tokens: int | None = None  # fallback only — used when the selected model's real context window is unknown
+    trigger_percent: int | None = None  # normal path: % of the selected model's actual context window
 
 
 @app.get("/admin/settings/context-truncation")
@@ -2030,9 +2101,10 @@ def admin_context_truncation_get():
     try:
         enabled = context_truncation_enabled()
         max_tokens = context_truncation_max_tokens()
+        trigger_percent = context_truncation_trigger_percent()
     except Exception:
-        enabled, max_tokens = False, 60000
-    return {"enabled": enabled, "max_tokens": max_tokens}
+        enabled, max_tokens, trigger_percent = False, 32000, 80
+    return {"enabled": enabled, "max_tokens": max_tokens, "trigger_percent": trigger_percent}
 
 
 @app.post("/admin/settings/context-truncation")
@@ -2045,16 +2117,28 @@ def admin_context_truncation_set(payload: ContextTruncationPayload, request: Req
             status_code=400,
             content={"error": {"message": "max_tokens must be at least 1000", "type": "invalid_payload"}},
         )
+    if payload.trigger_percent is not None and not (10 <= payload.trigger_percent <= 100):
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"message": "trigger_percent must be between 10 and 100", "type": "invalid_payload"}},
+        )
     try:
         set_context_truncation_enabled(payload.enabled)
         if payload.max_tokens is not None:
             set_context_truncation_max_tokens(payload.max_tokens)
+        if payload.trigger_percent is not None:
+            set_context_truncation_trigger_percent(payload.trigger_percent)
     except Exception as exc:
         return JSONResponse(
             status_code=500,
             content={"error": {"message": str(exc), "type": "settings_failed"}},
         )
-    return {"status": "saved", "enabled": payload.enabled, "max_tokens": context_truncation_max_tokens()}
+    return {
+        "status": "saved",
+        "enabled": payload.enabled,
+        "max_tokens": context_truncation_max_tokens(),
+        "trigger_percent": context_truncation_trigger_percent(),
+    }
 
 
 @app.get("/admin/pricing/models")
