@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
+import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
-type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; prompt_preview: string | null; };
+type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; prompt_preview: string | null; messages_dropped: number | null; };
 type UsageDay = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
 type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
 type UsageDemand = { demand: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
@@ -1144,6 +1144,9 @@ function App() {
   const autoRefreshRef = useRef(autoRefresh);
   const [contextCompaction, setContextCompaction] = useState(true);
   const [savingCompaction, setSavingCompaction] = useState(false);
+  const [contextTruncation, setContextTruncation] = useState(false);
+  const [contextTruncationMaxTokens, setContextTruncationMaxTokens] = useState(60000);
+  const [savingTruncation, setSavingTruncation] = useState(false);
 
   function markDemandEditing(demand: string) {
     if (!editingDemandsRef.current.includes(demand)) {
@@ -1175,6 +1178,38 @@ function App() {
       setError(err instanceof Error ? err.message : 'Failed to update context compaction');
     } finally {
       setSavingCompaction(false);
+    }
+  }
+
+  async function toggleContextTruncation() {
+    const next = !contextTruncation;
+    setSavingTruncation(true);
+    try {
+      await fetchJson('/admin/settings/context-truncation', { method: 'POST', body: JSON.stringify({ enabled: next }) });
+      setContextTruncation(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update context truncation');
+    } finally {
+      setSavingTruncation(false);
+    }
+  }
+
+  async function editContextTruncationLimit() {
+    const input = await showPrompt('Max prompt tokens before the oldest turns get dropped (estimate, tiktoken cl100k_base)', String(contextTruncationMaxTokens));
+    if (input === null) return;
+    const value = Number(input.trim());
+    if (!Number.isFinite(value) || value < 1000) {
+      setError('max_tokens must be a number >= 1000');
+      return;
+    }
+    setSavingTruncation(true);
+    try {
+      await fetchJson('/admin/settings/context-truncation', { method: 'POST', body: JSON.stringify({ enabled: contextTruncation, max_tokens: value }) });
+      setContextTruncationMaxTokens(value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update the truncation limit');
+    } finally {
+      setSavingTruncation(false);
     }
   }
   const [demandSearch, setDemandSearch] = useState<Record<string, string>>({});
@@ -1443,6 +1478,13 @@ function App() {
         setContextCompaction(compaction.enabled ?? true);
       } catch {
         // context compaction setting defaults to enabled
+      }
+      try {
+        const truncation = await fetchJson('/admin/settings/context-truncation');
+        setContextTruncation(truncation.enabled ?? false);
+        setContextTruncationMaxTokens(truncation.max_tokens ?? 60000);
+      } catch {
+        // context truncation setting defaults to disabled
       }
       try {
         const yearly = await fetchJson('/admin/usage/yearly');
@@ -2611,6 +2653,23 @@ function App() {
                 <span>{usage?.totals.pct_saved ?? 0}%</span>
               </div>
             </Panel>
+            <Panel
+              title={<><span className="panelIcon accent-amber"><Scissors size={15} /></span>Context truncation</>}
+              meta="lossy — drops the oldest turns once a request crosses the limit below"
+              extra={
+                <label className="check">
+                  <input type="checkbox" checked={contextTruncation} disabled={savingTruncation} onChange={() => void toggleContextTruncation()} />
+                  {contextTruncation ? 'Enabled' : 'Disabled'}
+                </label>
+              }
+            >
+              <div className="setupRow">
+                <span>Max prompt tokens</span>
+                <span className="mono">{contextTruncationMaxTokens.toLocaleString()}</span>
+                <button className="iconButton" title="Edit the token budget — oldest turns are dropped past this, system prompt and the current turn are always kept" onClick={() => void editContextTruncationLimit()}><Pencil size={13} /></button>
+              </div>
+              <p className="muted small">Off by default — unlike context compaction above, this can drop conversation history. See the Messages page for which requests were affected.</p>
+            </Panel>
             {usagePanel}
             {yearlyUsage && yearlyUsage.by_agent.length > 0 && (() => {
               const currentMonth = new Date().getMonth() + 1;
@@ -2775,6 +2834,11 @@ function App() {
                       {route.prompt_preview && (
                         <p title="First ~100 characters of the last user message — ForgeRouter does not persist full conversation content">
                           Prompt <span className="mono">{route.prompt_preview}{route.prompt_preview.length >= 100 ? '…' : ''}</span>
+                        </p>
+                      )}
+                      {!!route.messages_dropped && (
+                        <p title="Context truncation dropped this many of the oldest messages before forwarding the request">
+                          <b className="status unhealthy">truncated</b> {route.messages_dropped} message{route.messages_dropped === 1 ? '' : 's'} dropped from history
                         </p>
                       )}
                     </div>

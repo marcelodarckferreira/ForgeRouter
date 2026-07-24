@@ -63,6 +63,39 @@ def _compact_json_if_valid(text: str) -> str:
     return json.dumps(parsed, separators=(",", ":"), ensure_ascii=False)
 
 
+def truncate_messages(
+    messages: list[dict[str, Any]], max_tokens: int, tools: list[dict[str, Any]] | None = None
+) -> tuple[list[dict[str, Any]], int]:
+    """Lossy safety valve for a runaway conversation history — distinct from
+    normalize_messages above (that one never removes content). Drops the
+    oldest *turns* (a user message plus everything up to, but not including,
+    the next user message — keeps an assistant tool_call paired with its tool
+    response, never split) once the estimated token count exceeds max_tokens.
+    System messages and the final turn (the request actually being answered)
+    are always kept, even if that alone still exceeds max_tokens — there is
+    nothing left to safely cut at that point. Returns (messages, turns_dropped).
+    """
+    total = count_tokens(messages, tools)
+    if total is None or total <= max_tokens:
+        return messages, 0
+    system_messages = [m for m in messages if m.get("role") == "system"]
+    rest = [m for m in messages if m.get("role") != "system"]
+    turns: list[list[dict[str, Any]]] = []
+    for message in rest:
+        if message.get("role") == "user" or not turns:
+            turns.append([message])
+        else:
+            turns[-1].append(message)
+    dropped = 0
+    while len(turns) > 1:
+        current = system_messages + [m for turn in turns for m in turn]
+        if (count_tokens(current, tools) or 0) <= max_tokens:
+            break
+        dropped += len(turns[0])
+        turns.pop(0)
+    return system_messages + [m for turn in turns for m in turn], dropped
+
+
 def normalize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = []
     for message in messages:

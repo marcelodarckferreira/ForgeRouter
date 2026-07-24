@@ -16,7 +16,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, _message_text, default_chain, messages_have_images, resolve_demand
-from app.normalize import count_tokens, normalize_messages
+from app.normalize import count_tokens, normalize_messages, truncate_messages
 from app.routing_state import (
     breaker_open,
     model_performance_cached,
@@ -36,6 +36,8 @@ from app.storage import (
     backfill_reference_costs,
     change_credentials,
     context_compaction_enabled,
+    context_truncation_enabled,
+    context_truncation_max_tokens,
     count_active_admins,
     create_agent,
     create_session,
@@ -65,6 +67,8 @@ from app.storage import (
     has_any_agent,
     set_demand_routes,
     set_context_compaction_enabled,
+    set_context_truncation_enabled,
+    set_context_truncation_max_tokens,
     set_setting,
     latest_provider_health_rows,
     list_agents_with_usage,
@@ -468,6 +472,7 @@ def _stream_and_persist_usage(
     tokens_compacted: int | None = None,
     demand: str | None = None,
     prompt_preview: str | None = None,
+    messages_dropped: int | None = None,
 ) -> Iterator[bytes]:
     usage: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
@@ -499,7 +504,7 @@ def _stream_and_persist_usage(
             metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
             error_type = f"stream_{metadata.get('error_type') or error.get('code') or 'error'}"
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
                 pass
             try:
@@ -510,7 +515,7 @@ def _stream_and_persist_usage(
             record_provider_success(selected.provider)
             record_sticky(agent_name, demand, selected.id)
             try:
-                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview)
+                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
                 pass
 
@@ -724,6 +729,14 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             messages_for_payload = raw_messages
     else:
         messages_for_payload = raw_messages
+    messages_dropped = 0
+    try:
+        if context_truncation_enabled():
+            messages_for_payload, messages_dropped = truncate_messages(
+                messages_for_payload, context_truncation_max_tokens(), request.tools
+            )
+    except Exception:
+        messages_dropped = 0
     try:
         tokens_compacted = count_tokens(messages_for_payload, request.tools)
     except Exception:
@@ -746,7 +759,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 if request.stream:
                     # Usage arrives in the final SSE chunk (stream_options.include_usage),
                     # so the route event is persisted after the stream completes.
-                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
+                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
                     return StreamingResponse(stream_body, media_type="text/event-stream", headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
                 # A provider can return HTTP 200 with a body that is itself an error
                 # (no choices, empty content, quota/auth text) — treat that the same
@@ -757,7 +770,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     record_sticky(agent_name, demand, selected.id)
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
                     try:
-                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview)
+                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
                     except Exception:
                         pass
                     return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
@@ -767,7 +780,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             record_provider_failure(selected.provider)
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
                 pass
             try:
@@ -778,7 +791,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             record_provider_failure(selected.provider)
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
+                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
                 pass
             try:
@@ -2005,6 +2018,43 @@ def admin_context_compaction_set(payload: ContextCompactionPayload, request: Req
             content={"error": {"message": str(exc), "type": "settings_failed"}},
         )
     return {"status": "saved", "enabled": payload.enabled}
+
+
+class ContextTruncationPayload(BaseModel):
+    enabled: bool
+    max_tokens: int | None = None
+
+
+@app.get("/admin/settings/context-truncation")
+def admin_context_truncation_get():
+    try:
+        enabled = context_truncation_enabled()
+        max_tokens = context_truncation_max_tokens()
+    except Exception:
+        enabled, max_tokens = False, 60000
+    return {"enabled": enabled, "max_tokens": max_tokens}
+
+
+@app.post("/admin/settings/context-truncation")
+def admin_context_truncation_set(payload: ContextTruncationPayload, request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    if payload.max_tokens is not None and payload.max_tokens < 1000:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"message": "max_tokens must be at least 1000", "type": "invalid_payload"}},
+        )
+    try:
+        set_context_truncation_enabled(payload.enabled)
+        if payload.max_tokens is not None:
+            set_context_truncation_max_tokens(payload.max_tokens)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"message": str(exc), "type": "settings_failed"}},
+        )
+    return {"status": "saved", "enabled": payload.enabled, "max_tokens": context_truncation_max_tokens()}
 
 
 @app.get("/admin/pricing/models")

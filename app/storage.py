@@ -221,6 +221,7 @@ def persist_route_event(
     demand: str | None = None,
     provider_model: str | None = None,
     prompt_preview: str | None = None,
+    messages_dropped: int | None = None,
 ) -> None:
     row = route_event_to_row(request_id, selected_model_id, required_capability, status, error_type)
     usage = usage or {}
@@ -233,6 +234,7 @@ def persist_route_event(
     row["prompt_tokens_compacted"] = tokens_compacted
     row["demand"] = demand
     row["prompt_preview"] = prompt_preview
+    row["messages_dropped"] = messages_dropped or None
     row["reference_cost"] = None
     if not row["cost"] and selected_model_id and (row["prompt_tokens"] or row["completion_tokens"]):
         try:
@@ -248,14 +250,16 @@ def persist_route_event(
                 INSERT INTO ai_router.route_events
                     (request_id, selected_model_id, required_capability, status, error_type,
                      prompt_tokens, completion_tokens, total_tokens, cost, agent_id,
-                     prompt_tokens_raw, prompt_tokens_compacted, demand, reference_cost, prompt_preview)
+                     prompt_tokens_raw, prompt_tokens_compacted, demand, reference_cost, prompt_preview,
+                     messages_dropped)
                 VALUES (
                     %(request_id)s,
                     (SELECT model_id FROM ai_router.models WHERE public_id = %(selected_model_id)s),
                     %(required_capability)s, %(status)s, %(error_type)s,
                     %(prompt_tokens)s, %(completion_tokens)s, %(total_tokens)s, %(cost)s,
                     (SELECT agent_id FROM ai_router.agents WHERE name = %(agent_name)s),
-                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s, %(reference_cost)s, %(prompt_preview)s
+                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s, %(reference_cost)s, %(prompt_preview)s,
+                    %(messages_dropped)s
                 )
                 """,
                 row,
@@ -324,6 +328,29 @@ def set_context_compaction_enabled(enabled: bool) -> None:
     set_setting("context_compaction_enabled", "true" if enabled else "false")
 
 
+# Lossy — distinct from context_compaction above (whitespace-only, nothing ever
+# removed). This actually drops the oldest turns once a request's estimated
+# tokens cross the cap. Off by default: it changes what the model sees, so an
+# operator must opt in per deployment rather than inherit a silent default.
+def context_truncation_enabled() -> bool:
+    return get_setting("context_truncation_enabled", "false") == "true"
+
+
+def set_context_truncation_enabled(enabled: bool) -> None:
+    set_setting("context_truncation_enabled", "true" if enabled else "false")
+
+
+def context_truncation_max_tokens() -> int:
+    try:
+        return int(get_setting("context_truncation_max_tokens", "60000") or "60000")
+    except ValueError:
+        return 60000
+
+
+def set_context_truncation_max_tokens(value: int) -> None:
+    set_setting("context_truncation_max_tokens", str(value))
+
+
 def latest_provider_health_rows() -> list[dict[str, Any]]:
     query = """
     SELECT DISTINCT ON (m.public_id)
@@ -374,7 +401,8 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
         a.name,
         r.demand,
         r.reference_cost,
-        r.prompt_preview
+        r.prompt_preview,
+        r.messages_dropped
     FROM ai_router.route_events r
     LEFT JOIN ai_router.models m ON m.model_id = r.selected_model_id
     LEFT JOIN ai_router.agents a ON a.agent_id = r.agent_id
@@ -401,6 +429,7 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
             "demand": row[10],
             "reference_cost": float(row[11]) if row[11] is not None else None,
             "prompt_preview": row[12],
+            "messages_dropped": row[13],
         }
         for row in rows
     ]
