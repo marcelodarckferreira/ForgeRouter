@@ -1810,17 +1810,6 @@ function App() {
     }
   }
 
-  // Exclusive role: making an agent the auxiliary-tasks agent clears the previous holder.
-  async function setAuxTasksAgent(name: string) {
-    try {
-      await fetchJson(`/admin/agents/${encodeURIComponent(name)}/aux-tasks`, { method: 'PUT' });
-      setScanStatus(`${name} is now the auxiliary-tasks agent — its token authenticates the Hermes auxiliary tasks`);
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set the auxiliary-tasks agent');
-    }
-  }
-
   async function copyAgentKey(name: string) {
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/key`);
@@ -2404,7 +2393,6 @@ function App() {
                     <span className="agentHead">
                       <Bot size={17} /><strong>{agent.name}</strong>
                       <b className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}`} title={(agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'} onClick={(e) => { e.stopPropagation(); void toggleAgentKind(agent.name, agent.kind); }}>{agent.kind === 'service' ? 'service' : 'agent'}</b>
-                      {agent.aux_tasks && <b className="status healthy" title="This agent's token authenticates the Hermes auxiliary tasks">aux tasks</b>}
                       {!agent.enabled && <b className="status unknown">disabled</b>}
                     </span>
                     {agent.description && <span className="muted">{agent.description}</span>}
@@ -2464,7 +2452,7 @@ function App() {
                   <div className="setupRow"><span>API base URL</span><span className="mono">{window.location.origin}/v1</span><button className="iconButton" title="Copy base URL" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'base URL copied' : 'copy failed'))}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
                   <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
-                  <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}{agent.aux_tasks && <b className="status healthy">aux tasks</b>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
+                  <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
                   <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)} billed · {formatCost(agent.reference_cost)} ref.</span><span /></div>
                   <div className="setupRow">
                     <span>Monthly budget</span>
@@ -3111,22 +3099,8 @@ function App() {
               meta="pick a group or model per task"
             >
               {(() => {
-                // The auxiliary tasks authenticate as one dedicated agent (exclusive
-                // aux_tasks role, persisted in the DB). Picking another agent here
-                // transfers the role; the Token row copies that agent's key.
-                const auxHolder = agents.find((agent) => agent.aux_tasks);
-                const tokenAgent = auxHolder?.name ?? '';
                 return (
                   <div className="auxToolbar">
-                    <div className="auxRow">
-                      <Bot size={15} />
-                      <span className="auxLabel">Aux agent</span>
-                      <select className="chip select" title="Auxiliary-tasks agent — only one agent holds this role; its token authenticates the auxiliary tasks" value={tokenAgent} onChange={(e) => { if (e.target.value) void setAuxTasksAgent(e.target.value); }}>
-                        {!tokenAgent && <option value="" disabled>select aux agent…</option>}
-                        {agents.map((agent) => <option key={agent.name} value={agent.name}>{agent.name}</option>)}
-                      </select>
-                      <span className="muted auxHint">authenticates the calls below on /v1</span>
-                    </div>
                     <div className="auxRow">
                       <Link2 size={15} />
                       <span className="auxLabel">Anthropic base URL</span>
@@ -3139,13 +3113,7 @@ function App() {
                       <span className="mono auxValue">{`${window.location.origin}/v1`}</span>
                       <button className="iconButton" title="Copy the OpenAI-compatible API base URL for Hermes, Codex, and custom providers" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'OpenAI base URL copied' : 'copy failed'))}><Copy size={14} /></button>
                     </div>
-                    <div className="auxRow">
-                      <KeyRound size={15} />
-                      <span className="auxLabel">Token</span>
-                      <span className="mono auxValue">{tokenAgent ? `${tokenAgent}'s API key` : 'select an aux agent first'}</span>
-                      <button className="iconButton" disabled={!tokenAgent} title={tokenAgent ? `Copy ${tokenAgent}'s API token — authenticates the auxiliary tasks on /v1` : 'Pick the auxiliary-tasks agent first'} onClick={() => void copyAgentKey(tokenAgent)}><Copy size={14} /></button>
-                    </div>
-                    <p className="auxDesc">Paste the base URL, the agent token and the ids below into the Hermes model settings.</p>
+                    <p className="auxDesc">Paste the base URL and the ids below into the Hermes model settings — any agent's own API key (Agents page) authenticates the call, ForgeRouter only checks that the key exists.</p>
                   </div>
                 );
               })()}
