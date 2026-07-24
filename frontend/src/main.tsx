@@ -1112,6 +1112,14 @@ function App() {
   const [newAgentDescription, setNewAgentDescription] = useState('');
   const [newAgentKind, setNewAgentKind] = useState<'agent' | 'service'>('agent');
   const [togglingGroup, setTogglingGroup] = useState<string | null>(null);
+  const [promptModal, setPromptModal] = useState<{ title: string; value: string; resolve: (value: string | null) => void } | null>(null);
+  // Promise-based drop-in for window.prompt() — same call signature (title,
+  // default value, resolves to the trimmed-by-caller string or null on
+  // cancel) so every existing call site only needs `await` added, but backed
+  // by the app's own modal instead of the browser's native dialog.
+  function showPrompt(title: string, defaultValue = ''): Promise<string | null> {
+    return new Promise((resolve) => setPromptModal({ title, value: defaultValue, resolve }));
+  }
   const [newAgentKey, setNewAgentKey] = useState(generateAgentKey);
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -1694,7 +1702,7 @@ function App() {
   }
 
   async function editAgentDeployConfig(name: string, agent: AgentInfo) {
-    const configPath = window.prompt(
+    const configPath = await showPrompt(
       `Config file path for "${name}" (as seen INSIDE the forgerouter container — e.g. /root/.hermes/profiles/${name.toLowerCase()}/config.yaml or /root/.claude/.env). Leave blank to clear — rotate-key then stays DB-only for this agent.`,
       agent.config_path || '',
     );
@@ -1703,15 +1711,15 @@ function App() {
       await saveAgentDeployConfig(name, { config_path: '', config_format: '', config_key: '', restart_service: '' });
       return;
     }
-    const formatInput = window.prompt(`Config format for "${name}" — type "yaml" (nested key in a YAML file) or "env" (KEY=value line)`, agent.config_format || 'env');
+    const formatInput = await showPrompt(`Config format for "${name}" — type "yaml" (nested key in a YAML file) or "env" (KEY=value line)`, agent.config_format || 'env');
     if (formatInput === null) return;
     const configFormat = formatInput.trim().toLowerCase() === 'yaml' ? 'yaml' : 'env';
-    const configKey = window.prompt(
+    const configKey = await showPrompt(
       `Key name for "${name}" — documentation only (the write itself replaces the old key value verbatim): e.g. providers.forgerouter.api_key (yaml) or FORGEROUTER_API_KEY (env)`,
       agent.config_key || (configFormat === 'yaml' ? 'providers.forgerouter.api_key' : 'FORGEROUTER_API_KEY'),
     );
     if (configKey === null) return;
-    const restartService = window.prompt(
+    const restartService = await showPrompt(
       `systemd service to restart after writing the new key for "${name}" (leave blank if nothing needs restarting — e.g. CLI-invoked agents like Aramis/Porthos/Dartan pick it up on their next run)`,
       agent.restart_service || `hermes-gateway-${name.toLowerCase()}.service`,
     );
@@ -1725,7 +1733,7 @@ function App() {
   }
 
   async function duplicateAgent(name: string) {
-    const newName = window.prompt(`Duplicate agent "${name}" as… (copies its provider/model controls; gets a new API key)`);
+    const newName = await showPrompt(`Duplicate agent "${name}" as… (copies its provider/model controls; gets a new API key)`);
     if (!newName?.trim()) return;
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/duplicate`, { method: 'POST', body: JSON.stringify({ name: newName.trim() }) });
@@ -1751,7 +1759,7 @@ function App() {
   }
 
   async function renameAgent(name: string) {
-    const newName = window.prompt(`Rename agent "${name}" to…`, name);
+    const newName = await showPrompt(`Rename agent "${name}" to…`, name);
     if (!newName?.trim() || newName.trim() === name) return;
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/name`, { method: 'PUT', body: JSON.stringify({ name: newName.trim() }) });
@@ -1775,7 +1783,7 @@ function App() {
   }
 
   async function editAgentDescription(name: string, current: string) {
-    const description = window.prompt(`Description for "${name}" — e.g. used by the Hermes auxiliary tasks`, current);
+    const description = await showPrompt(`Description for "${name}" — e.g. used by the Hermes auxiliary tasks`, current);
     if (description === null) return;
     try {
       await fetchJson(`/admin/agents/${encodeURIComponent(name)}/description`, { method: 'PUT', body: JSON.stringify({ description: description.trim() }) });
@@ -1787,7 +1795,7 @@ function App() {
   }
 
   async function editAgentBudget(name: string, currentLimit: number | null, currentAction: string) {
-    const limitInput = window.prompt(`Monthly reference-cost budget for "${name}" (USD, e.g. 10.00 — leave blank for no limit)`, currentLimit != null ? String(currentLimit) : '');
+    const limitInput = await showPrompt(`Monthly reference-cost budget for "${name}" (USD, e.g. 10.00 — leave blank for no limit)`, currentLimit != null ? String(currentLimit) : '');
     if (limitInput === null) return;
     const trimmed = limitInput.trim();
     const limitUsd = trimmed ? Number(trimmed) : null;
@@ -1797,7 +1805,7 @@ function App() {
     }
     let action = currentAction;
     if (limitUsd !== null) {
-      const actionInput = window.prompt(`Action once "${name}" reaches its budget — type "alert" (dashboard-only, default) or "block" (also rejects new requests with 429 until next month)`, currentAction);
+      const actionInput = await showPrompt(`Action once "${name}" reaches its budget — type "alert" (dashboard-only, default) or "block" (also rejects new requests with 429 until next month)`, currentAction);
       if (actionInput === null) return;
       action = actionInput.trim().toLowerCase() === 'block' ? 'block' : 'alert';
     }
@@ -3311,6 +3319,28 @@ function App() {
         {page === 'users' && authUser.is_admin && <UsersAdminPage fetchJson={fetchJson} currentUsername={authUser.username} />}
         {page === 'profiles' && authUser.is_admin && <ProfilesAdminPage fetchJson={fetchJson} />}
       </main>
+      {promptModal && (
+        <div className="modalOverlay" onClick={() => { promptModal.resolve(null); setPromptModal(null); }}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2>{promptModal.title}</h2>
+            <label>
+              <input
+                autoFocus
+                value={promptModal.value}
+                onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { promptModal.resolve(promptModal.value); setPromptModal(null); }
+                  if (e.key === 'Escape') { promptModal.resolve(null); setPromptModal(null); }
+                }}
+              />
+            </label>
+            <div className="modalActions">
+              <button className="button secondary" onClick={() => { promptModal.resolve(null); setPromptModal(null); }}>Cancel</button>
+              <button className="button" onClick={() => { promptModal.resolve(promptModal.value); setPromptModal(null); }}><Save size={15} /> OK</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
