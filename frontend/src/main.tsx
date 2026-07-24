@@ -2081,24 +2081,6 @@ function App() {
       );
     });
   }
-  // Second badge row: the Hermes task map (forgerouter/<task> aliases). "auto"
-  // resolves to every healthy model; a virtual forgerouter/<demand> resolves via
-  // modelsInGroup; anything else names one concrete model directly.
-  const TASK_GROUP_NAMES = ['simple', 'standard', 'complex', 'reasoning', 'vision', 'audio', 'code'];
-  function modelsForTask(target: string): string[] {
-    if (target === 'auto') return healthyModelIds();
-    if (TASK_GROUP_NAMES.includes(target)) return modelsInGroup(target);
-    return healthByModel[target] === 'healthy' ? [target] : [];
-  }
-  // Third badge row: catalog capability tags (text/code/reasoning/tool_call/
-  // vision/embedding/audio) — a broader taxonomy than the task groups above.
-  function modelsWithCapability(cap: string): string[] {
-    return healthyModelIds().filter((id) => (capsByModel[id] ?? []).includes(cap));
-  }
-  // Fourth badge row: access/cost classification (free/paid/local).
-  function modelsWithCostClass(costClass: string): string[] {
-    return healthyModelIds().filter((id) => (costClassByModel[id] ?? 'free') === costClass);
-  }
   async function toggleAgentModelSet(agent: AgentInfo, ids: string[], label: string) {
     if (!ids.length) return;
     const current = new Set(agent.models);
@@ -2431,7 +2413,7 @@ function App() {
                         >{group} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Hermes task map — click a task to enable/disable the model(s) it resolves to for this agent">
+                    <span className="caps agentGroups" title="Hermes task map — healthy models the agent can serve each task with">
                       {taskMap.map((item) => {
                         const target = item.model.startsWith('forgerouter/') ? item.model.slice('forgerouter/'.length) : item.model;
                         const count = target === 'auto'
@@ -2439,30 +2421,18 @@ function App() {
                           : target in groups
                             ? groups[target]
                             : (agent.models.includes(item.model) && healthByModel[item.model] === 'healthy' ? 1 : 0);
-                        return (
-                          <i
-                            key={item.task}
-                            className={`cap capTask groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${item.task}` ? ' toggling' : ''}`}
-                            title={`${item.task} → ${item.model}. Click to ${count > 0 ? 'disable' : 'enable'} for ${agent.name}`}
-                            onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsForTask(target), item.task); }}
-                          >{item.task} {count}</i>
-                        );
+                        return <i key={item.task} className={`cap capTask${count === 0 ? ' groupEmpty' : ''}`} title={`${item.task} → ${item.model}`}>{item.task} {count}</i>;
                       })}
                     </span>
-                    <span className="caps agentGroups" title="Healthy models per catalog category — click a category to enable/disable all of it for this agent">
+                    <span className="caps agentGroups" title="Healthy models per catalog category (capability)">
                       {Object.entries(categories).map(([cap, count]) => (
-                        <i
-                          key={cap}
-                          className={`cap agentChip groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${cap}` ? ' toggling' : ''}`}
-                          title={`Click to ${count > 0 ? 'disable' : 'enable'} all "${cap}" models for ${agent.name}`}
-                          onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCapability(cap), cap); }}
-                        >{cap} {count}</i>
+                        <i key={cap} className={`cap agentChip${count === 0 ? ' groupEmpty' : ''}`}>{cap} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Healthy models by cost/access classification — click one to enable/disable all of it for this agent">
-                      <i className={`cap costFree groupToggle${costs.free === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:free` ? ' toggling' : ''}`} title={`Click to ${costs.free > 0 ? 'disable' : 'enable'} all free models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('free'), 'free'); }}>free {costs.free}</i>
-                      <i className={`cap costPaid groupToggle${costs.paid === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:paid` ? ' toggling' : ''}`} title={`Click to ${costs.paid > 0 ? 'disable' : 'enable'} all paid models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('paid'), 'paid'); }}>paid {costs.paid}</i>
-                      <i className={`cap costLocal groupToggle${costs.local === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:local` ? ' toggling' : ''}`} title={`Click to ${costs.local > 0 ? 'disable' : 'enable'} all local models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('local'), 'local'); }}>local {costs.local}</i>
+                    <span className="caps agentGroups" title="Healthy models by cost/access classification">
+                      <i className={`cap costFree${costs.free === 0 ? ' groupEmpty' : ''}`}>free {costs.free}</i>
+                      <i className={`cap costPaid${costs.paid === 0 ? ' groupEmpty' : ''}`}>paid {costs.paid}</i>
+                      <i className={`cap costLocal${costs.local === 0 ? ' groupEmpty' : ''}`}>local {costs.local}</i>
                     </span>
                     <AgentSparkline daily={agent.daily} />
                   </button>
