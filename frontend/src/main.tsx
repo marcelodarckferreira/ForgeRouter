@@ -1112,6 +1112,7 @@ function App() {
   const [newAgentDescription, setNewAgentDescription] = useState('');
   const [newAgentKind, setNewAgentKind] = useState<'agent' | 'service'>('agent');
   const [togglingGroup, setTogglingGroup] = useState<string | null>(null);
+  const [togglingKind, setTogglingKind] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<{ title: string; value: string; resolve: (value: string | null) => void } | null>(null);
   // Promise-based drop-in for window.prompt() — same call signature (title,
   // default value, resolves to the trimmed-by-caller string or null on
@@ -1836,12 +1837,15 @@ function App() {
 
   async function toggleAgentKind(name: string, current: 'agent' | 'service' | undefined) {
     const next = current === 'service' ? 'agent' : 'service';
+    setTogglingKind(name);
     try {
       await fetchJson(`/admin/agents/${encodeURIComponent(name)}/kind`, { method: 'PUT', body: JSON.stringify({ kind: next }) });
       setScanStatus(`${name}: marked as ${next}`);
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the agent kind');
+    } finally {
+      setTogglingKind((current) => (current === name ? null : current));
     }
   }
 
@@ -2463,7 +2467,11 @@ function App() {
                   <button key={agent.name} className={`agentCard${selectedAgent === agent.name ? ' active' : ''}`} onClick={() => setSelectedAgent(selectedAgent === agent.name ? null : agent.name)}>
                     <span className="agentHead">
                       <Bot size={17} /><strong>{agent.name}</strong>
-                      <b className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}`} title={(agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'} onClick={(e) => { e.stopPropagation(); void toggleAgentKind(agent.name, agent.kind); }}>{agent.kind === 'service' ? 'service' : 'agent'}</b>
+                      <b
+                        className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}${togglingKind === agent.name ? ' toggling' : ''}`}
+                        title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'}
+                        onClick={(e) => { e.stopPropagation(); if (togglingKind !== agent.name) void toggleAgentKind(agent.name, agent.kind); }}
+                      >{agent.kind === 'service' ? 'service' : 'agent'}</b>
                       {!agent.enabled && <b className="status unknown">disabled</b>}
                     </span>
                     {agent.description && <span className="muted">{agent.description}</span>}
@@ -2694,7 +2702,7 @@ function App() {
                 <span className="mono">{contextTruncationMaxTokens.toLocaleString()} tokens</span>
                 <button className="iconButton" title="Only used when the selected model isn't in the pricing catalog, so its real context window is unknown" onClick={() => void editContextTruncationFallbackLimit()}><Pencil size={13} /></button>
               </div>
-              <p className="muted small">
+              <p className="muted small panelNote">
                 System prompt and the current turn are always kept. The oldest turns past the trigger are summarized by
                 a cheap model (preserving names, decisions, numbers) rather than discarded outright; if the summary
                 call fails for any reason, they're dropped instead — a missing summary is always safe, a request that
