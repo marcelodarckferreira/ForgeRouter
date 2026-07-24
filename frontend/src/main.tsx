@@ -4,7 +4,7 @@ import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDo
 import './style.css';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
-type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; };
+type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; prompt_preview: string | null; };
 type UsageDay = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
 type UsageModel = { model_id: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
 type UsageDemand = { demand: string; messages: number; tokens: number; cost: number; reference_cost: number; pct_total: number };
@@ -2776,6 +2776,11 @@ function App() {
                       <p><b>Message</b></p>
                       <p>ID <span className="mono">{route.request_id}</span> · Route #{route.route_id} · Capability <span className="mono">{route.required_capability}</span> · Agent <span className="mono">{route.agent ?? '-'}</span></p>
                       <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Demand <span className="mono">{route.demand ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.reference_cost != null ? <> · Ref. cost {formatCost(route.reference_cost)}</> : null}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
+                      {route.prompt_preview && (
+                        <p title="First ~100 characters of the last user message — ForgeRouter does not persist full conversation content">
+                          Prompt <span className="mono">{route.prompt_preview}{route.prompt_preview.length >= 100 ? '…' : ''}</span>
+                        </p>
+                      )}
                     </div>
                   )}
                 </React.Fragment>

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, default_chain, messages_have_images, resolve_demand
+from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, _message_text, default_chain, messages_have_images, resolve_demand
 from app.normalize import count_tokens, normalize_messages
 from app.routing_state import (
     breaker_open,
@@ -467,6 +467,7 @@ def _stream_and_persist_usage(
     tokens_raw: int | None = None,
     tokens_compacted: int | None = None,
     demand: str | None = None,
+    prompt_preview: str | None = None,
 ) -> Iterator[bytes]:
     usage: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
@@ -498,7 +499,7 @@ def _stream_and_persist_usage(
             metadata = error.get("metadata") if isinstance(error.get("metadata"), dict) else {}
             error_type = f"stream_{metadata.get('error_type') or error.get('code') or 'error'}"
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
             except Exception:
                 pass
             try:
@@ -509,12 +510,35 @@ def _stream_and_persist_usage(
             record_provider_success(selected.provider)
             record_sticky(agent_name, demand, selected.id)
             try:
-                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model)
+                persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview)
             except Exception:
                 pass
 
     if error is not None:
         yield b"data: [DONE]\n\n"
+
+
+PROMPT_PREVIEW_CHARS = 100
+
+
+def _prompt_preview(messages: list[Any]) -> str | None:
+    # Bounded compromise for audit visibility on the Messages page — never the
+    # full body (ForgeRouter does not persist conversation content by design).
+    # Reuses demand.py's own content extraction so the same injected-context
+    # stripping (<memory-context>, the untagged Foundation/KB block) applies
+    # here too: the preview should show what the caller actually asked, not
+    # the boilerplate every Hermes agent appends to its turns.
+    last_user = ""
+    for message in messages:
+        role = getattr(message, "role", None) if not isinstance(message, dict) else message.get("role")
+        content = getattr(message, "content", None) if not isinstance(message, dict) else message.get("content")
+        text = _message_text(content)
+        if role == "user" and text:
+            last_user = text
+    if not last_user:
+        return None
+    preview = last_user.strip()[:PROMPT_PREVIEW_CHARS]
+    return preview or None
 
 
 @app.post("/v1/chat/completions")
@@ -577,6 +601,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 )
     registry = load_registry_with_db_health()
     demand = resolve_demand(request.model, request.messages, bool(request.tools))
+    prompt_preview = _prompt_preview(request.messages)
     capability = infer_capability(request, demand)
     candidates = registry.healthy_for_capability(capability)
     capability_downgraded = False
@@ -721,7 +746,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 if request.stream:
                     # Usage arrives in the final SSE chunk (stream_options.include_usage),
                     # so the route event is persisted after the stream completes.
-                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                    stream_body = _stream_and_persist_usage(body, request_id, selected, capability, agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
                     return StreamingResponse(stream_body, media_type="text/event-stream", headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
                 # A provider can return HTTP 200 with a body that is itself an error
                 # (no choices, empty content, quota/auth text) — treat that the same
@@ -732,7 +757,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     record_sticky(agent_name, demand, selected.id)
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
                     try:
-                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model)
+                        persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview)
                     except Exception:
                         pass
                     return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
@@ -742,7 +767,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             record_provider_failure(selected.provider)
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
             except Exception:
                 pass
             try:
@@ -753,7 +778,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             record_provider_failure(selected.provider)
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
             try:
-                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand)
+                persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview)
             except Exception:
                 pass
             try:

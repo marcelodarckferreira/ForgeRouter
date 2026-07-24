@@ -220,6 +220,7 @@ def persist_route_event(
     tokens_compacted: int | None = None,
     demand: str | None = None,
     provider_model: str | None = None,
+    prompt_preview: str | None = None,
 ) -> None:
     row = route_event_to_row(request_id, selected_model_id, required_capability, status, error_type)
     usage = usage or {}
@@ -231,6 +232,7 @@ def persist_route_event(
     row["prompt_tokens_raw"] = tokens_raw
     row["prompt_tokens_compacted"] = tokens_compacted
     row["demand"] = demand
+    row["prompt_preview"] = prompt_preview
     row["reference_cost"] = None
     if not row["cost"] and selected_model_id and (row["prompt_tokens"] or row["completion_tokens"]):
         try:
@@ -246,14 +248,14 @@ def persist_route_event(
                 INSERT INTO ai_router.route_events
                     (request_id, selected_model_id, required_capability, status, error_type,
                      prompt_tokens, completion_tokens, total_tokens, cost, agent_id,
-                     prompt_tokens_raw, prompt_tokens_compacted, demand, reference_cost)
+                     prompt_tokens_raw, prompt_tokens_compacted, demand, reference_cost, prompt_preview)
                 VALUES (
                     %(request_id)s,
                     (SELECT model_id FROM ai_router.models WHERE public_id = %(selected_model_id)s),
                     %(required_capability)s, %(status)s, %(error_type)s,
                     %(prompt_tokens)s, %(completion_tokens)s, %(total_tokens)s, %(cost)s,
                     (SELECT agent_id FROM ai_router.agents WHERE name = %(agent_name)s),
-                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s, %(reference_cost)s
+                    %(prompt_tokens_raw)s, %(prompt_tokens_compacted)s, %(demand)s, %(reference_cost)s, %(prompt_preview)s
                 )
                 """,
                 row,
@@ -371,7 +373,8 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
         r.cost,
         a.name,
         r.demand,
-        r.reference_cost
+        r.reference_cost,
+        r.prompt_preview
     FROM ai_router.route_events r
     LEFT JOIN ai_router.models m ON m.model_id = r.selected_model_id
     LEFT JOIN ai_router.agents a ON a.agent_id = r.agent_id
@@ -397,6 +400,7 @@ def recent_route_events(limit: int = 25, agent_name: str | None = None) -> list[
             "agent": row[9],
             "demand": row[10],
             "reference_cost": float(row[11]) if row[11] is not None else None,
+            "prompt_preview": row[12],
         }
         for row in rows
     ]
