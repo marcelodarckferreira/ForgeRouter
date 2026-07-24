@@ -2393,8 +2393,6 @@ function App() {
                       <b className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}`} title={(agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'} onClick={(e) => { e.stopPropagation(); void toggleAgentKind(agent.name, agent.kind); }}>{agent.kind === 'service' ? 'service' : 'agent'}</b>
                       {agent.aux_tasks && <b className="status healthy" title="This agent's token authenticates the Hermes auxiliary tasks">aux tasks</b>}
                       {!agent.enabled && <b className="status unknown">disabled</b>}
-                      <span className="spacer" />
-                      <i className="iconButton" title={`Edit ${agent.name}: model controls, budget, key…`} onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent.name); }}><Pencil size={13} /></i>
                     </span>
                     {agent.description && <span className="muted">{agent.description}</span>}
                     <span className="agentStats">
@@ -2403,6 +2401,7 @@ function App() {
                       <span>Providers <b>{agentProviders.size}</b></span>
                       <span>Models <b className={agent.models.length ? (agentHealthy ? 'agentHealthy' : 'agentUnhealthy') : ''}>{agentHealthy}/{agent.models.length} healthy</b></span>
                     </span>
+                    <span className="muted groupsHint">Click a group below to enable/disable it for this agent</span>
                     <span className="caps agentGroups" title="Healthy models per task group — click a group to enable/disable all of it for this agent">
                       {Object.entries(groups).map(([group, count]) => (
                         <i
