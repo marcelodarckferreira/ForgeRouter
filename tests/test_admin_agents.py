@@ -44,7 +44,7 @@ def test_agent_create_requires_admin_token(monkeypatch):
 
 def test_agent_create_generates_key(monkeypatch):
     created = {}
-    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="": created.update(name=name, api_key=api_key, description=description))
+    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent": created.update(name=name, api_key=api_key, description=description, kind=kind))
 
     response = client.post("/admin/agents", json={"name": " athos "})
 
@@ -52,12 +52,12 @@ def test_agent_create_generates_key(monkeypatch):
     body = response.json()
     assert body["agent"] == "athos"
     assert body["api_key"].startswith("athos_")
-    assert created == {"name": "athos", "api_key": body["api_key"], "description": ""}
+    assert created == {"name": "athos", "api_key": body["api_key"], "description": "", "kind": "agent"}
 
 
 def test_agent_create_accepts_pregenerated_key(monkeypatch):
     created = {}
-    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="": created.update(name=name, api_key=api_key, description=description))
+    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent": created.update(name=name, api_key=api_key, description=description, kind=kind))
 
     response = client.post("/admin/agents", json={"name": "athos", "api_key": "hermes_pregenerated"})
 

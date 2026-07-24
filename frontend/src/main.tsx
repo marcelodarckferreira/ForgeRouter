@@ -28,7 +28,7 @@ type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string;
 type Attachment = { id: string; url: string; name: string };
 
 type AgentDaily = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
-type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
+type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; kind?: 'agent' | 'service'; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
 
@@ -1110,6 +1110,8 @@ function App() {
   const [connectOpen, setConnectOpen] = useState(false);
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentDescription, setNewAgentDescription] = useState('');
+  const [newAgentKind, setNewAgentKind] = useState<'agent' | 'service'>('agent');
+  const [togglingGroup, setTogglingGroup] = useState<string | null>(null);
   const [newAgentKey, setNewAgentKey] = useState(generateAgentKey);
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -1644,10 +1646,11 @@ function App() {
     try {
       setCreatingAgent(true);
       setError(null);
-      await fetchJson('/admin/agents', { method: 'POST', body: JSON.stringify({ name, api_key: newAgentKey, description: newAgentDescription.trim() }) });
+      await fetchJson('/admin/agents', { method: 'POST', body: JSON.stringify({ name, api_key: newAgentKey, description: newAgentDescription.trim(), kind: newAgentKind }) });
       setScanStatus(`agent "${name}" created — the key is stored in the agent's registration; paste it into the agent's connection settings`);
       setNewAgentName('');
       setNewAgentDescription('');
+      setNewAgentKind('agent');
       setNewAgentKey(generateAgentKey());
       setConnectOpen(false);
       setSelectedAgent(name);
@@ -1757,6 +1760,17 @@ function App() {
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to rename agent');
+    }
+  }
+
+  async function toggleAgentKind(name: string, current: 'agent' | 'service' | undefined) {
+    const next = current === 'service' ? 'agent' : 'service';
+    try {
+      await fetchJson(`/admin/agents/${encodeURIComponent(name)}/kind`, { method: 'PUT', body: JSON.stringify({ kind: next }) });
+      setScanStatus(`${name}: marked as ${next}`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save the agent kind');
     }
   }
 
@@ -2041,6 +2055,69 @@ function App() {
     for (const provider of registry) for (const model of provider.models) map[model.id] = model.score ?? 0;
     return map;
   }, [registry]);
+  // All healthy catalog model ids, over every provider — the universe every
+  // per-badge selector below filters down from.
+  function healthyModelIds(): string[] {
+    const ids: string[] = [];
+    for (const provider of registry) for (const model of provider.models) if (healthByModel[model.id] === 'healthy') ids.push(model.id);
+    return ids;
+  }
+  // Every healthy catalog model id that belongs to a task group (simple/standard/
+  // complex by score band, reasoning/vision/audio/code by capability) — the same
+  // classification the first agent-card badge row counts, just over the whole
+  // catalog instead of only the agent's already-associated models.
+  function modelsInGroup(group: string): string[] {
+    return healthyModelIds().filter((id) => {
+      const caps = capsByModel[id] ?? [];
+      const score = scoreByModel[id] ?? 0;
+      return (
+        (group === 'vision' && caps.includes('vision')) ||
+        (group === 'audio' && caps.includes('audio')) ||
+        (group === 'code' && caps.includes('code')) ||
+        (group === 'reasoning' && caps.includes('reasoning')) ||
+        (group === 'complex' && score >= 50) ||
+        (group === 'standard' && score >= 30 && score < 50) ||
+        (group === 'simple' && score < 30)
+      );
+    });
+  }
+  // Second badge row: the Hermes task map (forgerouter/<task> aliases). "auto"
+  // resolves to every healthy model; a virtual forgerouter/<demand> resolves via
+  // modelsInGroup; anything else names one concrete model directly.
+  const TASK_GROUP_NAMES = ['simple', 'standard', 'complex', 'reasoning', 'vision', 'audio', 'code'];
+  function modelsForTask(target: string): string[] {
+    if (target === 'auto') return healthyModelIds();
+    if (TASK_GROUP_NAMES.includes(target)) return modelsInGroup(target);
+    return healthByModel[target] === 'healthy' ? [target] : [];
+  }
+  // Third badge row: catalog capability tags (text/code/reasoning/tool_call/
+  // vision/embedding/audio) — a broader taxonomy than the task groups above.
+  function modelsWithCapability(cap: string): string[] {
+    return healthyModelIds().filter((id) => (capsByModel[id] ?? []).includes(cap));
+  }
+  // Fourth badge row: access/cost classification (free/paid/local).
+  function modelsWithCostClass(costClass: string): string[] {
+    return healthyModelIds().filter((id) => (costClassByModel[id] ?? 'free') === costClass);
+  }
+  async function toggleAgentModelSet(agent: AgentInfo, ids: string[], label: string) {
+    if (!ids.length) return;
+    const current = new Set(agent.models);
+    const allOn = ids.every((id) => current.has(id));
+    const next = allOn
+      ? agent.models.filter((id) => !ids.includes(id))
+      : [...new Set([...agent.models, ...ids])];
+    const key = `${agent.name}:${label}`;
+    setTogglingGroup(key);
+    try {
+      await fetchJson(`/admin/agents/${encodeURIComponent(agent.name)}/models`, { method: 'PUT', body: JSON.stringify({ models: next }) });
+      setScanStatus(`${agent.name}: ${label} ${allOn ? 'disabled' : 'enabled'} (${ids.length} models)`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to toggle ${label} for ${agent.name}`);
+    } finally {
+      setTogglingGroup((current) => (current === key ? null : current));
+    }
+  }
   // Models the selected agent may use; null only when "all agents" is selected.
   // An empty set = the agent has no providers associated yet (routes to nothing).
   const agentAllowed = useMemo(() => {
@@ -2278,6 +2355,12 @@ function App() {
                 <div className="form">
                   <div className="formGrid">
                     <label>Agent name<input value={newAgentName} placeholder="e.g. athos" onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
+                    <label>Kind
+                      <select value={newAgentKind} onChange={(e) => setNewAgentKind(e.target.value as 'agent' | 'service')}>
+                        <option value="agent">Agent — real Hermes profile (gateway/Telegram/KB)</option>
+                        <option value="service">Service — internal caller only (e.g. Hindsight)</option>
+                      </select>
+                    </label>
                     <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by the Hermes auxiliary tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                     <label>API key — auto-generated, stored in the agent's registration; paste it into the agent's connection settings
                       <span className="keyGen">
@@ -2323,7 +2406,14 @@ function App() {
                 }
                 return (
                   <button key={agent.name} className={`agentCard${selectedAgent === agent.name ? ' active' : ''}`} onClick={() => setSelectedAgent(selectedAgent === agent.name ? null : agent.name)}>
-                    <span className="agentHead"><Bot size={17} /><strong>{agent.name}</strong>{agent.aux_tasks && <b className="status healthy" title="This agent's token authenticates the Hermes auxiliary tasks">aux tasks</b>}{!agent.enabled && <b className="status unknown">disabled</b>}</span>
+                    <span className="agentHead">
+                      <Bot size={17} /><strong>{agent.name}</strong>
+                      <b className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}`} title={(agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'} onClick={(e) => { e.stopPropagation(); void toggleAgentKind(agent.name, agent.kind); }}>{agent.kind === 'service' ? 'service' : 'agent'}</b>
+                      {agent.aux_tasks && <b className="status healthy" title="This agent's token authenticates the Hermes auxiliary tasks">aux tasks</b>}
+                      {!agent.enabled && <b className="status unknown">disabled</b>}
+                      <span className="spacer" />
+                      <i className="iconButton" title={`Edit ${agent.name}: model controls, budget, key…`} onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent.name); }}><Pencil size={13} /></i>
+                    </span>
                     {agent.description && <span className="muted">{agent.description}</span>}
                     <span className="agentStats">
                       <span>Tokens <b>{formatTokens(agent.tokens)}</b></span>
@@ -2331,12 +2421,17 @@ function App() {
                       <span>Providers <b>{agentProviders.size}</b></span>
                       <span>Models <b className={agent.models.length ? (agentHealthy ? 'agentHealthy' : 'agentUnhealthy') : ''}>{agentHealthy}/{agent.models.length} healthy</b></span>
                     </span>
-                    <span className="caps agentGroups" title="Healthy models available per task group">
+                    <span className="caps agentGroups" title="Healthy models per task group — click a group to enable/disable all of it for this agent">
                       {Object.entries(groups).map(([group, count]) => (
-                        <i key={group} className={`cap${count === 0 ? ' groupEmpty' : ''}`}>{group} {count}</i>
+                        <i
+                          key={group}
+                          className={`cap groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${group}` ? ' toggling' : ''}`}
+                          title={`Click to ${count > 0 ? 'disable' : 'enable'} all "${group}" models for ${agent.name}`}
+                          onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsInGroup(group), group); }}
+                        >{group} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Hermes task map — healthy models the agent can serve each task with">
+                    <span className="caps agentGroups" title="Hermes task map — click a task to enable/disable the model(s) it resolves to for this agent">
                       {taskMap.map((item) => {
                         const target = item.model.startsWith('forgerouter/') ? item.model.slice('forgerouter/'.length) : item.model;
                         const count = target === 'auto'
@@ -2344,18 +2439,30 @@ function App() {
                           : target in groups
                             ? groups[target]
                             : (agent.models.includes(item.model) && healthByModel[item.model] === 'healthy' ? 1 : 0);
-                        return <i key={item.task} className={`cap capTask${count === 0 ? ' groupEmpty' : ''}`} title={`${item.task} → ${item.model}`}>{item.task} {count}</i>;
+                        return (
+                          <i
+                            key={item.task}
+                            className={`cap capTask groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${item.task}` ? ' toggling' : ''}`}
+                            title={`${item.task} → ${item.model}. Click to ${count > 0 ? 'disable' : 'enable'} for ${agent.name}`}
+                            onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsForTask(target), item.task); }}
+                          >{item.task} {count}</i>
+                        );
                       })}
                     </span>
-                    <span className="caps agentGroups" title="Healthy models per catalog category (capability)">
+                    <span className="caps agentGroups" title="Healthy models per catalog category — click a category to enable/disable all of it for this agent">
                       {Object.entries(categories).map(([cap, count]) => (
-                        <i key={cap} className={`cap agentChip${count === 0 ? ' groupEmpty' : ''}`}>{cap} {count}</i>
+                        <i
+                          key={cap}
+                          className={`cap agentChip groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${cap}` ? ' toggling' : ''}`}
+                          title={`Click to ${count > 0 ? 'disable' : 'enable'} all "${cap}" models for ${agent.name}`}
+                          onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCapability(cap), cap); }}
+                        >{cap} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Healthy models by cost/access classification">
-                      <i className={`cap costFree${costs.free === 0 ? ' groupEmpty' : ''}`}>free {costs.free}</i>
-                      <i className={`cap costPaid${costs.paid === 0 ? ' groupEmpty' : ''}`}>paid {costs.paid}</i>
-                      <i className={`cap costLocal${costs.local === 0 ? ' groupEmpty' : ''}`}>local {costs.local}</i>
+                    <span className="caps agentGroups" title="Healthy models by cost/access classification — click one to enable/disable all of it for this agent">
+                      <i className={`cap costFree groupToggle${costs.free === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:free` ? ' toggling' : ''}`} title={`Click to ${costs.free > 0 ? 'disable' : 'enable'} all free models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('free'), 'free'); }}>free {costs.free}</i>
+                      <i className={`cap costPaid groupToggle${costs.paid === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:paid` ? ' toggling' : ''}`} title={`Click to ${costs.paid > 0 ? 'disable' : 'enable'} all paid models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('paid'), 'paid'); }}>paid {costs.paid}</i>
+                      <i className={`cap costLocal groupToggle${costs.local === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:local` ? ' toggling' : ''}`} title={`Click to ${costs.local > 0 ? 'disable' : 'enable'} all local models for ${agent.name}`} onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsWithCostClass('local'), 'local'); }}>local {costs.local}</i>
                     </span>
                     <AgentSparkline daily={agent.daily} />
                   </button>

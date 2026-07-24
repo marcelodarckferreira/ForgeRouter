@@ -119,7 +119,7 @@ def test_session_token_authorizes_admin_actions(monkeypatch):
         "app.main.session_user",
         lambda token: {"user_id": 1, "username": "admin", "must_change_password": False} if token == "sess" else None,
     )
-    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="": None)
+    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent": None)
 
     denied = client.post("/admin/agents", json={"name": "athos"})
     allowed = client.post("/admin/agents", headers={"Authorization": "Bearer sess"}, json={"name": "athos"})
