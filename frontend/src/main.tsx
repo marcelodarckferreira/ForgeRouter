@@ -2055,11 +2055,17 @@ function App() {
     for (const provider of registry) for (const model of provider.models) map[model.id] = model.score ?? 0;
     return map;
   }, [registry]);
-  // All healthy catalog model ids, over every provider — the universe every
-  // per-badge selector below filters down from.
+  // All healthy AND enabled catalog model ids, over every provider — the universe
+  // every per-badge selector below filters down from. Both checks matter: the
+  // health endpoint keeps a model's last-known status even after it's been
+  // manually disabled (manual_off), so a model turned off catalog-wide (e.g. the
+  // openrouter/auto meta-routers) would otherwise still count as a toggle
+  // candidate forever — permanently pinning every group it belongs to at
+  // "not fully on" and turning every click on those groups into an "enable"
+  // instead of ever reaching "disable".
   function healthyModelIds(): string[] {
     const ids: string[] = [];
-    for (const provider of registry) for (const model of provider.models) if (healthByModel[model.id] === 'healthy') ids.push(model.id);
+    for (const provider of registry) for (const model of provider.models) if (model.enabled && healthByModel[model.id] === 'healthy') ids.push(model.id);
     return ids;
   }
   // Every healthy catalog model id that belongs to a task group (simple/standard/
@@ -2084,15 +2090,22 @@ function App() {
   async function toggleAgentModelSet(agent: AgentInfo, ids: string[], label: string) {
     if (!ids.length) return;
     const current = new Set(agent.models);
-    const allOn = ids.every((id) => current.has(id));
-    const next = allOn
+    // "Any on -> turn off" rather than "all on -> turn off": a model that
+    // belongs to more than one group (e.g. vision+reasoning) gets removed by
+    // whichever group's badge is clicked first. Requiring *every* member
+    // present before allowing a disable meant that removal permanently kept
+    // the other group "incomplete" — so its own next click always looked
+    // like "turn everything on" and silently re-added the model the first
+    // click had just turned off.
+    const anyOn = ids.some((id) => current.has(id));
+    const next = anyOn
       ? agent.models.filter((id) => !ids.includes(id))
       : [...new Set([...agent.models, ...ids])];
     const key = `${agent.name}:${label}`;
     setTogglingGroup(key);
     try {
       await fetchJson(`/admin/agents/${encodeURIComponent(agent.name)}/models`, { method: 'PUT', body: JSON.stringify({ models: next }) });
-      setScanStatus(`${agent.name}: ${label} ${allOn ? 'disabled' : 'enabled'} (${ids.length} models)`);
+      setScanStatus(`${agent.name}: ${label} ${anyOn ? 'disabled' : 'enabled'} (${ids.length} models)`);
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to toggle ${label} for ${agent.name}`);
