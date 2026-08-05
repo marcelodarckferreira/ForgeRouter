@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A self-hosted LLM gateway that routes chat completions across multiple providers with health-based selection, automatic fallback, and demand-aware model routing — with an OpenAI-compatible API, an Anthropic Messages API translator, and an OpenAI Responses API translator all sharing one routing pipeline.
+  A self-hosted LLM gateway that routes chat completions and embeddings across multiple providers with health-based selection, automatic fallback, and demand-aware model routing — with an OpenAI-compatible API, an Anthropic Messages API translator, and an OpenAI Responses API translator all sharing one routing pipeline and streaming incrementally, end to end.
 </p>
 
 <p align="center">
@@ -18,28 +18,29 @@
 
 ForgeRouter sits in front of a pool of LLM providers — local models via Ollama, API-key providers (Groq, OpenRouter, Mistral, NVIDIA, Cloudflare, Cohere, Gemini Studio, GitHub Models, and more), and OAuth/subscription-based coding plans (Claude Code, Codex, Antigravity, DeepSeek, Z.ai) — and exposes them as one gateway. Point any OpenAI-compatible client, Claude Code, or the Codex CLI at it and it handles provider selection, health checks, and failover for you, so a single provider outage or a free-tier rate limit never breaks a request.
 
-It speaks three client protocols against the same routing/fallback pipeline:
+It speaks three client protocols against the same routing/fallback pipeline, plus a dedicated embeddings endpoint:
 
 - **`/v1/chat/completions`** and **`/v1/models`** — OpenAI-compatible, including streaming (SSE).
-- **`/v1/messages`** — Anthropic Messages API, for Claude Code.
-- **`/v1/responses`** — OpenAI Responses API, for the Codex CLI (required since Codex dropped Chat Completions support in v0.138).
+- **`/v1/messages`** — Anthropic Messages API, for Claude Code. Streaming is real and incremental, translated chunk-by-chunk from the live provider response as it arrives — not a complete answer replayed as a synthesized SSE burst.
+- **`/v1/responses`** — OpenAI Responses API, for the Codex CLI (required since Codex dropped Chat Completions support in v0.138). Same real incremental streaming as `/v1/messages`.
+- **`/v1/embeddings`** — OpenAI-compatible, through the same health-based candidate selection and fallback as chat completions.
 
 It ships with a built-in admin dashboard for managing providers, agents, routing, and usage — no separate service required.
 
 ## Features
 
-- **Three client protocols, one router** — OpenAI Chat Completions, Anthropic Messages, and OpenAI Responses all translate down to the same request and share the same candidate selection, fallback, and health logic.
+- **Three client protocols, one router** — OpenAI Chat Completions, Anthropic Messages, and OpenAI Responses all translate down to the same request and share the same candidate selection, fallback, and health logic. All three stream incrementally from the live provider response — text and tool-call argument deltas arrive as the provider sends them, not a synthesized burst replayed after the fact.
 - **Multi-provider routing** — mix local (Ollama) and remote providers (API-key or OAuth/subscription-based) in one pool, tiered by priority.
 - **Health-based selection with automatic fallback** — candidates are tried in order; a failing, rate-limited, or unhealthy provider is skipped in favor of the next healthy one. A specific `model` in the request is a *preference*, not an exclusive filter — the rest of the healthy pool stays available as fallback.
-- **Demand routing** — virtual models (`forgerouter/auto`, `simple`, `standard`, `complex`, `reasoning`, `vision`, `audio`, `code`) classify each request from its content (image parts, code fences/hints, reasoning language, prompt size) and route it through an ordered chain of concrete models, so cheap requests don't burn a premium model's quota and vice versa.
+- **Demand routing** — virtual models (`forgerouter/auto`, `simple`, `standard`, `complex`, `reasoning`, `vision`, `audio`, `code`) classify each request from its content (image or audio parts, code fences/hints, reasoning language, prompt size) and route it through an ordered chain of concrete models, so cheap requests don't burn a premium model's quota and vice versa.
 - **In-process routing intelligence** — a per-provider circuit breaker (repeated failures open it temporarily), sticky routing (an agent's last-successful model for a given demand sticks around briefly to preserve provider prompt caches), and a dynamic score blending static model strength with recent success rate/latency.
-- **Provider health scanner** — periodically sends real chat completions to each configured model and detects *silent* failures too (HTTP 200 with empty content, quota/billing/auth error text in the body), not just connection errors.
+- **Provider health scanner with startup & background watchdog** — periodically sends real chat completions to each configured model and detects *silent* failures too (HTTP 200 with empty content, quota/billing/auth error text in the body), not just connection errors. A full scan runs the moment the service boots, and a background check every 60s triggers an automatic rescan (rate-limited to once per 5 minutes) whenever the healthy pool drops below a minimum — surfaced via `/health` and a dashboard banner, so a fresh deploy or a flaky connection is never silently unreported.
 - **Context compaction (lossless)** — strips incidental whitespace/formatting from outgoing messages before they hit the provider; no semantic content is ever removed. Before/after token counts are tracked per request.
 - **Context truncation (lossy, opt-in)** — a safety valve for a runaway conversation history: once a request's estimated tokens cross a configurable percentage of the *selected model's actual context window*, the oldest turns are summarized by a cheap model (preserving names, decisions, numbers) and spliced in as a condensed note, rather than blowing past the model's real limit. Off by default; falls back to a plain mechanical drop if the summarization call fails.
 - **Per-agent API keys and model controls** — issue a distinct API key per connected client/agent, restrict it to a subset of models or capability groups, set a monthly reference-cost budget, and classify it as a real conversational agent vs. an internal service consumer.
 - **Reference cost estimation** — since ForgeRouter is built around free-tier routing, real billed cost is almost always zero; it estimates what a request *would* have cost at public commercial rates for an equivalent model, purely as an opportunity-cost figure.
 - **Audit visibility without storing conversations** — ForgeRouter does not persist message bodies by design. The one bounded exception is a ~100-character preview of the last user message per request, kept for auditing what an agent is actually spending its quota on.
-- **Admin dashboard** — a React/TypeScript UI for managing providers, agents, routing/demand chains, pricing, and usage, served directly by the API.
+- **Admin dashboard** — a React/TypeScript UI for managing providers, agents, routing/demand chains, pricing, and usage, served directly by the API — including a tri-state model status breakdown (healthy / disabled / unresponsive) so an intentionally-disabled model never reads as an outage.
 - **Database-backed with YAML fallback** — the provider registry lives in PostgreSQL; a bundled YAML config is used automatically if the database is unreachable or empty, so routing never goes down with it.
 
 ## Architecture
@@ -159,6 +160,15 @@ List available models:
 
 ```bash
 curl http://127.0.0.1:2100/v1/models
+```
+
+Request an embedding:
+
+```bash
+curl http://127.0.0.1:2100/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <agent-api-key>" \
+  -d '{"model": "auto", "input": "Hello, world!"}'
 ```
 
 Any OpenAI-compatible SDK works out of the box by pointing `base_url` at `http://127.0.0.1:2100/v1`. Claude Code and the Codex CLI can point at `http://127.0.0.1:2100` directly (`/v1/messages` and `/v1/responses` respectively) using an agent API key as the bearer token.
