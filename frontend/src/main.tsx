@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
@@ -402,7 +403,7 @@ function LoginScreen({ onLogin }: { onLogin: (token: string, user: AuthUser, pas
       if (!res.ok) throw new Error(data?.error?.message ?? 'Login failed');
       onLogin(
         data.token,
-        { username: data.username, must_change_password: data.must_change_password, is_admin: data.is_admin, full_name: data.full_name, permissions: data.permissions },
+        { username: data.username, must_change_password: data.must_change_password, is_admin: data.is_admin, full_name: data.full_name, email: data.email, avatar_data_url: data.avatar_data_url, permissions: data.permissions },
         password,
       );
     } catch (err) {
@@ -525,7 +526,10 @@ function UserAvatar({ username, avatarUrl, size }: { username: string; avatarUrl
   );
 }
 
-/** Photo picker used by the account modal and the admin user form. */
+/** Photo picker used by the account modal and the admin user form. Supports
+ * both the native file dialog and drag-and-drop — dragging a file onto the
+ * avatar works even when the OS file-open dialog itself is unusable (e.g. a
+ * broken/collapsed Windows Explorer sidebar with no folder navigation). */
 function AvatarPicker({ username, value, onChange, onError }: {
   username: string;
   value: string | null;
@@ -533,24 +537,65 @@ function AvatarPicker({ username, value, onChange, onError }: {
   onError: (message: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  const [dragOver, setDragOver] = useState(false);
+  const dragDepth = useRef(0);
+
+  async function applyFile(file: File | null | undefined) {
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onError('That file is not an image.');
+      return;
+    }
     try {
       onChange(await readAvatarFile(file));
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Could not read the image');
     }
   }
+
+  async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    await applyFile(file);
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  }
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  }
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragOver(false);
+    await applyFile(e.dataTransfer.files?.[0]);
+  }
+
   return (
-    <div className="avatarPicker">
-      <UserAvatar username={username || '?'} avatarUrl={value} size="big" />
-      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void handlePick(e)} />
-      <div className="actions">
-        <button type="button" className="button secondary" onClick={() => inputRef.current?.click()}><ImagePlus size={14} /> {value ? 'Change photo' : 'Add photo'}</button>
-        {value && <button type="button" className="iconButton danger" title="Remove photo" onClick={() => onChange(null)}><Trash2 size={13} /></button>}
+    <div
+      className={`avatarPicker${dragOver ? ' dragOver' : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={(e) => void handleDrop(e)}
+    >
+      <div className="avatarPickerRow">
+        <UserAvatar username={username || '?'} avatarUrl={value} size="big" />
+        <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void handlePick(e)} />
+        <div className="actions">
+          <button type="button" className="button secondary" onClick={() => inputRef.current?.click()}><ImagePlus size={14} /> {value ? 'Change photo' : 'Add photo'}</button>
+          {value && <button type="button" className="iconButton danger" title="Remove photo" onClick={() => onChange(null)}><Trash2 size={13} /></button>}
+        </div>
       </div>
+      <p className="avatarDropHint">{dragOver ? 'Drop to use this photo' : 'or drag an image here'}</p>
     </div>
   );
 }
@@ -700,7 +745,7 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
           </button>
         </div>
       )}
-      {modal === 'account' && (
+      {modal === 'account' && createPortal(
         <div className="modalOverlay" onClick={() => setModal(null)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <h2>Conta</h2>
@@ -716,9 +761,10 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
-      {modal === 'password' && (
+      {modal === 'password' && createPortal(
         <div className="modalOverlay" onClick={() => setModal(null)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <h2>Alterar senha</h2>
@@ -733,7 +779,8 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -2349,7 +2396,15 @@ function App() {
         token={authToken}
         username={authUser.username}
         initialPassword={loginPassword}
-        onDone={(name) => setAuthUser({ username: name, must_change_password: false })}
+        onDone={(name) => {
+          // Same bug class as the login screen: the change-password response
+          // only carries {username, must_change_password} — refetch the full
+          // profile (is_admin, permissions, avatar, email) instead of
+          // fabricating a stripped-down user object from just the username.
+          fetchJson('/auth/me')
+            .then((user) => setAuthUser(user as AuthUser))
+            .catch(() => setAuthUser({ username: name, must_change_password: false }));
+        }}
       />
     );
   }
