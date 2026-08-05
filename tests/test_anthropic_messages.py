@@ -140,3 +140,73 @@ def test_anthropic_messages_plain_text_roundtrip(monkeypatch):
     body = response.json()
     assert body["content"] == [{"type": "text", "text": "oi"}]
     assert body["stop_reason"] == "end_turn"
+
+
+def _parse_sse_events(raw: bytes) -> list[dict]:
+    events = []
+    for block in raw.decode("utf-8").split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        data_line = next((line[len("data:"):].strip() for line in lines if line.startswith("data:")), None)
+        if data_line:
+            events.append(json.loads(data_line))
+    return events
+
+
+def test_anthropic_messages_streams_real_provider_chunks(monkeypatch):
+    # The point of real streaming: text and tool_use deltas must arrive as the
+    # provider sends them, not as a synthesized burst replayed after the fact —
+    # this feeds a live OpenAI-format chunk generator, not a complete message.
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(selected, payload):
+        assert payload["stream"] is True
+
+        def chunk_gen():
+            yield b'data: {"choices": [{"delta": {"content": "Ol"}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"content": "\xc3\xa1!"}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "call_1", "function": {"name": "get_weather", "arguments": ""}}]}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "{\\"city\\": \\"SP\\"}"}}]}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}\n\n'
+            yield b'data: {"choices": [], "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return 200, chunk_gen()
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post(
+        "/v1/messages",
+        json={
+            "model": "groq/llama-3.3-70b-versatile",
+            "max_tokens": 64,
+            "tools": ANTHROPIC_TOOLS,
+            "messages": [{"role": "user", "content": "clima em SP?"}],
+            "stream": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse_events(response.content)
+    types = [e["type"] for e in events]
+    assert types[0] == "message_start"
+    assert types[-1] == "message_stop"
+
+    text_deltas = [e["delta"]["text"] for e in events if e["type"] == "content_block_delta" and e["delta"]["type"] == "text_delta"]
+    assert "".join(text_deltas) == "Olá!"
+
+    tool_start = next(e for e in events if e["type"] == "content_block_start" and e["content_block"]["type"] == "tool_use")
+    assert tool_start["content_block"]["id"] == "call_1"
+    assert tool_start["content_block"]["name"] == "get_weather"
+    assert tool_start["content_block"]["input"] == {}
+
+    json_deltas = [e["delta"]["partial_json"] for e in events if e["type"] == "content_block_delta" and e["delta"]["type"] == "input_json_delta"]
+    assert json.loads("".join(json_deltas)) == {"city": "SP"}
+
+    message_delta = next(e for e in events if e["type"] == "message_delta")
+    assert message_delta["delta"]["stop_reason"] == "tool_use"
+    assert message_delta["usage"] == {"input_tokens": 10, "output_tokens": 5}

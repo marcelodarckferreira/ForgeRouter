@@ -31,6 +31,20 @@ def build_chat_payload(
     return payload
 
 
+def build_embeddings_payload(
+    model: ProviderModel,
+    input_value: Any,
+    encoding_format: str | None = None,
+    dimensions: int | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"model": model.provider_model, "input": input_value}
+    if encoding_format is not None:
+        payload["encoding_format"] = encoding_format
+    if dimensions is not None:
+        payload["dimensions"] = dimensions
+    return payload
+
+
 def headers_for_model(model: ProviderModel) -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     from app.providers.plans import plan_for
@@ -122,3 +136,28 @@ def chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: floa
         if response.status_code >= 400:
             body = _attach_retry_after(body, response.headers)
         return response.status_code, body
+
+
+def embeddings(model: ProviderModel, payload: dict[str, Any], timeout: float = 60.0) -> tuple[int, Any]:
+    # Embeddings only exist on the plain OpenAI-compatible /embeddings surface —
+    # none of the CLI-auth plan handlers (Codex, Antigravity, Claude Code, z.ai,
+    # DeepSeek Web) or the Anthropic Messages API expose one. Report it as an
+    # ordinary provider error rather than raising, so the router's normal
+    # candidate fallback moves on instead of the request failing outright —
+    # a model tagged "embedding" behind one of these should simply never be a
+    # candidate in practice, but this keeps that assumption from being load-bearing.
+    from app.providers.plans import plan_for
+
+    plan = plan_for(model.base_url)
+    if plan or getattr(model, "api_format", "openai") == "anthropic":
+        return 501, {"error": {"message": f"{model.provider} does not support embeddings", "type": "unsupported_capability"}}
+    url = model.base_url.rstrip("/") + "/embeddings"
+    headers = headers_for_model(model)
+    response = httpx.post(url, headers=headers, json=payload, timeout=timeout)
+    try:
+        body = response.json()
+    except Exception:
+        body = {"error": {"message": response.text, "type": "invalid_json"}}
+    if response.status_code >= 400:
+        body = _attach_retry_after(body, response.headers)
+    return response.status_code, body

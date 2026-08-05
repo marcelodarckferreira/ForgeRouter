@@ -204,3 +204,95 @@ def test_responses_all_providers_failed_returns_502(monkeypatch):
     assert response.status_code == 502
     body = response.json()
     assert body["error"]["type"] == "all_providers_failed"
+
+
+def _parse_sse_events(raw: bytes) -> list[dict]:
+    events = []
+    for block in raw.decode("utf-8").split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        data_line = next((line[len("data:"):].strip() for line in lines if line.startswith("data:")), None)
+        if data_line:
+            events.append(json.loads(data_line))
+    return events
+
+
+def test_responses_streams_real_provider_chunks(monkeypatch):
+    # Real streaming: text/tool_call deltas must arrive as the provider sends
+    # them, not as a synthesized burst replayed after a complete response.
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(selected, payload):
+        assert payload["stream"] is True
+
+        def chunk_gen():
+            yield b'data: {"choices": [{"delta": {"content": "25"}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"content": "C em SP"}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {}, "finish_reason": "stop"}]}\n\n'
+            yield b'data: {"choices": [], "usage": {"prompt_tokens": 7, "completion_tokens": 4, "total_tokens": 11}}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return 200, chunk_gen()
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "clima em SP?", "stream": True},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse_events(response.content)
+    types = [e["type"] for e in events]
+    assert types[0] == "response.created"
+    assert types[1] == "response.in_progress"
+    assert types[-1] == "response.completed"
+
+    text_deltas = [e["delta"] for e in events if e["type"] == "response.output_text.delta"]
+    assert "".join(text_deltas) == "25C em SP"
+
+    completed = next(e for e in events if e["type"] == "response.completed")
+    assert completed["response"]["status"] == "completed"
+    assert completed["response"]["output"][0]["content"][0]["text"] == "25C em SP"
+    assert completed["response"]["usage"] == {"input_tokens": 7, "output_tokens": 4, "total_tokens": 11}
+
+
+def test_responses_streams_function_call_arguments(monkeypatch):
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model()]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(selected, payload):
+        def chunk_gen():
+            yield b'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "call_1", "function": {"name": "get_weather", "arguments": ""}}]}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "{\\"city\\": "}}]}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "\\"SP\\"}"}}]}}]}\n\n'
+            yield b'data: {"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return 200, chunk_gen()
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post(
+        "/v1/responses",
+        json={"model": "groq/llama-3.3-70b-versatile", "input": "clima em SP?", "tools": RESPONSES_TOOLS, "stream": True},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.content)
+
+    arg_deltas = [e["delta"] for e in events if e["type"] == "response.function_call_arguments.delta"]
+    assert json.loads("".join(arg_deltas)) == {"city": "SP"}
+
+    added = next(e for e in events if e["type"] == "response.output_item.added")
+    assert added["item"]["type"] == "function_call"
+    assert added["item"]["call_id"] == "call_1"
+    assert added["item"]["name"] == "get_weather"
+
+    completed = next(e for e in events if e["type"] == "response.completed")
+    assert completed["response"]["output"][0]["type"] == "function_call"
+    assert json.loads(completed["response"]["output"][0]["arguments"]) == {"city": "SP"}

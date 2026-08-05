@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Iterator
+from typing import Any, AsyncIterator, Iterable, Iterator
 import asyncio
 import json
 import os
@@ -27,7 +27,7 @@ from app.routing_state import (
     sticky_model,
 )
 from app.registry import load_registry, load_registry_with_db_health, provider_readiness
-from app.providers.openai_compatible import build_chat_payload, chat_completion
+from app.providers.openai_compatible import build_chat_payload, build_embeddings_payload, chat_completion, embeddings
 from app.deploy_config import apply_agent_deploy_config
 from app.validation.health import detect_silent_failure
 from app.storage import (
@@ -340,6 +340,147 @@ def models():
     return {"object": "list", "data": virtual + registry.openai_models()}
 
 
+class EmbeddingsRequest(BaseModel):
+    model_config = {"extra": "allow"}
+
+    model: str = "auto"
+    input: Any = None
+    encoding_format: str | None = None
+    dimensions: int | None = None
+    user: str | None = None
+
+
+def _valid_embeddings_body(body: Any) -> bool:
+    # Mirrors detect_silent_failure's role for chat completions: an HTTP 200
+    # with no usable data (empty/missing "data", or embedding vectors that
+    # aren't real lists) must be treated as a provider failure so the next
+    # candidate gets a chance, not forwarded to the caller as success.
+    if not isinstance(body, dict):
+        return False
+    data = body.get("data")
+    if not isinstance(data, list) or not data:
+        return False
+    return all(isinstance(item, dict) and isinstance(item.get("embedding"), list) and item["embedding"] for item in data)
+
+
+@app.post("/v1/embeddings")
+def embeddings_endpoint(request: EmbeddingsRequest, raw_request: Request):
+    # Same agent attribution/auth as chat_completions — a bearer key matching an
+    # agent restricts routing to that agent's models and attributes the route
+    # event; once any agent is registered, /v1 rejects missing/unknown keys.
+    agent_name: str | None = None
+    agent_lookup_failed = False
+    authorization = raw_request.headers.get("authorization", "")
+    if authorization.startswith("Bearer "):
+        try:
+            agent_name = find_agent_by_key(authorization[len("Bearer "):].strip())
+        except Exception:
+            agent_name = None
+            agent_lookup_failed = True
+    if agent_name is None and not agent_lookup_failed:
+        try:
+            protected = has_any_agent()
+        except Exception:
+            protected = False
+        if protected:
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "error": {
+                        "message": "A valid agent API key is required (Authorization: Bearer <agent-name>_…) — register the agent on the dashboard Agents page",
+                        "type": "invalid_agent_key",
+                    }
+                },
+            )
+    if agent_name:
+        try:
+            budget = get_agent_budget(agent_name)
+        except Exception:
+            budget = None
+        if budget and budget[0] is not None:
+            limit_usd, action = budget
+            try:
+                spend = agent_month_spend(agent_name)
+            except Exception:
+                spend = None
+            if spend is not None and spend >= limit_usd and action == "block":
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "error": {
+                            "message": f"Agent '{agent_name}' reached its monthly budget (${limit_usd:.2f} reference cost, ${spend:.2f} spent so far) — raise the limit or switch it to alert-only on the Agents dashboard page.",
+                            "type": "budget_exceeded",
+                        }
+                    },
+                )
+
+    registry = load_registry_with_db_health()
+    candidates = registry.healthy_for_capability("embedding")
+    if request.model and request.model not in ("auto", "forgerouter/auto"):
+        # Same semantics as chat_completions: a specific model is a preference,
+        # not an exclusive filter — sorted first, remaining healthy candidates
+        # stay as automatic fallback.
+        candidates = sorted(candidates, key=lambda model: model.id != request.model)
+    if agent_name:
+        try:
+            allowed = agent_allowed_models(agent_name)
+        except Exception:
+            allowed = None
+        if allowed is not None:
+            candidates = [model for model in candidates if model.id in allowed]
+
+    request_id = str(uuid.uuid4())
+    if not candidates:
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"message": "No healthy embedding-capable models available", "type": "all_providers_failed"}},
+            headers={"x-proxyrouter-request-id": request_id},
+        )
+
+    last_error: dict[str, Any] | None = None
+    for selected in candidates:
+        payload = build_embeddings_payload(selected, request.input, encoding_format=request.encoding_format, dimensions=request.dimensions)
+        try:
+            status_code, body = embeddings(selected, payload)
+            retry_after = body.pop("_proxyrouter_retry_after", None) if isinstance(body, dict) else None
+            if status_code < 400 and _valid_embeddings_body(body):
+                record_provider_success(selected.provider)
+                usage = body.get("usage") if isinstance(body.get("usage"), dict) else None
+                try:
+                    persist_route_event(request_id, selected.id, "embedding", "success", None, usage=usage, agent_name=agent_name, provider_model=selected.provider_model)
+                except Exception:
+                    pass
+                body["model"] = selected.id
+                return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
+            error_type = f"http_{status_code}" if status_code >= 400 else "invalid_response"
+            record_provider_failure(selected.provider)
+            last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
+            try:
+                persist_route_event(request_id, selected.id, "embedding", "provider_error", error_type, agent_name=agent_name)
+            except Exception:
+                pass
+            try:
+                mark_runtime_failure_unhealthy(selected, status_code, f"runtime_{error_type}", cooldown_seconds=retry_after)
+            except Exception:
+                pass
+        except Exception as exc:
+            record_provider_failure(selected.provider)
+            last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
+            try:
+                persist_route_event(request_id, selected.id, "embedding", "failed", type(exc).__name__, agent_name=agent_name)
+            except Exception:
+                pass
+            try:
+                mark_runtime_failure_unhealthy(selected, None, f"runtime_{type(exc).__name__}")
+            except Exception:
+                pass
+    return JSONResponse(
+        status_code=502,
+        content={"error": {"message": "All healthy embedding providers failed", "type": "all_providers_failed", "last_error": last_error}},
+        headers={"x-proxyrouter-request-id": request_id},
+    )
+
+
 def _anthropic_text_from_content(content: Any) -> str:
     if isinstance(content, str):
         return content
@@ -447,7 +588,7 @@ def _anthropic_to_chat_request(request: AnthropicMessagesRequest) -> ChatComplet
         tools=_anthropic_tools_to_openai(request.tools),
         temperature=request.temperature,
         max_tokens=request.max_tokens,
-        stream=False,
+        stream=request.stream,
     )
 
 
@@ -513,25 +654,127 @@ def _chat_body_to_anthropic(body: dict[str, Any], requested_model: str) -> dict[
     }
 
 
-def _anthropic_stream_from_message(message: dict[str, Any]) -> Iterator[bytes]:
-    start = {key: value for key, value in message.items() if key not in ("content", "stop_reason", "stop_sequence")}
-    start["content"] = []
-    yield f"event: message_start\ndata: {json.dumps({'type': 'message_start', 'message': start})}\n\n".encode()
-    content = message.get("content") if isinstance(message.get("content"), list) else []
-    for index, block in enumerate(content):
-        start_block = block
-        if isinstance(block, dict) and block.get("type") == "tool_use":
-            # Anthropic streams tool input via input_json_delta; the start block
-            # carries an empty input, mirroring the real API.
-            start_block = {**block, "input": {}}
-        yield f"event: content_block_start\ndata: {json.dumps({'type': 'content_block_start', 'index': index, 'content_block': start_block})}\n\n".encode()
-        if isinstance(block, dict) and block.get("type") == "text":
-            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': index, 'delta': {'type': 'text_delta', 'text': block.get('text') or ''}})}\n\n".encode()
-        elif isinstance(block, dict) and block.get("type") == "tool_use":
-            yield f"event: content_block_delta\ndata: {json.dumps({'type': 'content_block_delta', 'index': index, 'delta': {'type': 'input_json_delta', 'partial_json': json.dumps(block.get('input') or {})}})}\n\n".encode()
-        yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': index})}\n\n".encode()
-    delta = {"stop_reason": message.get("stop_reason") or "end_turn", "stop_sequence": message.get("stop_sequence")}
-    yield f"event: message_delta\ndata: {json.dumps({'type': 'message_delta', 'delta': delta, 'usage': message.get('usage') or {}})}\n\n".encode()
+async def _iter_openai_stream_events(chunks: AsyncIterator[bytes]) -> AsyncIterator[dict[str, Any]]:
+    """Parse an OpenAI-format SSE byte stream (as already cleaned up by
+    _stream_and_persist_usage — in-band error chunks stripped, just the raw
+    `data: {...}` lines) into decoded chunk-completion objects, one per
+    `choices[0].delta`. Shared by both protocol translators below so each only
+    has to know its own target event vocabulary, not SSE framing twice."""
+    buffer = b""
+    async for chunk in chunks:
+        buffer += chunk
+        *lines, buffer = buffer.split(b"\n")
+        for line in lines:
+            parsed = _parse_openai_sse_line(line)
+            if parsed is not None:
+                yield parsed
+    parsed = _parse_openai_sse_line(buffer)
+    if parsed is not None:
+        yield parsed
+
+
+def _parse_openai_sse_line(line: bytes) -> dict[str, Any] | None:
+    line = line.strip()
+    if not line.startswith(b"data:"):
+        return None
+    data = line[5:].strip()
+    if not data or data == b"[DONE]":
+        return None
+    try:
+        parsed = json.loads(data)
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+async def _anthropic_stream_from_openai_chunks(chunks: AsyncIterator[bytes], requested_model: str) -> AsyncIterator[bytes]:
+    """Real incremental translation: consumes the live OpenAI-format SSE chunks
+    from the selected provider (not a complete message replayed after the
+    fact) and re-emits them as Anthropic Messages API stream events, in the
+    same order/shape a real Anthropic response would use."""
+
+    def emit(event_type: str, payload: dict[str, Any]) -> bytes:
+        return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n".encode()
+
+    message_id = f"msg_{uuid.uuid4().hex}"
+    yield emit(
+        "message_start",
+        {
+            "type": "message_start",
+            "message": {
+                "id": message_id,
+                "type": "message",
+                "role": "assistant",
+                "model": requested_model,
+                "content": [],
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        },
+    )
+
+    next_index = 0
+    text_index: int | None = None
+    # Keyed by the provider's own tool_call delta index (deltas for the same
+    # call can arrive across multiple chunks) -> our content_block index/id.
+    tool_blocks: dict[int, dict[str, Any]] = {}
+    finish_reason: str | None = None
+    usage: dict[str, Any] | None = None
+
+    async for parsed in _iter_openai_stream_events(chunks):
+        if isinstance(parsed.get("usage"), dict) and parsed["usage"].get("total_tokens"):
+            usage = parsed["usage"]
+        choices = parsed.get("choices") or []
+        if not choices or not isinstance(choices[0], dict):
+            continue
+        choice = choices[0]
+        finish_reason = choice.get("finish_reason") or finish_reason
+        delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
+
+        text_delta = delta.get("content")
+        if isinstance(text_delta, str) and text_delta:
+            if text_index is None:
+                text_index = next_index
+                next_index += 1
+                yield emit("content_block_start", {"type": "content_block_start", "index": text_index, "content_block": {"type": "text", "text": ""}})
+            yield emit("content_block_delta", {"type": "content_block_delta", "index": text_index, "delta": {"type": "text_delta", "text": text_delta}})
+
+        for tool_delta in delta.get("tool_calls") or []:
+            if not isinstance(tool_delta, dict):
+                continue
+            tc_index = tool_delta.get("index", 0)
+            function = tool_delta.get("function") if isinstance(tool_delta.get("function"), dict) else {}
+            if tc_index not in tool_blocks:
+                block_index = next_index
+                next_index += 1
+                tool_blocks[tc_index] = {"index": block_index}
+                tool_id = str(tool_delta.get("id") or f"toolu_{uuid.uuid4().hex[:24]}")
+                yield emit(
+                    "content_block_start",
+                    {
+                        "type": "content_block_start",
+                        "index": block_index,
+                        "content_block": {"type": "tool_use", "id": tool_id, "name": str(function.get("name") or ""), "input": {}},
+                    },
+                )
+            arguments_fragment = function.get("arguments")
+            if arguments_fragment:
+                yield emit(
+                    "content_block_delta",
+                    {"type": "content_block_delta", "index": tool_blocks[tc_index]["index"], "delta": {"type": "input_json_delta", "partial_json": arguments_fragment}},
+                )
+
+    if text_index is not None:
+        yield emit("content_block_stop", {"type": "content_block_stop", "index": text_index})
+    for block in tool_blocks.values():
+        yield emit("content_block_stop", {"type": "content_block_stop", "index": block["index"]})
+
+    stop_reason = "tool_use" if tool_blocks else _anthropic_stop_reason(finish_reason)
+    yield emit(
+        "message_delta",
+        {"type": "message_delta", "delta": {"stop_reason": stop_reason, "stop_sequence": None}, "usage": _anthropic_usage(usage) if usage else {"output_tokens": 0}},
+    )
     yield b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
 
 
@@ -993,6 +1236,17 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
 def anthropic_messages(request: AnthropicMessagesRequest, raw_request: Request):
     chat_request = _anthropic_to_chat_request(request)
     response = chat_completions(chat_request, raw_request)
+    if isinstance(response, StreamingResponse):
+        # A candidate committed to a real streaming response — translate its
+        # live OpenAI-format chunks as they arrive instead of waiting for the
+        # full answer. body_iterator is already an async iterator regardless
+        # of whether the underlying generator was sync (Starlette wraps it).
+        headers = {key: value for key, value in dict(response.headers).items() if key.lower().startswith("x-proxyrouter-")}
+        return StreamingResponse(
+            _anthropic_stream_from_openai_chunks(response.body_iterator, request.model),
+            media_type="text/event-stream",
+            headers=headers,
+        )
     if not isinstance(response, JSONResponse):
         return response
     try:
@@ -1007,8 +1261,6 @@ def anthropic_messages(request: AnthropicMessagesRequest, raw_request: Request):
         for key, value in dict(response.headers).items()
         if key.lower().startswith("x-proxyrouter-")
     }
-    if request.stream:
-        return StreamingResponse(_anthropic_stream_from_message(message), media_type="text/event-stream", headers=headers)
     return JSONResponse(status_code=response.status_code, content=message, headers=headers)
 
 
@@ -1136,7 +1388,7 @@ def _responses_to_chat_request(request: ResponsesRequest) -> ChatCompletionReque
         tools=_responses_tools_to_openai(request.tools),
         temperature=request.temperature,
         max_tokens=request.max_output_tokens,
-        stream=False,
+        stream=request.stream,
     )
 
 
@@ -1201,7 +1453,11 @@ def _chat_body_to_responses(body: dict[str, Any], requested_model: str) -> dict[
     return response
 
 
-def _responses_stream_from_response(response: dict[str, Any]) -> Iterator[bytes]:
+async def _responses_stream_from_openai_chunks(chunks: AsyncIterator[bytes], requested_model: str) -> AsyncIterator[bytes]:
+    """Real incremental translation for the Responses API — same idea as
+    _anthropic_stream_from_openai_chunks: consumes the live OpenAI-format SSE
+    chunks and re-emits them as response.* stream events as they arrive,
+    instead of replaying an already-complete answer."""
     seq = 0
 
     def emit(event_type: str, **fields: Any) -> bytes:
@@ -1210,67 +1466,92 @@ def _responses_stream_from_response(response: dict[str, Any]) -> Iterator[bytes]
         payload = {"type": event_type, "sequence_number": seq, **fields}
         return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n".encode()
 
-    in_progress = {**response, "status": "in_progress", "output": []}
-    yield emit("response.created", response=in_progress)
-    yield emit("response.in_progress", response=in_progress)
+    response_id = f"resp_{uuid.uuid4().hex}"
+    base = {"id": response_id, "object": "response", "created_at": int(time.time()), "status": "in_progress", "model": requested_model, "output": []}
+    yield emit("response.created", response=base)
+    yield emit("response.in_progress", response=base)
 
-    output = response.get("output") if isinstance(response.get("output"), list) else []
-    for index, item in enumerate(output):
-        item_type = item.get("type")
-        start_item = dict(item)
-        if item_type == "message":
-            start_item["content"] = []
-        elif item_type == "function_call":
-            start_item["arguments"] = ""
-        yield emit("response.output_item.added", output_index=index, item=start_item)
+    next_index = 0
+    text_item: dict[str, Any] | None = None
+    # Keyed by the provider's own tool_call delta index (deltas for the same
+    # call can arrive across multiple chunks) -> our output item's state.
+    tool_items: dict[int, dict[str, Any]] = {}
+    finish_reason: str | None = None
+    usage: dict[str, Any] | None = None
 
-        if item_type == "message":
-            for content_index, part in enumerate(item.get("content") or []):
-                item_id = item["id"]
-                yield emit(
-                    "response.content_part.added",
-                    item_id=item_id,
-                    output_index=index,
-                    content_index=content_index,
-                    part={**part, "text": ""},
-                )
-                text = part.get("text") or ""
-                if text:
-                    yield emit(
-                        "response.output_text.delta",
-                        item_id=item_id,
-                        output_index=index,
-                        content_index=content_index,
-                        delta=text,
-                    )
-                yield emit(
-                    "response.output_text.done",
-                    item_id=item_id,
-                    output_index=index,
-                    content_index=content_index,
-                    text=text,
-                )
-                yield emit(
-                    "response.content_part.done",
-                    item_id=item_id,
-                    output_index=index,
-                    content_index=content_index,
-                    part=part,
-                )
-        elif item_type == "function_call":
-            arguments = item.get("arguments") or "{}"
-            yield emit("response.function_call_arguments.delta", item_id=item["id"], output_index=index, delta=arguments)
-            yield emit("response.function_call_arguments.done", item_id=item["id"], output_index=index, arguments=arguments)
+    async for parsed in _iter_openai_stream_events(chunks):
+        if isinstance(parsed.get("usage"), dict) and parsed["usage"].get("total_tokens"):
+            usage = parsed["usage"]
+        choices = parsed.get("choices") or []
+        if not choices or not isinstance(choices[0], dict):
+            continue
+        choice = choices[0]
+        finish_reason = choice.get("finish_reason") or finish_reason
+        delta = choice.get("delta") if isinstance(choice.get("delta"), dict) else {}
 
-        yield emit("response.output_item.done", output_index=index, item=item)
+        text_delta = delta.get("content")
+        if isinstance(text_delta, str) and text_delta:
+            if text_item is None:
+                output_index = next_index
+                next_index += 1
+                item_id = f"msg_{uuid.uuid4().hex}"
+                text_item = {"output_index": output_index, "id": item_id, "text": ""}
+                yield emit("response.output_item.added", output_index=output_index, item={"type": "message", "id": item_id, "status": "in_progress", "role": "assistant", "content": []})
+                yield emit("response.content_part.added", item_id=item_id, output_index=output_index, content_index=0, part={"type": "output_text", "text": "", "annotations": []})
+            text_item["text"] += text_delta
+            yield emit("response.output_text.delta", item_id=text_item["id"], output_index=text_item["output_index"], content_index=0, delta=text_delta)
 
-    yield emit("response.completed", response=response)
+        for tool_delta in delta.get("tool_calls") or []:
+            if not isinstance(tool_delta, dict):
+                continue
+            tc_index = tool_delta.get("index", 0)
+            function = tool_delta.get("function") if isinstance(tool_delta.get("function"), dict) else {}
+            if tc_index not in tool_items:
+                output_index = next_index
+                next_index += 1
+                item_id = f"fc_{uuid.uuid4().hex}"
+                call_id = str(tool_delta.get("id") or f"call_{uuid.uuid4().hex[:24]}")
+                name = str(function.get("name") or "")
+                tool_items[tc_index] = {"output_index": output_index, "id": item_id, "call_id": call_id, "name": name, "arguments": ""}
+                yield emit("response.output_item.added", output_index=output_index, item={"type": "function_call", "id": item_id, "call_id": call_id, "name": name, "arguments": "", "status": "in_progress"})
+            fragment = function.get("arguments")
+            if fragment:
+                tool_items[tc_index]["arguments"] += fragment
+                yield emit("response.function_call_arguments.delta", item_id=tool_items[tc_index]["id"], output_index=tool_items[tc_index]["output_index"], delta=fragment)
+
+    output: list[dict[str, Any]] = []
+    if text_item is not None:
+        yield emit("response.output_text.done", item_id=text_item["id"], output_index=text_item["output_index"], content_index=0, text=text_item["text"])
+        part = {"type": "output_text", "text": text_item["text"], "annotations": []}
+        yield emit("response.content_part.done", item_id=text_item["id"], output_index=text_item["output_index"], content_index=0, part=part)
+        item = {"type": "message", "id": text_item["id"], "status": "completed", "role": "assistant", "content": [part]}
+        yield emit("response.output_item.done", output_index=text_item["output_index"], item=item)
+        output.append(item)
+    for tool_item in sorted(tool_items.values(), key=lambda entry: entry["output_index"]):
+        arguments = tool_item["arguments"] or "{}"
+        yield emit("response.function_call_arguments.done", item_id=tool_item["id"], output_index=tool_item["output_index"], arguments=arguments)
+        item = {"type": "function_call", "id": tool_item["id"], "call_id": tool_item["call_id"], "name": tool_item["name"], "arguments": arguments, "status": "completed"}
+        yield emit("response.output_item.done", output_index=tool_item["output_index"], item=item)
+        output.append(item)
+
+    status = "incomplete" if finish_reason == "length" else "completed"
+    final_response = {**base, "status": status, "output": output, "usage": _responses_usage(usage)}
+    if status == "incomplete":
+        final_response["incomplete_details"] = {"reason": "max_output_tokens"}
+    yield emit("response.completed", response=final_response)
 
 
 @app.post("/v1/responses")
 def responses_endpoint(request: ResponsesRequest, raw_request: Request):
     chat_request = _responses_to_chat_request(request)
     response = chat_completions(chat_request, raw_request)
+    if isinstance(response, StreamingResponse):
+        headers = {key: value for key, value in dict(response.headers).items() if key.lower().startswith("x-proxyrouter-")}
+        return StreamingResponse(
+            _responses_stream_from_openai_chunks(response.body_iterator, request.model),
+            media_type="text/event-stream",
+            headers=headers,
+        )
     if not isinstance(response, JSONResponse):
         return response
     try:
@@ -1285,8 +1566,6 @@ def responses_endpoint(request: ResponsesRequest, raw_request: Request):
         for key, value in dict(response.headers).items()
         if key.lower().startswith("x-proxyrouter-")
     }
-    if request.stream:
-        return StreamingResponse(_responses_stream_from_response(result), media_type="text/event-stream", headers=headers)
     return JSONResponse(status_code=response.status_code, content=result, headers=headers)
 
 
