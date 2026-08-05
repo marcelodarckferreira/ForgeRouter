@@ -429,3 +429,13 @@ label.check input{width:auto;cursor:pointer}
    default for a freshly connected agent is every group ON (vibrant, its own color);
    groupEmpty only appears once a group has actually been toggled off. */
 .cap.groupEmpty{background:var(--muted-bg);color:var(--text3);border-color:var(--input-border);text-decoration:line-through;text-decoration-color:var(--faint);opacity:.75}
+.watchdogAlert{display:flex;align-items:flex-start;gap:10px}
+.watchdogAlert svg{flex-shrink:0;margin-top:2px}
+.metric .metricSub.statusBreakdown{justify-content:flex-start;flex-wrap:wrap;gap:6px}
+.metric .metricSub.statusBreakdown b.status{margin-left:0;font-weight:600}
+.metric .metricSub.statusBreakdown b.status.healthy{background:#052e16;color:#86efac}
+.metric .metricSub.statusBreakdown b.status.unhealthy{background:#3f1d05;color:#fdba74}
+.metric .metricSub.statusBreakdown b.status.unknown{background:var(--border);color:var(--text3)}
+.metric .costRefBlock{margin-top:10px;padding-top:10px;border-top:1px solid var(--muted-bg)}
+.metric .costRefBlock span{display:block;color:var(--faint);font-size:12px;margin:0 0 4px}
+.metric .costRefBlock strong{font-size:16px}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
+import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
@@ -31,6 +31,8 @@ type AgentDaily = { day: string; messages: number; tokens: number; cost: number;
 type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; kind?: 'agent' | 'service'; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
+
+type WatchdogStatus = { healthy_enabled: number | null; total_enabled: number | null; min_healthy: number | null; cooldown_seconds: number | null; degraded: boolean; last_check_at: string | null; last_scan_at: string | null };
 
 type StatusFilter = 'all' | 'healthy' | 'unhealthy';
 type Page = 'agents' | 'overview' | 'messages' | 'routing' | 'tasks' | 'playground' | 'pricing' | 'users' | 'profiles';
@@ -161,6 +163,17 @@ function formatDate(iso: string | null): string {
   if (!iso) return '-';
   // dd/mm/yyyy hh:mm, keeping the server-reported (America/Sao_Paulo) time as-is.
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)} ${iso.slice(11, 16)}`;
+}
+
+// Time left before the watchdog's own cooldown (its loop guard) allows another
+// real rescan — last_scan_at + cooldown_seconds, clamped at 0 once it's elapsed
+// (the next 60s tick, not this countdown, is what actually fires it).
+function watchdogNextRetryLabel(watchdog: WatchdogStatus): string {
+  if (!watchdog.last_scan_at || !watchdog.cooldown_seconds) return 'soon';
+  const elapsedMs = Date.now() - new Date(watchdog.last_scan_at).getTime();
+  const remaining = Math.max(0, Math.round(watchdog.cooldown_seconds - elapsedMs / 1000));
+  if (remaining === 0) return 'next check';
+  return remaining >= 60 ? `${Math.ceil(remaining / 60)}min` : `${remaining}s`;
 }
 
 function formatDay(day: string | undefined): string {
@@ -1075,6 +1088,7 @@ function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [page, setPage] = useState<Page>('agents');
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
+  const [watchdog, setWatchdog] = useState<WatchdogStatus | null>(null);
   const [routes, setRoutes] = useState<RouteEvent[]>([]);
   const [readiness, setReadiness] = useState<ProviderReady[]>([]);
   const [registry, setRegistry] = useState<RegistryProvider[]>([]);
@@ -1526,6 +1540,12 @@ function App() {
         setPricingMeta({ priced_count: pricing.priced_count ?? 0, total_count: pricing.total_count ?? 0, last_synced: pricing.last_synced ?? null });
       } catch {
         // pricing catalog coverage is optional UI data
+      }
+      try {
+        const watchdogHealth = await fetchJson('/health');
+        setWatchdog(watchdogHealth.providers ?? null);
+      } catch {
+        // watchdog status is optional UI data — its absence shouldn't hide the rest of the dashboard
       }
       setProviders(healthData.providers ?? []);
       setRoutes(routeData.routes ?? []);
@@ -2085,6 +2105,25 @@ function App() {
 
   const healthy = providers.filter((p) => p.status === 'healthy').length;
   const healthByModel = useMemo(() => Object.fromEntries(providers.map((p) => [p.model_id, p.status])), [providers]);
+  // Three states, not two: "saudável" (enabled and responding), "desligado"
+  // (turned off on purpose — manual_off or auto-disabled — never even routed
+  // to, not an outage) and "off / não responde" (enabled but currently failing
+  // health checks — the state that actually signals a real problem, e.g. no
+  // internet). Folding the last two together (as a plain healthy/unhealthy
+  // split would) makes an intentionally-off model look like an outage.
+  const modelStatusCounts = useMemo(() => {
+    let healthyCount = 0;
+    let disabledCount = 0;
+    let downCount = 0;
+    for (const provider of registry) {
+      for (const model of provider.models) {
+        if (!model.enabled) { disabledCount += 1; continue; }
+        if (healthByModel[model.id] === 'healthy') healthyCount += 1;
+        else downCount += 1;
+      }
+    }
+    return { healthy: healthyCount, disabled: disabledCount, down: downCount, total: healthyCount + disabledCount + downCount };
+  }, [registry, healthByModel]);
 
   const keptModels = editing?.models.filter((model) => model.id.trim()) ?? [];
   const allModelsScanned = keptModels.length > 0 && keptModels.every((model) => {
@@ -2381,6 +2420,17 @@ function App() {
       </aside>
 
       <main className="content">
+        {watchdog?.degraded && (
+          <div className="alert watchdogAlert" title="Verificado automaticamente a cada minuto pelo processo do ForgeRouter; tenta re-escanear a cada poucos minutos, mas nunca mais rápido que isso para não martelar os provedores.">
+            <AlertTriangle size={16} />
+            <span>
+              <b>ForgeRouter degradado:</b> {watchdog.healthy_enabled ?? 0}/{watchdog.total_enabled ?? 0} modelos habilitados saudáveis (mínimo esperado: {watchdog.min_healthy}) — possível falta de internet ou provedores fora do ar.
+              {' '}Última verificação: {formatDate(watchdog.last_check_at)}
+              {watchdog.last_scan_at && <> · último rescan: {formatDate(watchdog.last_scan_at)}</>}
+              {' '}· próxima tentativa de rescan em {watchdogNextRetryLabel(watchdog)}.
+            </span>
+          </div>
+        )}
         {page === 'agents' && (
           <>
             <header className="pageHeader">
@@ -2633,9 +2683,26 @@ function App() {
                 <strong>{healthy}/{providers.length}</strong>
                 <span className="metricSub">Providers <b className={providerTotals.healthy ? 'agentHealthy' : 'agentUnhealthy'}>{providerTotals.healthy}/{providerTotals.total}</b></span>
               </div>
+              <div className="metric" title="Saudável: habilitado e respondendo. Desligado: desativado de propósito (manual ou auto), nunca roteado — não é uma queda. Off: habilitado mas não está respondendo agora — é isso que indica um provedor fora do ar ou falta de internet.">
+                <div className="metricIcon accent-blue"><HeartPulse /></div>
+                <span>Model status</span>
+                <strong>{modelStatusCounts.total}</strong>
+                <span className="metricSub statusBreakdown">
+                  <b className="status healthy">{modelStatusCounts.healthy} saudável</b>
+                  <b className="status unknown">{modelStatusCounts.disabled} desligado</b>
+                  <b className="status unhealthy">{modelStatusCounts.down} off</b>
+                </span>
+              </div>
               <Metric icon={<Route />} label={`Messages (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={`${usage?.totals.messages ?? 0}`} accent="accent-blue" />
-              <Metric icon={<DollarSign />} label={`Real cost (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={formatCost(usage?.totals.cost ?? 0)} accent="accent-green" />
-              <Metric icon={<DollarSign />} label={`Reference cost (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={formatCost(usage?.totals.reference_cost ?? 0)} accent="accent-amber" />
+              <div className="metric">
+                <div className="metricIcon accent-green"><DollarSign /></div>
+                <span>Real cost (30d){agentFilter !== 'all' ? ` — ${agentFilter}` : ''}</span>
+                <strong>{formatCost(usage?.totals.cost ?? 0)}</strong>
+                <div className="costRefBlock">
+                  <span>Reference cost (30d)</span>
+                  <strong>{formatCost(usage?.totals.reference_cost ?? 0)}</strong>
+                </div>
+              </div>
             </section>
             <Panel title={<><span className="panelIcon accent-pink"><Layers size={15} /></span>Model groups</>} meta={`${healthy} healthy models · last ${usage?.days ?? 30} days`}>
               <div className="row taskGroups head">

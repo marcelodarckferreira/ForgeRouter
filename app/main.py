@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterable, Iterator
+import asyncio
 import json
 import os
 import re
@@ -93,6 +94,108 @@ from app.storage import (
 from app.validation.scanner import build_scan_payload, scan_registry
 
 app = FastAPI(title="ForgeRouter", version="0.1.0")
+
+
+async def _run_health_scan_and_sync() -> None:
+    """Shared by the startup scan and the watchdog's auto-rescan: full scan,
+    persist, mirror the verdict into on/off + agent associations, then stamp
+    health_watchdog's last_scan_at (the watchdog's own cooldown/loop guard)."""
+    from app.health_watchdog import note_scan
+
+    results = await asyncio.to_thread(scan_registry)
+    persist_health_results(results)
+    try:
+        # Mirrors admin_provider_rescan: bring auto-disabled models that
+        # now scan healthy back on, and sync agents to the result.
+        set_models_enabled_from_health(results)
+    except Exception:
+        pass
+    try:
+        sync_agent_model_associations()
+    except Exception:
+        pass
+    note_scan(datetime.now(timezone.utc))
+
+
+def _enabled_healthy_counts() -> tuple[int, int]:
+    """(healthy_enabled, total_enabled) over the exact same pool routing uses —
+    load_registry_with_db_health(), not the raw DB catalog — so the watchdog's
+    notion of "healthy" matches what a real request would actually get routed to."""
+    registry = load_registry_with_db_health()
+    enabled = [model for model in registry.models if model.enabled]
+    return sum(1 for model in enabled if model.healthy), len(enabled)
+
+
+async def _health_watchdog_loop() -> None:
+    # Personal-machine / flaky-internet safety valve: a request-triggered rescan
+    # only fires on traffic, so a connection dropping while the box sits idle
+    # would otherwise go unnoticed indefinitely. This ticks on its own, and the
+    # cooldown (not just the interval) is the actual loop guard — even if every
+    # tick still finds the pool below the minimum, only one real network-hitting
+    # rescan runs per cooldown window; the rest are cheap local DB reads.
+    interval_seconds = float(os.environ.get("HEALTH_WATCHDOG_INTERVAL_SECONDS", "60"))
+    cooldown_seconds = int(os.environ.get("HEALTH_WATCHDOG_COOLDOWN_SECONDS", "300"))
+    min_healthy = int(os.environ.get("HEALTH_WATCHDOG_MIN_HEALTHY", "3"))
+    from app.health_watchdog import note_check, should_rescan, snapshot
+
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            was_degraded = snapshot()["degraded"]
+            now = datetime.now(timezone.utc)
+            healthy_enabled, total_enabled = _enabled_healthy_counts()
+            note_check(healthy_enabled, total_enabled, min_healthy, cooldown_seconds, now)
+            if healthy_enabled < min_healthy:
+                if not was_degraded:
+                    print(f"[health_watchdog] DEGRADED: {healthy_enabled}/{total_enabled} enabled models healthy (min {min_healthy}) — possible network/provider outage.")
+                if should_rescan(now, cooldown_seconds):
+                    print("[health_watchdog] pool below minimum — triggering rescan")
+                    await _run_health_scan_and_sync()
+                    healthy_enabled, total_enabled = _enabled_healthy_counts()
+                    note_check(healthy_enabled, total_enabled, min_healthy, cooldown_seconds, datetime.now(timezone.utc))
+                    if healthy_enabled < min_healthy:
+                        print(f"[health_watchdog] still degraded after rescan: {healthy_enabled}/{total_enabled} healthy — next attempt in {cooldown_seconds}s")
+                    else:
+                        print(f"[health_watchdog] recovered after rescan: {healthy_enabled}/{total_enabled} healthy")
+                else:
+                    print(f"[health_watchdog] still degraded ({healthy_enabled}/{total_enabled}), cooldown active — skipping rescan this tick")
+            elif was_degraded:
+                print(f"[health_watchdog] recovered: {healthy_enabled}/{total_enabled} enabled models healthy")
+        except Exception:
+            pass  # the watchdog must never crash the process
+
+
+@app.on_event("startup")
+async def _startup_health_scan() -> None:
+    # A fresh boot (or a model just added) has zero rows in ai_router.provider_health
+    # for anything not yet scanned — both the dashboard (latest_provider_health_rows)
+    # and routing (load_registry_with_db_health) then see "unknown"/the stale default
+    # models.healthy=false, not the model's real status, until the cron
+    # (scripts/health_scan_sync.py, which only covers a %-slice per run) or a manual
+    # Rescan eventually gets to it. Kick off one full scan here so the service never
+    # starts blind. Fire-and-forget: must not delay the app becoming ready, and any
+    # failure here must never break startup (same "DB failures never break routing"
+    # rule as every other persistence call).
+    if not os.environ.get("DATABASE_URL"):
+        return  # no DB to persist into (e.g. hermetic tests) — nothing to do
+
+    from app.health_watchdog import note_check
+
+    async def _run() -> None:
+        try:
+            await _run_health_scan_and_sync()
+        except Exception:
+            pass  # best-effort — the cron and manual Rescan remain the fallback
+        try:
+            min_healthy = int(os.environ.get("HEALTH_WATCHDOG_MIN_HEALTHY", "3"))
+            cooldown_seconds = int(os.environ.get("HEALTH_WATCHDOG_COOLDOWN_SECONDS", "300"))
+            healthy_enabled, total_enabled = _enabled_healthy_counts()
+            note_check(healthy_enabled, total_enabled, min_healthy, cooldown_seconds, datetime.now(timezone.utc))
+        except Exception:
+            pass
+
+    asyncio.create_task(_run())
+    asyncio.create_task(_health_watchdog_loop())
 
 
 class ChatMessage(BaseModel):
@@ -208,7 +311,18 @@ def health():
     # version/git_sha identify exactly what code is running — compare against
     # `docker images`/`git rev-parse HEAD` to catch a stale image before it bites
     # (see CLAUDE.md: forgerouter:latest went stale for over a week undetected).
-    return {"status": "ok", "version": _read_version(), "git_sha": os.environ.get("FORGEROUTER_GIT_SHA", "unknown")}
+    # "status" always reports the process, never the provider pool — a personal
+    # machine losing internet must not fail this endpoint (docker's healthcheck
+    # hits it) and restart-loop the container on top of the outage. The provider
+    # watchdog's own read is under "providers", for the dashboard banner and log.
+    from app.health_watchdog import snapshot
+
+    return {
+        "status": "ok",
+        "version": _read_version(),
+        "git_sha": os.environ.get("FORGEROUTER_GIT_SHA", "unknown"),
+        "providers": snapshot(),
+    }
 
 
 @app.get("/v1/models")
