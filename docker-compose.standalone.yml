@@ -1,0 +1,76 @@
+# Generic, self-contained install path — no dependency on any pre-existing
+# Docker network or externally-managed PostgreSQL instance. This is the file
+# to use if you're running ForgeRouter on its own; see INSTALL.md.
+#
+# (docker-compose.yml and docker-compose.local.yml are the Foundation/Hermes
+# ecosystem deployment used in this repo's own CLAUDE.md — they assume an
+# externally-managed `foundation_network` Docker network, a Postgres instance
+# already provisioned by that ecosystem, and host systemd/D-Bus access for a
+# sibling-agent key-rotation feature this compose file deliberately omits.)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: forgerouter-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-forgerouter}
+      POSTGRES_USER: ${POSTGRES_USER:-forgerouter_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - forgerouter_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-forgerouter_user} -d ${POSTGRES_DB:-forgerouter}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - forgerouter
+
+  forgerouter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: forgerouter-standalone
+    env_file:
+      - .env
+    environment:
+      # Overrides whatever DATABASE_URL is in .env. ForgeRouter connects as
+      # proxyrouter_user (the restricted app role db/*.sql grants to — see
+      # scripts/install_standalone.sh, which creates it), not the bundled
+      # Postgres's own admin role; Postgres is only ever reachable at the
+      # "postgres" service hostname here, never localhost/an external host.
+      DATABASE_URL: postgresql://proxyrouter_user:${PROXYROUTER_PASSWORD}@postgres:5432/${POSTGRES_DB:-forgerouter}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:2100:2100"
+    volumes:
+      # Optional CLI subscription-plan logins (read-only) — mount only the
+      # ones you actually use; a missing mount just leaves that provider
+      # unhealthy/not-logged-in, it never breaks the rest of the service.
+      - ~/.codex:/root/.codex:ro
+      - ~/.gemini:/root/.gemini:ro
+      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
+      - ~/.zai:/root/.zai:ro
+      - ~/.deepseek:/root/.deepseek:ro
+      # Reference-cost pricing catalogs (read-write): POST /admin/pricing/sync
+      # rewrites these from inside the container (app/pricing.py) — mount them
+      # so a sync persists across rebuilds instead of living only in the
+      # container's writable layer.
+      - ./config/model_pricing.json:/app/config/model_pricing.json
+      - ./config/model_pricing_live.json:/app/config/model_pricing_live.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:2100/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - forgerouter
+
+networks:
+  forgerouter: {}
+
+volumes:
+  forgerouter_postgres_data:

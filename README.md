@@ -78,31 +78,21 @@ Each provider has an `api_format` (`openai` or `anthropic`) describing its wire 
 ### Prerequisites
 
 - Docker and Docker Compose
-- A PostgreSQL instance (or use the bundled compose service)
 - Optional: [Ollama](https://ollama.com) running locally for local-model fallback
 
 ### Installation
 
+**Running ForgeRouter on its own?** Use the standalone installer — it bundles
+its own PostgreSQL container, so there's nothing to provision first:
+
 ```bash
 git clone https://github.com/marcelodarckferreira/ForgeRouter.git
 cd ForgeRouter
-
-# Copy the example environment file and fill in your database and provider credentials
-cp .env.example .env
-
-# Build the image — bakes the current commit into the image (readable at
-# runtime via GET /health) and tags it forgerouter:<VERSION> + forgerouter:latest.
-./scripts/build.sh
-
-# Apply the database schema (run each numbered file in db/ in order, against
-# a role with permission to create the ai_router schema and its tables)
-for f in db/*.sql; do
-  psql "$DATABASE_URL" -f "$f"
-done
-
-# Start the service
-docker compose up -d
+./scripts/install_standalone.sh
 ```
+
+See [`INSTALL.md`](INSTALL.md) for the manual step-by-step this automates,
+what it deliberately leaves out, and backup notes.
 
 Check that it's up:
 
@@ -113,7 +103,7 @@ curl http://127.0.0.1:2100/health
 
 The dashboard is served at `http://127.0.0.1:2100/` — the default login is `admin` / `admin`, and you'll be prompted to change it on first sign-in.
 
-> **Local Ollama note:** if you run Ollama on the host, use `docker-compose.local.yml` (host networking) instead, so the container can reach `127.0.0.1:11434`:
+> **Deploying alongside an existing PostgreSQL instance and Docker network instead** (e.g. as part of a larger multi-service setup)? Use `docker-compose.yml` directly: point `DATABASE_URL` at your database, apply `db/*.sql` in order against it yourself, join your own external Docker network in place of `foundation_network`, and run `./scripts/build.sh && docker compose up -d`. `docker-compose.local.yml` is the same idea with host networking, for reaching a local Ollama on `127.0.0.1:11434`:
 > ```bash
 > docker compose -f docker-compose.local.yml up -d --build
 > ```
