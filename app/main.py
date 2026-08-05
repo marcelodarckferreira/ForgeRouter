@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, _message_text, default_chain, messages_have_images, resolve_demand
+from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, _message_text, default_chain, messages_have_audio, messages_have_images, resolve_demand
 from app.normalize import count_tokens, normalize_messages, truncate_messages
 from app.routing_state import (
     breaker_open,
@@ -233,11 +233,18 @@ def infer_capability(request: ChatCompletionRequest, demand: str | None = None) 
     # tools and an image must still land on a vision-capable model.
     if messages_have_images(request.messages):
         return "vision"
+    # Same hard requirement for audio content blocks — a non-audio-capable
+    # model can't read an input_audio part at all.
+    if messages_have_audio(request.messages):
+        return "audio"
     # Audio/code are catalog particularities too (default_chain gates them the
     # same way): an agentic request commonly attaches tools regardless of task
     # type, so without this a code/audio-capable model that lacks tool_call
     # support would be excluded from the initial candidate pool before
-    # default_chain ever gets to apply its own capability filter.
+    # default_chain ever gets to apply its own capability filter. This also
+    # covers demand="audio" tasks with no actual audio content (e.g. TTS tag
+    # insertion over plain text) — messages_have_audio only catches audio
+    # *input*, not audio-flavored text work.
     if demand in ("audio", "code"):
         return demand
     if request.tools:

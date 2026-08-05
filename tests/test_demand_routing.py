@@ -57,6 +57,31 @@ def test_classify_request_with_images_is_vision():
     assert classify_request([image_msg], has_tools=False) == "vision"
 
 
+def test_classify_request_with_audio_is_audio():
+    audio_msg = {"role": "user", "content": [
+        {"type": "text", "text": "transcreva isso"},
+        {"type": "input_audio", "input_audio": {"data": "xyz", "format": "wav"}},
+    ]}
+    assert classify_request([audio_msg], has_tools=False) == "audio"
+
+
+def test_infer_capability_prefers_audio_content_over_tool_call():
+    # Same hard-requirement treatment as vision: a non-audio-capable model
+    # cannot read an input_audio block at all, so it must win over tool_call
+    # even when no demand was resolved to "audio" yet.
+    request = ChatCompletionRequest(
+        model="forgerouter/auto",
+        tools=[{"type": "function", "function": {"name": "noop"}}],
+        messages=[
+            ChatMessage(role="user", content=[
+                {"type": "input_audio", "input_audio": {"data": "xyz", "format": "wav"}},
+                {"type": "text", "text": "transcreva isso"},
+            ])
+        ],
+    )
+    assert infer_capability(request) == "audio"
+
+
 def test_infer_capability_prefers_vision_over_tool_call():
     # An agentic request commonly attaches both tools and an image (e.g. a
     # function-calling agent describing a screenshot). Images are a hard

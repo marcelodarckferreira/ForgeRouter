@@ -129,6 +129,27 @@ def messages_have_images(messages: list[Any]) -> bool:
     return False
 
 
+def _content_has_audio(content: Any) -> bool:
+    if not isinstance(content, list):
+        return False
+    return any(
+        isinstance(part, dict) and part.get("type") in ("input_audio", "audio", "audio_url")
+        for part in content
+    )
+
+
+def messages_have_audio(messages: list[Any]) -> bool:
+    # A non-audio-capable model cannot read an input_audio block at all — same
+    # hard-requirement treatment as messages_have_images, just for models that
+    # take audio as native chat input (not the separate Whisper/TTS-style REST
+    # API OpenAI exposes, which this router doesn't implement).
+    for message in messages:
+        content = getattr(message, "content", None) if not isinstance(message, dict) else message.get("content")
+        if _content_has_audio(content):
+            return True
+    return False
+
+
 # How far into the last user message the code-hint/file-extension scan looks.
 # Clients that inject extra context (not just the known <memory-context> block —
 # e.g. a Hermes plugin's pre_llm_call "user_message" target, appended raw with no
@@ -155,6 +176,8 @@ def classify_request(messages: list[Any], has_tools: bool) -> str:
     """Classify a chat request into a demand class (forgerouter/auto behaviour)."""
     if messages_have_images(messages):
         return "vision"
+    if messages_have_audio(messages):
+        return "audio"
     total_chars = 0
     last_user = ""
     for message in messages:
