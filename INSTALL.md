@@ -2,11 +2,15 @@
 
 This is the generic install path for running ForgeRouter on its own — no
 pre-existing Docker network, no externally-managed PostgreSQL instance, no
-dependency on the Hermes ecosystem this repo's own `CLAUDE.md`/`docker-compose.yml`
-are built around.
+dependency on any particular multi-agent deployment. ForgeRouter itself has
+no ties to any specific ecosystem or vendor — it's a generic LLM gateway
+that works with any OpenAI-compatible client, Claude Code, or the Codex CLI.
 
-If you're deploying alongside that ecosystem instead, use `docker-compose.yml`
-(or `docker-compose.local.yml` for host networking) and see `CLAUDE.md`.
+If you're deploying it as part of a larger multi-service setup with its own
+shared Docker network and externally-managed Postgres instead, use
+`docker-compose.yml` (or `docker-compose.local.yml` for host networking) and
+see `CLAUDE.md`, which documents the specific deployment this repo's own
+maintainer runs it in.
 
 ## What's different from `docker-compose.yml`
 
@@ -60,10 +64,9 @@ If you'd rather not run a script blind, here's exactly what it does:
    Set `POSTGRES_PASSWORD` (the bundled Postgres container's admin password)
    and `PROXYROUTER_PASSWORD` (the restricted app role ForgeRouter actually
    connects as — `db/*.sql` grants everything to a role literally named
-   `proxyrouter_user`, matching the Foundation deployment this repo also
-   supports) to real random values. Add whichever `<PROVIDER>_API_KEY`
-   variables you want pre-filled (all of it is also configurable later
-   through the dashboard).
+   `proxyrouter_user`, the fixed name every deployment mode uses) to real
+   random values. Add whichever `<PROVIDER>_API_KEY` variables you want
+   pre-filled (all of it is also configurable later through the dashboard).
 
 2. **Start PostgreSQL:**
 
@@ -126,7 +129,7 @@ If you run Ollama on the same host, it listens on `127.0.0.1:11434` — not
 reachable from inside a container on its own bridge network. Either run
 Ollama itself in a container on the same `forgerouter` network and point a
 provider's `base_url` at it, or adapt `docker-compose.local.yml`'s
-`network_mode: host` approach (dropping its Hermes-specific mounts the same
+`network_mode: host` approach (dropping its ecosystem-specific mounts the same
 way `docker-compose.standalone.yml` does).
 
 ## Backups

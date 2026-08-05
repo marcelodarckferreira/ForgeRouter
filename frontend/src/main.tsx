@@ -100,9 +100,10 @@ const PAGES: { id: Page; label: string; section: string; icon: React.ReactNode }
  * stays admin-only (like ForgeHub), so it's not part of the matrix. */
 const PROFILE_MODULES: Page[] = ['agents', 'overview', 'messages', 'routing', 'tasks', 'playground', 'pricing'];
 
-// Recommended virtual model for each Hermes (OpenClaw) task — paste these ids in
-// the Hermes model settings. forgerouter/auto classifies the request on the fly.
-const HERMES_TASK_MAP: { task: string; hint: string; model: string }[] = [
+// Recommended virtual model for each built-in task — paste these ids into
+// your agent/client's own model settings. forgerouter/auto classifies the
+// request on the fly regardless.
+const DEFAULT_TASK_MAP: { task: string; hint: string; model: string }[] = [
   { task: 'Main model', hint: 'primary session model', model: 'forgerouter/auto' },
   { task: 'Vision', hint: 'image analysis', model: 'forgerouter/standard' },
   { task: 'Web Extract', hint: 'page summarization', model: 'forgerouter/simple' },
@@ -354,7 +355,7 @@ function AuthLayout({ children }: { children: React.ReactNode }) {
       <AuthBackdrop />
       <div className="authColumns">
         <div className="authBrandPanel">
-          <div className="authBrand"><Logo size={38} /><span><p className="eyebrow">Hermes AI Runtime</p><strong>ForgeRouter</strong></span></div>
+          <div className="authBrand"><Logo size={38} /><span><p className="eyebrow">LLM Gateway</p><strong>ForgeRouter</strong></span></div>
           <div className="authHero">
             <p className="authBadge"><span className="badgeDot" />LLM routing control plane</p>
             <h1>Route every request to the best available model.</h1>
@@ -1141,7 +1142,7 @@ function App() {
   const [agentModelsDraft, setAgentModelsDraft] = useState<string[]>([]);
   const [agentModelSearch, setAgentModelSearch] = useState('');
   const [savingAgentModels, setSavingAgentModels] = useState(false);
-  const [taskMap, setTaskMap] = useState<{ task: string; hint: string; model: string }[]>(HERMES_TASK_MAP);
+  const [taskMap, setTaskMap] = useState<{ task: string; hint: string; model: string }[]>(DEFAULT_TASK_MAP);
   const [pricingModels, setPricingModels] = useState<PriceModel[]>([]);
   const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number; last_synced: string | null }>({ priced_count: 0, total_count: 0, last_synced: null });
   const [pricingSyncing, setPricingSyncing] = useState(false);
@@ -1870,7 +1871,7 @@ function App() {
   }
 
   async function editAgentDescription(name: string, current: string) {
-    const description = await showPrompt(`Description for "${name}" — e.g. used by the Hermes auxiliary tasks`, current);
+    const description = await showPrompt(`Description for "${name}" — e.g. used by internal automation tasks`, current);
     if (description === null) return;
     try {
       await fetchJson(`/admin/agents/${encodeURIComponent(name)}/description`, { method: 'PUT', body: JSON.stringify({ description: description.trim() }) });
@@ -2371,7 +2372,7 @@ function App() {
               <span className="brandRow">
                 <Logo size={28} />
                 <span>
-                  <p className="eyebrow">Hermes AI Runtime</p>
+                  <p className="eyebrow">LLM Gateway</p>
                   <strong>ForgeRouter</strong>
                 </span>
               </span>
@@ -2466,11 +2467,11 @@ function App() {
                     <label>Agent name<input value={newAgentName} placeholder="e.g. athos" onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                     <label>Kind
                       <select value={newAgentKind} onChange={(e) => setNewAgentKind(e.target.value as 'agent' | 'service')}>
-                        <option value="agent">Agent — real Hermes profile (gateway/Telegram/KB)</option>
+                        <option value="agent">Agent — real conversational agent (chat/bot/knowledge base)</option>
                         <option value="service">Service — internal caller only (e.g. Hindsight)</option>
                       </select>
                     </label>
-                    <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by the Hermes auxiliary tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
+                    <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by internal automation tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                     <label>API key — auto-generated, stored in the agent's registration; paste it into the agent's connection settings
                       <span className="keyGen">
                         <input className="mono" readOnly value={newAgentKey} />
@@ -2519,7 +2520,7 @@ function App() {
                       <Bot size={17} /><strong>{agent.name}</strong>
                       <b
                         className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}${togglingKind === agent.name ? ' toggling' : ''}`}
-                        title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a Hermes profile (no gateway/Telegram/KB). ' : 'Real Hermes agent (gateway/Telegram/knowledge base). ') + 'Click to toggle.'}
+                        title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a conversational agent (no chat/bot/knowledge base). ' : 'Real conversational agent (chat/bot/knowledge base). ') + 'Click to toggle.'}
                         onClick={(e) => { e.stopPropagation(); if (togglingKind !== agent.name) void toggleAgentKind(agent.name, agent.kind); }}
                       >{agent.kind === 'service' ? 'service' : 'agent'}</b>
                       {!agent.enabled && <b className="status unknown">disabled</b>}
@@ -2542,7 +2543,7 @@ function App() {
                         >{group} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Hermes task map — healthy models the agent can serve each task with">
+                    <span className="caps agentGroups" title="Task map — healthy models the agent can serve each task with">
                       {taskMap.map((item) => {
                         const target = item.model.startsWith('forgerouter/') ? item.model.slice('forgerouter/'.length) : item.model;
                         const count = target === 'auto'
@@ -3289,9 +3290,9 @@ function App() {
                       <Link2 size={15} />
                       <span className="auxLabel">OpenAI base URL</span>
                       <span className="mono auxValue">{`${window.location.origin}/v1`}</span>
-                      <button className="iconButton" title="Copy the OpenAI-compatible API base URL for Hermes, Codex, and custom providers" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'OpenAI base URL copied' : 'copy failed'))}><Copy size={14} /></button>
+                      <button className="iconButton" title="Copy the OpenAI-compatible API base URL for any agent, CLI, or custom client" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'OpenAI base URL copied' : 'copy failed'))}><Copy size={14} /></button>
                     </div>
-                    <p className="auxDesc">Paste the base URL and the ids below into the Hermes model settings — any agent's own API key (Agents page) authenticates the call, ForgeRouter only checks that the key exists.</p>
+                    <p className="auxDesc">Paste the base URL and the ids below into your agent/client's own model settings — any agent's own API key (Agents page) authenticates the call, ForgeRouter only checks that the key exists.</p>
                   </div>
                 );
               })()}
@@ -3303,7 +3304,7 @@ function App() {
                   <span>
                     <select className="chip select taskModel" value={item.model} onChange={(e) => void saveTaskModel(item.task, e.target.value)}>
                       <optgroup label="Task groups">
-                        {(demandData?.virtual_models ?? HERMES_TASK_MAP.map((t) => t.model)).filter((id, i, arr) => arr.indexOf(id) === i).map((id) => <option key={id} value={id}>{id}</option>)}
+                        {(demandData?.virtual_models ?? DEFAULT_TASK_MAP.map((t) => t.model)).filter((id, i, arr) => arr.indexOf(id) === i).map((id) => <option key={id} value={id}>{id}</option>)}
                       </optgroup>
                       <optgroup label="Healthy models">
                         {playModelOptions.map((p) => <option key={p.model_id} value={p.model_id}>{p.model_id}</option>)}
