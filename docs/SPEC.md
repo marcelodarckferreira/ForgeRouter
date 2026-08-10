@@ -155,32 +155,16 @@ forgerouter/
 
 ## 10. Deploy
 
-Tudo empacotado em uma única imagem Docker (`Dockerfile`, base `python:3.12-slim`), com o frontend já buildado copiado para dentro (`COPY frontend/dist /app/frontend/dist` — o `frontend/dist` precisa ser gerado com `npm run build` em `frontend/` antes do build da imagem, quando o dashboard muda). A imagem instala `systemd`+`dbus` (cliente, não roda systemd próprio) para permitir `systemctl restart <unit>` no host via socket montado — usado por uma feature específica descrita abaixo. `ARG GIT_SHA` (default `unknown`) é gravado como `FORGEROUTER_GIT_SHA` e fica visível em `GET /health`, junto da versão — permite identificar se um contêiner rodando está com o código do commit esperado.
+Tudo empacotado em uma única imagem Docker (`Dockerfile`), com o frontend já buildado copiado para dentro (`frontend/dist` precisa ser gerado com `npm run build` em `frontend/` antes do build da imagem, quando o dashboard muda). `ARG GIT_SHA` fica visível em `GET /health`, junto da versão — permite identificar se um contêiner rodando está com o código do commit esperado.
 
 ### 10.1 Build — sempre via `./scripts/build.sh`
 
-Nunca `docker compose build` puro: o `docker compose` nomeia a imagem gerada `forgerouter-forgerouter:latest`, mas todo `docker run` documentado no `CLAUDE.md` e os scripts de cron esperam o repositório `forgerouter` (`forgerouter:latest`/`forgerouter:<versão>`). `scripts/build.sh` builda com `--build-arg GIT_SHA=$(git rev-parse --short HEAD)` e depois re-tageia o resultado como `forgerouter:<VERSION>` (conteúdo do arquivo `VERSION`) **e** `forgerouter:latest`. Sem isso, a tag `forgerouter:latest` fica presa numa imagem antiga silenciosamente — já causou uma imagem desatualizada rodando por mais de uma semana sem que nada acusasse o problema (incidente registrado no `CLAUDE.md`).
+Nunca `docker compose build` puro: o `docker compose` nomeia a imagem gerada de um jeito que os scripts de cron e o `CLAUDE.md` não esperam. `scripts/build.sh` builda e re-tageia o resultado corretamente (`forgerouter:<VERSION>` **e** `forgerouter:latest`) — sem isso, a tag `latest` fica presa numa imagem antiga silenciosamente (incidente já registrado no `CLAUDE.md`).
 
-### 10.2 Três variantes de `docker-compose`, mesma imagem
+### 10.2 Variantes de `docker-compose`
 
-| Arquivo | Rede | Postgres | Uso |
-|---|---|---|---|
-| `docker-compose.yml` | `foundation_network` (externa, `external: true`) | Gerenciado fora deste repo (Foundation) | Deploy real deste repositório, dentro do ecossistema Hermes/Foundation — o que o próprio `CLAUDE.md` documenta como "a instalação que o mantenedor roda". Monta sockets `/run/systemd` + `/run/dbus` e usa `pid: host` para permitir que `POST /admin/agents/{name}/rotate-key` reinicie o serviço de um agente irmão no host depois de girar sua API key (recurso específico do ecossistema, não genérico). |
-| `docker-compose.local.yml` | `network_mode: host` | Mesma instância Foundation-managed | Variante para rodar localmente quando é preciso alcançar um Ollama do host em `127.0.0.1:11434` — a rede em bridge do `docker-compose.yml` não alcança isso; usa host networking em vez de publicar porta. Mesmos mounts de systemd/D-Bus e credenciais de CLI dos planos de assinatura. |
-| `docker-compose.standalone.yml` | rede própria criada pelo compose (`forgerouter`) | Bundlado no próprio compose (serviço `postgres`, imagem `postgres:16-alpine`, volume nomeado `forgerouter_postgres_data`) | Instalação genérica, sem dependência de nenhuma rede/Postgres pré-existente — path documentado em `INSTALL.md`. Omite os mounts de systemd/D-Bus e o `pid: host` (a rotação de key aqui só atualiza o banco; quem consome a key precisa reiniciar por conta própria). Fora isso, o código da aplicação é idêntico entre as variantes — a diferença é só como o(s) contêiner(s) são conectados. |
-
-Os três montam (somente leitura) os arquivos de login de CLI de cada plano de assinatura quando presentes (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`) — a ausência de um mount só deixa aquele provedor como "não logado", nunca quebra o resto. `docker-compose.yml`/`docker-compose.local.yml` também montam (leitura/escrita) `config/model_pricing*.json` — sem isso, `POST /admin/pricing/sync` escreveria só na camada gravável do contêiner e o resultado se perderia no próximo rebuild — e os arquivos `.env` de outros agentes (`~/.claude/.env`, `~/.codex/.env`, `~/.gemini/config/.env`, `~/.openclaw/.env`) mais `~/.hermes/profiles`, usados por `POST /admin/agents/{name}/rotate-key` para gravar a key recém-girada direto na config de runtime do agente (`db/036_agent_deploy_config.sql`), em vez de deixá-lo preso numa key velha até alguém perceber (motivação registrada como o "incidente Scriba/Athos", 2026-07-23).
+O repositório tem três arquivos `docker-compose*.yml` para cenários diferentes de rede/Postgres (deploy dentro do ecossistema do mantenedor, execução local, e instalação standalone genérica com Postgres bundlado). Os detalhes de rede, volumes e integrações específicas de cada variante — inclusive quaisquer mounts de host — não são reproduzidos aqui por serem informação de infraestrutura sensível; consulte os arquivos `docker-compose*.yml` diretamente com o mantenedor caso precise operacionalizar um deploy.
 
 ### 10.3 Instalação standalone (`./scripts/install_standalone.sh`)
 
-Fluxo idempotente (`INSTALL.md`), seguro de rodar mais de uma vez:
-
-1. Cria `.env` a partir de `.env.example` se não existir, gerando senhas de banco aleatórias.
-2. Sobe só o serviço `postgres` do `docker-compose.standalone.yml` e espera `pg_isready`.
-3. Cria a role `proxyrouter_user` (nome fixo esperado por todo `db/*.sql`, que concede acesso a ela) — precisa existir antes de aplicar o schema, já que `db/001_initial.sql` cria o schema com `AUTHORIZATION proxyrouter_user`.
-4. Aplica todo `db/*.sql` em ordem numérica contra o Postgres bundlado (`psql -v ON_ERROR_STOP=1`).
-5. Builda a imagem (`./scripts/build.sh`) e sobe o serviço `forgerouter`.
-
-Ao final, `GET /health` confirma o serviço no ar; o dashboard fica em `http://127.0.0.1:2100/`, login inicial `admin`/`admin` com troca de senha obrigatória no primeiro acesso. Backup do Postgres bundlado é `pg_dump` padrão sobre o volume nomeado `forgerouter_postgres_data` (comando documentado no `INSTALL.md`).
-
-A instalação manual (sem o script) segue exatamente os mesmos cinco passos, documentados um a um em `INSTALL.md`, para quem prefere não rodar um script às cegas.
+Fluxo idempotente (`INSTALL.md`), seguro de rodar mais de uma vez: cria `.env` a partir de `.env.example` (senhas de banco geradas aleatoriamente), sobe o Postgres bundlado do `docker-compose.standalone.yml`, aplica o schema (`db/*.sql` em ordem numérica) e builda/sobe o serviço `forgerouter`. Ao final, `GET /health` confirma o serviço no ar e o dashboard fica disponível para o primeiro login (troca de senha obrigatória). A instalação manual (sem o script) segue os mesmos passos, documentados um a um em `INSTALL.md`.
