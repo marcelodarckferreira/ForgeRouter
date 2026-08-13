@@ -1183,6 +1183,12 @@ function App() {
   function showPrompt(title: string, defaultValue = ''): Promise<string | null> {
     return new Promise((resolve) => setPromptModal({ title, value: defaultValue, resolve }));
   }
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; confirmLabel: string; resolve: (value: boolean) => void } | null>(null);
+  // Promise-based drop-in for window.confirm() — same as showPrompt above,
+  // backed by the app's own modal instead of the browser's native dialog.
+  function showConfirm(title: string, message: string, confirmLabel = 'Confirm'): Promise<boolean> {
+    return new Promise((resolve) => setConfirmModal({ title, message, confirmLabel, resolve }));
+  }
   const [newAgentKey, setNewAgentKey] = useState(generateAgentKey);
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
@@ -1803,7 +1809,7 @@ function App() {
   }
 
   async function rotateAgentKey(name: string) {
-    if (!window.confirm(`Generate a new API key for "${name}"? The current key stops working immediately, but the agent keeps all of its provider/model controls.`)) return;
+    if (!(await showConfirm('Rotate API key', `Generate a new API key for "${name}"? The current key stops working immediately, but the agent keeps all of its provider/model controls.`, 'Rotate key'))) return;
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/rotate-key`, { method: 'POST' });
       const deploy = data.deploy as { applied?: boolean; status?: string; detail?: string } | undefined;
@@ -3563,6 +3569,18 @@ function App() {
             <div className="modalActions">
               <button className="button secondary" onClick={() => { promptModal.resolve(null); setPromptModal(null); }}>Cancel</button>
               <button className="button" onClick={() => { promptModal.resolve(promptModal.value); setPromptModal(null); }}><Save size={15} /> OK</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmModal && (
+        <div className="modalOverlay" onClick={() => { confirmModal.resolve(false); setConfirmModal(null); }}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2><AlertTriangle size={17} /> {confirmModal.title}</h2>
+            <p className="muted">{confirmModal.message}</p>
+            <div className="modalActions">
+              <button className="button secondary" autoFocus onClick={() => { confirmModal.resolve(false); setConfirmModal(null); }}>Cancel</button>
+              <button className="button" onClick={() => { confirmModal.resolve(true); setConfirmModal(null); }}><RefreshCw size={15} /> {confirmModal.confirmLabel}</button>
             </div>
           </div>
         </div>
