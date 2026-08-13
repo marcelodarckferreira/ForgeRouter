@@ -306,6 +306,7 @@ def zai_chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: 
     except Exception as exc:
         return 502, {"error": {"message": str(exc), "type": "zai_request_failed"}}
     if upstream.status_code >= 400:
+        upstream.read()
         text = upstream.text
         upstream.close()
         client.close()
