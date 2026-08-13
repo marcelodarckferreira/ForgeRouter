@@ -100,7 +100,31 @@ def _deepseek_web_handler() -> PlanHandler:
     )
 
 
-PLANS: tuple[PlanHandler, ...] = (_codex_handler(), _antigravity_handler(), _claude_code_handler(), _zai_handler(), _deepseek_web_handler())
+def _xai_grok_handler() -> PlanHandler:
+    from app.providers.xai_grok import (
+        is_xai_grok_base_url,
+        xai_grok_chat_completion,
+        xai_grok_discover_models,
+        xai_grok_token,
+    )
+
+    return PlanHandler(
+        name="xai-grok-oauth",
+        matches=is_xai_grok_base_url,
+        chat_completion=xai_grok_chat_completion,
+        discover_models=xai_grok_discover_models,
+        resolve_token=xai_grok_token,
+    )
+
+
+PLANS: tuple[PlanHandler, ...] = (
+    _codex_handler(),
+    _antigravity_handler(),
+    _claude_code_handler(),
+    _zai_handler(),
+    _deepseek_web_handler(),
+    _xai_grok_handler(),
+)
 
 
 def plan_for(base_url: str | None) -> PlanHandler | None:

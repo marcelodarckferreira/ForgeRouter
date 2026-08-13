@@ -25,6 +25,11 @@ services:
       # DeepSeek web credentials/token (read-only): the native subscription
       # handler reads ~/.deepseek/auth.json when present.
       - ~/.deepseek:/root/.deepseek:ro
+      # xAI Grok OAuth token (read-write, unlike the other OAuth mounts above):
+      # there is no external CLI keeping this one fresh — app/providers/xai_grok.py
+      # refreshes it itself and rewrites ~/.xai/auth.json in place, so the
+      # container needs write access for the refresh to persist across restarts.
+      - ~/.xai:/root/.xai
       # Reference-cost pricing catalogs (read-write): POST /admin/pricing/sync
       # rewrites these from inside the container (app/pricing.py). Without a
       # bind mount here the sync result only lives in the container's writable
