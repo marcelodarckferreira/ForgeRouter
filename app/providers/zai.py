@@ -297,7 +297,60 @@ def _event_error(parsed: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+ZAI_PAID_API_MARKER = "api.z.ai/api/coding/paas/v4"
+
+
+def _paid_api_chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: float) -> tuple[int, Any]:
+    """The paid api.z.ai/api/coding/paas/v4 surface is plain OpenAI-compatible —
+    unlike the free chat.z.ai web adapter below, no signing/session dance, just
+    a bearer API key. Kept self-contained (not delegated to
+    openai_compatible.chat_completion) since that function dispatches back
+    through plan_for(), which would route straight back here."""
+    token = zai_token(model.api_key or "", model.api_key_env or "")
+    if not token:
+        return 401, {"error": {"message": "Z.ai API key unavailable", "type": "missing_credentials"}}
+    url = model.base_url.rstrip("/") + "/chat/completions"
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    body = {**payload, "model": model.provider_model}
+    if payload.get("stream"):
+        client = httpx.Client(timeout=timeout)
+        try:
+            request = client.build_request("POST", url, headers=headers, json=body)
+            response = client.send(request, stream=True)
+        except Exception:
+            client.close()
+            raise
+        if response.status_code >= 400:
+            response.read()
+            try:
+                err_body = response.json()
+            except Exception:
+                err_body = {"error": {"message": response.text, "type": "zai_http_error"}}
+            response.close()
+            client.close()
+            return response.status_code, err_body
+
+        def chunk_generator() -> Iterator[bytes]:
+            try:
+                for chunk in response.iter_bytes():
+                    yield chunk
+            finally:
+                response.close()
+                client.close()
+
+        return response.status_code, chunk_generator()
+
+    response = httpx.post(url, headers=headers, json=body, timeout=timeout)
+    try:
+        resp_body = response.json()
+    except Exception:
+        resp_body = {"error": {"message": response.text, "type": "zai_http_error"}}
+    return response.status_code, resp_body
+
+
 def zai_chat_completion(model: ProviderModel, payload: dict[str, Any], timeout: float = 60.0) -> tuple[int, Any]:
+    if ZAI_PAID_API_MARKER in (model.base_url or ""):
+        return _paid_api_chat_completion(model, payload, timeout=timeout)
     token = zai_token(model.api_key or "", model.api_key_env or "")
     if not token:
         return 401, {"error": {"message": "Z.ai token unavailable", "type": "missing_credentials"}}

@@ -99,6 +99,49 @@ def test_zai_stream_error_becomes_in_band_error_chunk(monkeypatch):
     assert upstream.closed and client.closed
 
 
+def test_plan_dispatch_matches_zai_paid_api_base_url():
+    plan = plan_for("https://api.z.ai/api/coding/paas/v4")
+    assert plan is not None and plan.name == "zai-oauth"
+
+
+def test_zai_paid_api_uses_plain_openai_compatible_request(monkeypatch):
+    model = ProviderModel(
+        id="zai_api/glm-4.7",
+        provider="zai_api",
+        provider_model="glm-4.7",
+        tier=1,
+        capabilities=["text"],
+        enabled=True,
+        healthy=True,
+        base_url="https://api.z.ai/api/coding/paas/v4",
+        api_key="my-key",
+    )
+
+    captured = {}
+
+    class _FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["json"] = json
+        return _FakeResponse()
+
+    monkeypatch.setattr(zai_module.httpx, "post", fake_post)
+
+    status, body = zai_module.zai_chat_completion(model, {"messages": [{"role": "user", "content": "hi"}], "stream": False})
+
+    assert status == 200
+    assert captured["url"] == "https://api.z.ai/api/coding/paas/v4/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer my-key"
+    assert captured["json"]["model"] == "glm-4.7"
+    assert body["choices"][0]["message"]["content"] == "ok"
+
+
 def test_provider_readiness_accepts_zai_oauth_file(tmp_path, monkeypatch):
     auth = tmp_path / "auth.json"
     auth.write_text(json.dumps({"access_token": "tok-zai"}))
