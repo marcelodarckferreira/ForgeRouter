@@ -132,3 +132,41 @@ Direct subscription-method evaluation:
 ```bash
 docker compose run --rm forgerouter python scripts/subscription_smoke.py --provider zai
 ```
+
+## Paid API Alternative (`zai_api`)
+
+The free/OAuth web adapter above (`chat.z.ai`) is a reverse-engineered web
+endpoint and can be temporarily blocked by upstream anti-bot protection
+(Alibaba WAF — returns HTTP `405` with a block page instead of a normal
+error). If that happens, or you'd rather just pay for API usage instead of
+relying on a personal login, Z.ai's real coding-plan API is a second,
+independent provider:
+
+```text
+provider: zai_api
+base_url: https://api.z.ai/api/coding/paas/v4
+auth_method: api_key (paste from the Z.ai coding-plan console, not OAuth)
+```
+
+This is a plain OpenAI-compatible surface (`app/providers/zai.py`'s
+`_paid_api_chat_completion`) — no signing, no session dance, just a bearer
+API key, so it isn't subject to the web adapter's WAF risk. It bills against
+account balance/resource packages, so a `429` with
+`"Insufficient balance or no resource package"` means the account needs a
+top-up, not a broken integration.
+
+Only base model codes exist on this surface — the `-thinking`/`-tools`/`-v`
+suffixed variants the free web adapter exposes are web-UI toggles, not real
+model ids here, and return `400 modelCode: does not exist`:
+
+```text
+zai_api/glm-4.5
+zai_api/glm-4.6
+zai_api/glm-4.7
+zai_api/glm-5
+zai_api/glm-4.5-air
+```
+
+Register the same way as any plain API-key provider (Access: `API Key`, not
+`Subscription`) — no catalog entry/migration needed, `zai_api` isn't a
+`plan_for()`-dispatched OAuth plan, it just happens to share `zai.py`'s code.
