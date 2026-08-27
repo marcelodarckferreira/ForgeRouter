@@ -16,7 +16,7 @@
 
 ## Visão Geral
 
-O ForgeRouter fica na frente de um pool de provedores de LLM — modelos locais via Ollama, provedores por chave de API (Groq, OpenRouter, Mistral e outros configuráveis) e planos de assinatura via OAuth (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok, Nous Portal) — e os expõe como um único gateway. Basta apontar qualquer cliente compatível com OpenAI, o Claude Code ou a Codex CLI para ele: o serviço cuida da seleção de provedor, verificação de saúde e failover, de modo que a queda de um provedor ou o rate limit de um plano gratuito nunca derrubem uma requisição.
+O ForgeRouter fica na frente de um pool de provedores de LLM — modelos locais via Ollama, provedores por chave de API (Groq, OpenRouter, Mistral e outros configuráveis) e planos de assinatura via OAuth ou chave de API (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok, Nous Portal) — e os expõe como um único gateway. Basta apontar qualquer cliente compatível com OpenAI, o Claude Code ou a Codex CLI para ele: o serviço cuida da seleção de provedor, verificação de saúde e failover, de modo que a queda de um provedor ou o rate limit de um plano gratuito nunca derrubem uma requisição.
 
 Foi construído para o ecossistema Hermes (documentação canônica em `CLAUDE.md`), mas não possui nenhuma dependência de vendor específico — funciona como gateway de LLM genérico em qualquer instalação (ver [`INSTALL.md`](INSTALL.md) para o modo standalone).
 
@@ -82,12 +82,12 @@ flowchart LR
     API --> Routing["Roteamento por demanda\n+ health/fallback/circuit breaker"]
     Routing --> Local["Ollama (local)"]
     Routing --> ApiKey["Provedores por API key\n(Groq, OpenRouter, Mistral, ...)"]
-    Routing --> OAuth["Planos por assinatura/OAuth\n(Claude Code, Codex, Antigravity,\nZ.ai, DeepSeek, xAI Grok, Nous Portal)"]
+    Routing --> OAuth["Planos por assinatura\n(Claude Code, Codex, Antigravity,\nZ.ai, DeepSeek, xAI Grok — OAuth;\nNous Portal — chave de API)"]
     API --> DB[(PostgreSQL\nschema ai_router)]
     API --> Dashboard["Dashboard administrativo\n(React/TypeScript)"]
 ```
 
-Cada provedor tem um `api_format` (`openai` ou `anthropic`) descrevendo seu protocolo de conexão; provedores por assinatura (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok) passam por handlers de plano dedicados (`app/providers/plans.py`) que gerenciam tokens OAuth em vez de chaves de API estáticas — o Z.ai é o único que também aceita uma chave de API paga (`api.z.ai/api/coding/paas/v4`) como caminho alternativo ao OAuth. O Nous Portal é a exceção sem handler dedicado: não existe um servidor de autorização OAuth público para apps de terceiros se registrarem, então a autenticação é totalmente delegada a um processo externo ao Docker — `hermes proxy` (CLI do Hermes Agent) rodando no host como um credential-broker local — e o `base_url` do provider aponta para esse proxy como um endpoint OpenAI-compatível comum (ver `docs/SUBSCRIPTION_NOUS_PORTAL_REFERENCE.md`).
+Cada provedor tem um `api_format` (`openai` ou `anthropic`) descrevendo seu protocolo de conexão; a maioria dos planos de assinatura (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok) passa por handlers de plano dedicados (`app/providers/plans.py`) que gerenciam tokens OAuth em vez de chaves de API estáticas — o Z.ai é o único que também aceita uma chave de API paga (`api.z.ai/api/coding/paas/v4`) como caminho alternativo ao OAuth. O Nous Portal não tem handler dedicado nem OAuth: é uma chave de API estática colada no dashboard, igual Moonshot/MiniMax/Ollama Cloud (ver `docs/SUBSCRIPTION_NOUS_PORTAL_REFERENCE.md`) — a Nous Portal não expõe um servidor de autorização OAuth público para apps de terceiros se registrarem.
 
 ## Tecnologias
 
@@ -192,7 +192,7 @@ cp .env.example .env
 
 Tudo o mais — quais provedores estão habilitados, quais modelos eles expõem, cadeias de roteamento por demanda, compactação/truncamento de contexto, chaves e orçamentos de agentes, sincronização de pricing — é configurado ao vivo pelo dashboard e persistido no PostgreSQL, sem precisar de variável de ambiente ou redeploy.
 
-Autenticação com os provedores de assinatura (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok) não usa `.env`: cada handler lê o token OAuth já mantido por sua respectiva CLI (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`), exceto o xAI Grok, cujo login (`scripts/xai_oauth_login.py`) e refresh de token são realizados pelo próprio ForgeRouter (`~/.xai/auth.json`, montado com escrita). O Nous Portal não lê nenhum arquivo montado no container: o `base_url` aponta para `hermes proxy` rodando no host (`host.docker.internal:8645`), um credential-broker do Hermes Agent que injeta o bearer real — nada para o ForgeRouter renovar ou armazenar. Detalhes por provedor em `docs/SUBSCRIPTION_*_REFERENCE.md`.
+Autenticação com os provedores de assinatura OAuth (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok) não usa `.env`: cada handler lê o token OAuth já mantido por sua respectiva CLI (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`), exceto o xAI Grok, cujo login (`scripts/xai_oauth_login.py`) e refresh de token são realizados pelo próprio ForgeRouter (`~/.xai/auth.json`, montado com escrita). O Nous Portal é uma chave de API comum (`portal.nousresearch.com` → API Keys), colada no dashboard como qualquer provedor por chave de API — sem arquivo montado, sem processo externo. Detalhes por provedor em `docs/SUBSCRIPTION_*_REFERENCE.md`.
 
 ## Executando o Projeto
 
@@ -268,7 +268,7 @@ Tabelas principais: `providers`, `models`, `provider_health` (histórico append-
 | `docker-compose.local.yml` | Igual ao anterior, com `network_mode: host`, para alcançar um Ollama local em `127.0.0.1:11434` |
 | `docker-compose.standalone.yml` | Instalação autônoma: PostgreSQL embutido, sem dependência de rede externa nem dos mounts de systemd/D-Bus |
 
-O único serviço da aplicação escuta na porta **2100**. Os três arquivos montam (leitura, exceto onde indicado) os arquivos de login OAuth de cada plano de assinatura (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`, `~/.xai` — este com escrita, pois o próprio ForgeRouter renova o token) e os catálogos de pricing (`config/model_pricing*.json`, com escrita, para persistir o resultado de `POST /admin/pricing/sync`). O Nous Portal é a exceção: nada é montado para ele — o container alcança o `hermes proxy` do host pela rede (`extra_hosts: host.docker.internal:host-gateway`, já presente em `docker-compose.yml`).
+O único serviço da aplicação escuta na porta **2100**. Os três arquivos montam (leitura, exceto onde indicado) os arquivos de login OAuth de cada plano de assinatura (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`, `~/.xai` — este com escrita, pois o próprio ForgeRouter renova o token) e os catálogos de pricing (`config/model_pricing*.json`, com escrita, para persistir o resultado de `POST /admin/pricing/sync`). O Nous Portal não precisa de nenhum mount — é uma chave de API paga como qualquer outra.
 
 ## Segurança
 
