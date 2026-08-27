@@ -413,6 +413,10 @@ label.check input{width:auto;cursor:pointer}
 .modalCard input:focus{border-color:#8b5cf6}
 .modalCard .alert{margin:0}
 .modalActions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px}
+.versionInfo{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:13px}
+.versionInfo dt{color:var(--muted)}
+.versionInfo dd{margin:0;color:var(--text);word-break:break-all}
+.versionInfo dd a{color:#8b5cf6}
 
 /* User avatars (photo or initial) + picker */
 .userAvatar{overflow:hidden}

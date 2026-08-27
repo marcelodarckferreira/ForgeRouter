@@ -220,6 +220,15 @@ type AdminProfile = {
   profile_id: number; name: string; description: string | null;
   permissions: Array<PermFlags & { module: string }>; users_count: number; created_at: string | null;
 };
+type SystemVersion = {
+  app_version: string;
+  git_sha: string;
+  git_commit_url: string | null;
+  build_date: string;
+  postgres_version: string | null;
+  latest_migration_bundled: string | null;
+  github_repo_url: string;
+};
 
 // ---------------------------------------------------------------------------
 // Auth screens: same visual language as the ForgeHub login (two-column layout,
@@ -624,7 +633,7 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [modal, setModal] = useState<'account' | 'password' | null>(null);
+  const [modal, setModal] = useState<'account' | 'password' | 'about' | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -635,6 +644,8 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [systemVersion, setSystemVersion] = useState<SystemVersion | null>(null);
+  const [versionError, setVersionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -662,6 +673,16 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
     setError(null);
     setModal('password');
     setOpen(false);
+  }
+
+  function openAbout() {
+    setSystemVersion(null);
+    setVersionError(null);
+    setModal('about');
+    setOpen(false);
+    fetchJson('/admin/system/version')
+      .then((data) => setSystemVersion(data as SystemVersion))
+      .catch((err) => setVersionError(err instanceof Error ? err.message : 'Failed to load system version'));
   }
 
   async function saveAccount() {
@@ -721,6 +742,7 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
         <div className="userMenu">
           <button onClick={openAccount}><User size={14} /> Conta</button>
           <button onClick={openPassword}><KeyRound size={14} /> Alterar senha</button>
+          <button onClick={openAbout}><Info size={14} /> Sobre</button>
           <p className="userMenuSection">Tema</p>
           {THEME_OPTIONS.map((option) => (
             <button key={option.id} onClick={() => onThemeChange(option.id)}>
@@ -773,6 +795,39 @@ function UserSettingsMenu({ authUser, fetchJson, onUserUpdated, themePref, onThe
               <button className="button" disabled={pending || !currentPassword || !newPassword || !confirmPassword} onClick={() => void savePassword()}>
                 {pending ? <Loader2 size={15} className="spin" /> : <Save size={15} />} Save
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+      {modal === 'about' && createPortal(
+        <div className="modalOverlay" onClick={() => setModal(null)}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <h2>Sobre</h2>
+            {versionError && <div className="alert">{versionError}</div>}
+            {!systemVersion && !versionError && <p className="muted">Loading…</p>}
+            {systemVersion && (
+              <dl className="versionInfo">
+                <dt>Versão</dt>
+                <dd>{systemVersion.app_version}</dd>
+                <dt>Commit</dt>
+                <dd>
+                  {systemVersion.git_commit_url ? (
+                    <a href={systemVersion.git_commit_url} target="_blank" rel="noreferrer">{systemVersion.git_sha}</a>
+                  ) : systemVersion.git_sha}
+                </dd>
+                <dt>Build</dt>
+                <dd>{systemVersion.build_date}</dd>
+                <dt>PostgreSQL</dt>
+                <dd>{systemVersion.postgres_version ?? 'unavailable'}</dd>
+                <dt>Última migration na imagem</dt>
+                <dd>{systemVersion.latest_migration_bundled ?? 'unknown'}</dd>
+                <dt>Repositório</dt>
+                <dd><a href={systemVersion.github_repo_url} target="_blank" rel="noreferrer">GitHub</a></dd>
+              </dl>
+            )}
+            <div className="modalActions">
+              <button className="button secondary" onClick={() => setModal(null)}>Close</button>
             </div>
           </div>
         </div>,

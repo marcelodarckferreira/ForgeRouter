@@ -11,8 +11,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 VERSION="$(cat VERSION)"
 GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-docker compose build --build-arg "GIT_SHA=${GIT_SHA}"
+docker compose build --build-arg "GIT_SHA=${GIT_SHA}" --build-arg "BUILD_DATE=${BUILD_DATE}"
 
 # docker compose names the built image <project>-<service>:latest — retag it
 # under the plain `forgerouter` repo (what every documented `docker run`

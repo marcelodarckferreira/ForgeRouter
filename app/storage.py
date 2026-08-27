@@ -35,6 +35,14 @@ def db_connect() -> psycopg.Connection:
     return psycopg.connect(database_url(), connect_timeout=int(os.environ.get("DATABASE_CONNECT_TIMEOUT", "3")))
 
 
+def get_postgres_version() -> str:
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT version()")
+            row = cur.fetchone()
+            return str(row[0]) if row else "unknown"
+
+
 def persist_health_results(results: list[HealthResult]) -> int:
     if not results:
         return 0

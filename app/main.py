@@ -3010,6 +3010,44 @@ def admin_subscription_catalog():
         return {"catalog": []}
 
 
+FORGEROUTER_GITHUB_REPO = "https://github.com/marcelodarckferreira/ForgeRouter"
+
+
+def _latest_bundled_migration() -> str | None:
+    # db/*.sql ships inside the image (Dockerfile), numbered and applied
+    # manually — there is no schema-version tracking table, so this only says
+    # what migration this *image* expects, never what has actually been run
+    # against the database.
+    try:
+        migrations = sorted(Path("db").glob("[0-9][0-9][0-9]_*.sql"))
+        return migrations[-1].name if migrations else None
+    except Exception:
+        return None
+
+
+@app.get("/admin/system/version")
+def admin_system_version():
+    # Read-only: what code/image/database this deployment is actually running,
+    # for the dashboard's "Sobre" screen — the exact drift this project's own
+    # CLAUDE.md warns about (a stale image running silently for over a week).
+    from app.storage import get_postgres_version
+
+    git_sha = os.environ.get("FORGEROUTER_GIT_SHA", "unknown")
+    try:
+        postgres_version = get_postgres_version()
+    except Exception:
+        postgres_version = None
+    return {
+        "app_version": _read_version(),
+        "git_sha": git_sha,
+        "git_commit_url": f"{FORGEROUTER_GITHUB_REPO}/commit/{git_sha}" if git_sha != "unknown" else None,
+        "build_date": os.environ.get("FORGEROUTER_BUILD_DATE", "unknown"),
+        "postgres_version": postgres_version,
+        "latest_migration_bundled": _latest_bundled_migration(),
+        "github_repo_url": FORGEROUTER_GITHUB_REPO,
+    }
+
+
 @app.post("/admin/providers/{name}/validate")
 def admin_provider_validate(name: str, request: Request):
     """Validate a stored provider's configuration: credential check + a real chat

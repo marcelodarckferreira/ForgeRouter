@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # itself a useful signal that an image was built outside the standard script.
 ARG GIT_SHA=unknown
 ENV FORGEROUTER_GIT_SHA=$GIT_SHA
+# BUILD_DATE (UTC, ISO 8601) — when this image was built, surfaced on the
+# dashboard's "Sobre" screen alongside GIT_SHA so a stale deploy is visible
+# without having to compare `docker images` timestamps by hand.
+ARG BUILD_DATE=unknown
+ENV FORGEROUTER_BUILD_DATE=$BUILD_DATE
 
 WORKDIR /app
 
@@ -25,6 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY VERSION ./VERSION
 COPY app ./app
 COPY config ./config
+COPY db ./db
 COPY scripts ./scripts
 COPY tests ./tests
 COPY pyproject.toml ./pyproject.toml
