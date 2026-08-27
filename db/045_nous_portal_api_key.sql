@@ -6,6 +6,7 @@
 -- apps anyway (portal.nousresearch.com -> API Keys), and it's simple: no
 -- proxy, no systemd, no adapter code — same pattern as Moonshot/MiniMax.
 UPDATE ai_router.subscription_catalog SET
+    plan_hint = 'Nous Portal subscription',
     base_url = 'https://inference-api.nousresearch.com/v1',
     auth_method = 'token',
     token_hint = 'portal.nousresearch.com → API Keys'
