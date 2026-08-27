@@ -95,6 +95,10 @@ from app.validation.scanner import build_scan_payload, scan_registry
 
 app = FastAPI(title="ForgeRouter", version="0.1.0")
 
+# Virtual routes can select different concrete models. Advertise a conservative
+# contract that satisfies agent clients without overstating unknown backends.
+VIRTUAL_MODEL_CONTEXT_LENGTH = 64_000
+
 
 async def _run_health_scan_and_sync() -> None:
     """Shared by the startup scan and the watchdog's auto-rescan: full scan,
@@ -340,6 +344,7 @@ def models():
             "id": model_id,
             "object": "model",
             "owned_by": "forgerouter",
+            "context_length": VIRTUAL_MODEL_CONTEXT_LENGTH,
             "metadata": {"virtual": True, "description": DEMAND_INFO.get(model_id.split("/", 1)[1], "Routes by demand class automatically.")},
         }
         for model_id in VIRTUAL_MODELS

@@ -251,10 +251,16 @@ def test_models_endpoint_exposes_virtual_models(monkeypatch):
 
     response = client.get("/v1/models")
 
-    ids = [item["id"] for item in response.json()["data"]]
+    payload = response.json()["data"]
+    ids = [item["id"] for item in payload]
+    virtual = [item for item in payload if item["id"].startswith("forgerouter/")]
+    concrete = next(item for item in payload if item["id"] == "p1/m")
     assert "forgerouter/auto" in ids
     assert "forgerouter/reasoning" in ids
     assert "p1/m" in ids
+    assert virtual
+    assert all(item["context_length"] == 64_000 for item in virtual)
+    assert "context_length" not in concrete
 
 
 def test_demand_routes_endpoints(monkeypatch):

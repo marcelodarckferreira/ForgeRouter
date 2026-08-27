@@ -24,7 +24,6 @@ import httpx
 from app.registry import ProviderModel
 
 CODEX_BASE_MARKER = "chatgpt.com/backend-api/codex"
-OPENAI_BASE_URL_ENVS = ("OPENAI_BASE_URL", "OpenAI_BASE_URL")
 
 # Static fallback when the Codex CLI models cache is unavailable — the backend has
 # no /models endpoint and rejects ids outside the account's plan.
@@ -35,21 +34,17 @@ CODEX_MODELS: list[dict[str, Any]] = [
 ]
 
 
-def configured_openai_base_url() -> str:
-    for name in OPENAI_BASE_URL_ENVS:
-        value = os.environ.get(name, "").strip()
-        if value:
-            return value
-    return ""
-
-
 def is_codex_base_url(base_url: str | None) -> bool:
     value = (base_url or "").rstrip("/")
     return CODEX_BASE_MARKER in value
 
 
 def codex_responses_url(base_url: str) -> str:
-    base = (configured_openai_base_url() or base_url).rstrip("/")
+    # OPENAI_BASE_URL belongs to clients pointed at ForgeRouter. Reusing it for
+    # the Codex upstream makes the router call itself when that client setting
+    # is present in the service environment. The registered provider URL is the
+    # explicit upstream configuration and remains overrideable from the admin UI.
+    base = base_url.rstrip("/")
     if CODEX_BASE_MARKER in base or base.endswith("/v1"):
         return base + "/responses"
     return base + "/v1/responses"

@@ -29,8 +29,6 @@ import httpx
 from app.registry import ProviderModel
 
 CLAUDE_CODE_BASE_MARKER = "api.anthropic.com"
-ANTHROPIC_BASE_URL_ENV = "ANTHROPIC_BASE_URL"
-
 # Claude Code requires every request's system prompt to start with this exact
 # text — Anthropic's API rejects (with a generic rate_limit_error) OAuth
 # requests that omit it.
@@ -42,14 +40,10 @@ DEFAULT_MAX_TOKENS = 8192
 # work for the account's plan.
 CLAUDE_CODE_MODELS: list[dict[str, Any]] = [
     {"id": "claude-opus-4-8", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
-    {"id": "claude-sonnet-4-6-20251114", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "claude-sonnet-4-6", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "claude-sonnet-4-5-20250929", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "claude-haiku-4-5-20251001", "capabilities": ["text", "code", "tool_call", "vision"]},
 ]
-
-
-def configured_anthropic_base_url() -> str:
-    return os.environ.get(ANTHROPIC_BASE_URL_ENV, "").strip()
 
 
 def is_claude_code_base_url(base_url: str | None) -> bool:
@@ -58,7 +52,9 @@ def is_claude_code_base_url(base_url: str | None) -> bool:
 
 
 def claude_code_messages_url(base_url: str) -> str:
-    base = (configured_anthropic_base_url() or base_url).rstrip("/")
+    # ANTHROPIC_BASE_URL points clients at ForgeRouter. Using it as this
+    # provider's upstream would make ForgeRouter recursively call itself.
+    base = base_url.rstrip("/")
     if base.endswith("/v1"):
         return base + "/messages"
     return base + "/v1/messages"
@@ -213,7 +209,9 @@ def build_messages_request(chat_payload: dict[str, Any], model_id: str, system_p
         request["system"] = system_blocks
 
     temperature = chat_payload.get("temperature")
-    if temperature is not None:
+    # Opus 4.8 rejects the parameter instead of accepting the usual 0..1
+    # range, so omit it even when an OpenAI-compatible client sends a value.
+    if temperature is not None and not model_id.startswith("claude-opus-4-8"):
         request["temperature"] = max(0.0, min(1.0, float(temperature)))
 
     tools = [

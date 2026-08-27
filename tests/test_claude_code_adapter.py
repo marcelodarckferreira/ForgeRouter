@@ -2,6 +2,7 @@ import json
 
 from app.providers import claude_code as claude_code_module
 from app.providers.claude_code import (
+    CLAUDE_CODE_MODELS,
     CLAUDE_CODE_SYSTEM_PROMPT,
     build_messages_request,
     claude_code_messages_url,
@@ -22,18 +23,16 @@ def test_plan_dispatch_matches_claude_code_base_url():
     assert is_claude_code_base_url("https://api.anthropic.com/v1")
 
 
-def test_plan_dispatch_matches_env_configured_anthropic_base_url(monkeypatch):
+def test_plan_dispatch_ignores_client_anthropic_base_url(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:2100")
     plan = plan_for("https://api.anthropic.com/v1")
     assert plan is not None and plan.name == "claude-code"
 
 
-def test_claude_code_messages_url_uses_anthropic_base_url(monkeypatch):
+def test_claude_code_messages_url_ignores_client_anthropic_base_url(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:2100")
-    assert claude_code_messages_url("https://api.anthropic.com/v1") == "http://localhost:2100/v1/messages"
-
-    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:2100/v1")
-    assert claude_code_messages_url("https://api.anthropic.com/v1") == "http://localhost:2100/v1/messages"
+    assert claude_code_messages_url("https://api.anthropic.com/v1") == "https://api.anthropic.com/v1/messages"
+    assert claude_code_messages_url("http://claude-proxy.internal/v1") == "http://claude-proxy.internal/v1/messages"
 
 
 def test_claude_code_token_falls_back_to_cli_auth_file(tmp_path, monkeypatch):
@@ -74,6 +73,20 @@ def test_build_messages_request_translates_chat_shape():
     ]
     assert request["tools"] == [{"name": "f", "description": "do f", "input_schema": {"type": "object"}}]
     assert "stream" not in request
+
+
+def test_opus_4_8_request_omits_deprecated_temperature():
+    request = build_messages_request(
+        {"messages": [{"role": "user", "content": "hi"}], "temperature": 0, "max_tokens": 128},
+        "claude-opus-4-8",
+    )
+    assert "temperature" not in request
+
+
+def test_static_catalog_uses_working_sonnet_4_6_alias():
+    model_ids = {model["id"] for model in CLAUDE_CODE_MODELS}
+    assert "claude-sonnet-4-6" in model_ids
+    assert "claude-sonnet-4-6-20251114" not in model_ids
 
 
 def test_fold_message_builds_chat_completion_with_usage():

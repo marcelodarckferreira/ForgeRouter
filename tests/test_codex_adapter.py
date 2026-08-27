@@ -28,19 +28,19 @@ def test_plan_dispatch_matches_codex_base_url():
     assert is_codex_base_url("https://chatgpt.com/backend-api/codex")
 
 
-def test_plan_dispatch_matches_env_configured_openai_base_url(monkeypatch):
+def test_plan_dispatch_ignores_client_openai_base_url(monkeypatch):
     monkeypatch.setenv("OpenAI_BASE_URL", "http://localhost:2100")
     plan = plan_for("https://chatgpt.com/backend-api/codex")
     assert plan is not None and plan.name == "openai-codex"
 
 
-def test_codex_responses_url_uses_openai_base_url(monkeypatch):
+def test_codex_responses_url_ignores_client_openai_base_url(monkeypatch):
     monkeypatch.setenv("OpenAI_BASE_URL", "http://localhost:2100")
-    assert codex_responses_url("https://chatgpt.com/backend-api/codex") == "http://localhost:2100/v1/responses"
+    assert codex_responses_url("https://chatgpt.com/backend-api/codex") == "https://chatgpt.com/backend-api/codex/responses"
 
     monkeypatch.delenv("OpenAI_BASE_URL")
     monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:2100/v1")
-    assert codex_responses_url("https://chatgpt.com/backend-api/codex") == "http://localhost:2100/v1/responses"
+    assert codex_responses_url("http://codex-proxy.internal/v1") == "http://codex-proxy.internal/v1/responses"
 
 
 def test_account_id_from_token_reads_jwt_claim():

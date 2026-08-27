@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
+import { selectedSubscriptionPlan, selectedSubscriptionPlanName, subscriptionPlanAuthUrl } from './subscriptionPlans';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
 type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; prompt_preview: string | null; messages_dropped: number | null; };
@@ -24,7 +25,7 @@ type RegistryModel = { id: string; provider_model: string; capabilities: string[
 type DiscoveredModel = { id: string; score: number; free: boolean | null; capabilities: string[]; health: HealthInfo | null };
 type AccessType = 'subscription' | 'api_key' | 'local';
 type RegistryProvider = { name: string; tier: number; base_url: string; api_key_env: string; enabled: boolean; models: RegistryModel[]; api_key?: string; api_key_set?: boolean; api_key_masked?: string; access_type?: AccessType; cost_type?: 'free' | 'paid'; api_format?: 'openai' | 'anthropic'; auth_method?: string; auth_config?: { extra_headers?: Record<string, string> } };
-type SubscriptionPlan = { name: string; display_name: string; plan_hint: string; base_url: string; auth_method: string; token_hint: string; extra_headers: Record<string, string> };
+type SubscriptionPlan = { name: string; display_name: string; plan_hint: string; base_url: string; auth_method: string; token_hint: string; auth_url: string; extra_headers: Record<string, string> };
 type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string; images?: string[] };
 type Attachment = { id: string; url: string; name: string };
 
@@ -79,11 +80,6 @@ function DemandTag({ demand }: { demand: string | null }) {
 }
 
 const EMPTY_PROVIDER: RegistryProvider = { name: '', tier: 3, base_url: '', api_key_env: '', api_key: '', enabled: true, models: [], access_type: 'api_key', cost_type: 'free', api_format: 'openai', auth_config: {} };
-
-function subscriptionLoginUrl(plan: SubscriptionPlan): string {
-  if (plan.name === 'subscription_zai' || plan.name === 'zai' || plan.base_url.includes('api.z.ai/') || plan.base_url.includes('chat.z.ai/')) return 'https://z.ai/chat';
-  return '';
-}
 
 const PAGES: { id: Page; label: string; section: string; icon: React.ReactNode }[] = [
   { id: 'agents', label: 'Agents', section: 'Monitoring', icon: <Bot size={15} /> },
@@ -1721,6 +1717,10 @@ function App() {
   async function discoverModels() {
     if (!editing) return;
     if (!editing.base_url.trim() && !editingOriginalName) { setError('Fill in the base URL before detecting models.'); return; }
+    const subscriptionPlan = selectedSubscriptionPlan(subscriptionPlans, editing.name);
+    const authHint = subscriptionPlan?.auth_method === 'oauth'
+      ? ` ${subscriptionPlan.display_name} uses subscription authentication. ${subscriptionPlan.token_hint}`
+      : '';
     try {
       setDiscovering(true);
       setError(null);
@@ -1736,10 +1736,7 @@ function App() {
       const prefix = editing.name.trim() ? `${editing.name.trim()}/` : '';
       const found = data.models as DiscoveredModel[];
       if (!found.length) {
-        const oauthHint = editing.name === 'subscription_zai' || editing.name === 'zai' || editing.base_url.includes('api.z.ai/') || editing.base_url.includes('chat.z.ai/')
-          ? ' Z.ai uses anonymous free auth by default; for logged-in account auth, mount ~/.zai/auth.json inside the ForgeRouter container.'
-          : '';
-        setScanStatus(`No models detected.${oauthHint}`);
+        setScanStatus(`No models detected.${authHint}`);
         return;
       }
       const foundById = new Map(found.map((model) => [model.id, model]));
@@ -1777,10 +1774,7 @@ function App() {
       if (data.excluded_paid > 0) parts.push(`${data.excluded_paid} paid skipped`);
       setScanStatus(parts.length ? parts.join(' · ') : `${found.length} models detected`);
     } catch (err) {
-      const oauthHint = editing.name === 'subscription_zai' || editing.name === 'zai' || editing.base_url.includes('api.z.ai/') || editing.base_url.includes('chat.z.ai/')
-        ? ' Z.ai uses anonymous free auth by default; for logged-in account auth, mount ~/.zai/auth.json inside the ForgeRouter container.'
-        : '';
-      setError(`${err instanceof Error ? err.message : 'Model discovery failed'}${oauthHint}`);
+      setError(`${err instanceof Error ? err.message : 'Model discovery failed'}${authHint}`);
     } finally {
       setDiscovering(false);
     }
@@ -3081,15 +3075,10 @@ function App() {
                   {editing.access_type === 'subscription' && (
                     <div className="formGrid">
                       <label>Subscription plan (fills name, URL & headers)
-                        <select value="" onChange={(e) => {
+                        <select value={selectedSubscriptionPlanName(subscriptionPlans, editing.name)} onChange={(e) => {
                           const plan = subscriptionPlans.find((p) => p.name === e.target.value);
                           // Full autofill: only the token (when the plan needs one) is left to paste.
                           if (plan) {
-                            const loginUrl = subscriptionLoginUrl(plan);
-                            if (loginUrl) {
-                              window.open(loginUrl, '_blank', 'noopener,noreferrer');
-                              setScanStatus(`Opened ${plan.display_name} login. Refresh the local OAuth file, then Detect models.`);
-                            }
                             setEditing({ ...editing, name: plan.name, base_url: plan.base_url, cost_type: 'paid', auth_method: plan.auth_method, api_key: '', auth_config: { ...editing.auth_config, extra_headers: plan.extra_headers } });
                           }
                         }}>
@@ -3097,8 +3086,10 @@ function App() {
                           {subscriptionPlans.map((plan) => <option key={plan.name} value={plan.name}>{plan.display_name} — {plan.plan_hint}</option>)}
                         </select>
                       </label>
-                      {(editing.name === 'subscription_zai' || editing.name === 'zai') && (
-                        <a className="button secondary inlineLink" href="https://z.ai/chat" target="_blank" rel="noreferrer"><Link2 size={14} /> Open Z.ai login</a>
+                      {subscriptionPlanAuthUrl(subscriptionPlans, editing.name) && (
+                        <a className="button secondary inlineLink" href={subscriptionPlanAuthUrl(subscriptionPlans, editing.name)} target="_blank" rel="noreferrer">
+                          <Link2 size={14} /> Authenticate with {selectedSubscriptionPlan(subscriptionPlans, editing.name)?.display_name ?? editing.name}
+                        </a>
                       )}
                     </div>
                   )}

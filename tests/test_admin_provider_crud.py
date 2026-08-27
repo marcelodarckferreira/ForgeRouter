@@ -70,13 +70,14 @@ def test_subscription_catalog_is_public(monkeypatch):
     monkeypatch.setattr("app.main.find_agent_by_key", lambda key: "tester" if key == "secret" else None)
     monkeypatch.setattr(
         "app.storage.list_subscription_catalog",
-        lambda: [{"name": "subscription_zai", "display_name": "Subscription Z.ai", "plan_hint": "GLM Coding Plan", "base_url": "https://chat.z.ai/api", "auth_method": "oauth", "token_hint": "anonymous free token or ~/.zai/auth.json", "extra_headers": {}}],
+        lambda: [{"name": "subscription_zai", "display_name": "Subscription Z.ai", "plan_hint": "GLM Coding Plan", "base_url": "https://chat.z.ai/api", "auth_method": "oauth", "token_hint": "anonymous free token or ~/.zai/auth.json", "auth_url": "https://chat.z.ai/auth", "extra_headers": {}}],
     )
 
     response = client.get("/admin/subscriptions/catalog")
 
     assert response.status_code == 200
     assert response.json()["catalog"][0]["name"] == "subscription_zai"
+    assert response.json()["catalog"][0]["auth_url"] == "https://chat.z.ai/auth"
 
 
 def test_validate_provider_scans_and_persists(monkeypatch):

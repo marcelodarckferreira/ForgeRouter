@@ -1819,7 +1819,7 @@ def list_subscription_catalog() -> list[dict[str, Any]]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT name, display_name, plan_hint, base_url, auth_method, token_hint, extra_headers
+                SELECT name, display_name, plan_hint, base_url, auth_method, token_hint, auth_url, extra_headers
                 FROM ai_router.subscription_catalog
                 ORDER BY display_name
                 """
@@ -1833,7 +1833,8 @@ def list_subscription_catalog() -> list[dict[str, Any]]:
             "base_url": row[3],
             "auth_method": row[4],
             "token_hint": row[5],
-            "extra_headers": row[6] or {},
+            "auth_url": row[6] or "",
+            "extra_headers": row[7] or {},
         }
         for row in rows
     ]
