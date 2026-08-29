@@ -1170,7 +1170,7 @@ function generateAgentKey(name: string = ''): string {
 // React state or the DOM. `embedsSecret: false` (Codex) means the block
 // itself never carries the key at all — Codex reads it from an env var named
 // by `env_key`, so only the separate `secret` line needs the real value.
-type AgentClientId = 'claude-code' | 'codex' | 'hermes-agent';
+type AgentClientId = 'claude-code' | 'codex' | 'hermes-agent' | 'antigravity-cli';
 type AgentClientDef = {
   id: AgentClientId;
   label: string;
@@ -1209,6 +1209,22 @@ const AGENT_CLIENTS: AgentClientDef[] = [
     baseUrlKind: 'v1',
     embedsSecret: true,
     block: (baseUrl, keyToken) => `model:\n  provider: forgerouter\n  default: forgerouter/auto\n  context_length: 64000\nproviders:\n  forgerouter:\n    base_url: ${baseUrl}\n    default_model: forgerouter/auto\n    transport: chat_completions\n    api_key: ${keyToken}`,
+  },
+  {
+    id: 'antigravity-cli',
+    label: 'Antigravity CLI',
+    hint: 'Merge into ~/.gemini/antigravity-cli/settings.json or export in your shell profile. Antigravity CLI / AGY connects to OpenAI/Anthropic-compatible endpoints via standard base URL and bearer token.',
+    filename: 'settings.json',
+    baseUrlKind: 'v1',
+    embedsSecret: true,
+    block: (baseUrl, keyToken) => JSON.stringify({
+      env: {
+        OPENAI_BASE_URL: baseUrl,
+        OPENAI_API_KEY: keyToken,
+      },
+      model: "forgerouter/auto"
+    }, null, 2),
+    secret: { label: 'env vars (export in ~/.bashrc)', line: (key) => `export OPENAI_BASE_URL="http://localhost:2100/v1"\nexport OPENAI_API_KEY="${key}"` },
   },
 ];
 
