@@ -79,7 +79,23 @@ function DemandTag({ demand }: { demand: string | null }) {
   );
 }
 
+const FREE_PROVIDER_PRESETS: { name: string; label: string; base_url: string; api_format?: 'openai' | 'anthropic'; hint: string }[] = [
+  { name: 'huggingface', label: 'Hugging Face Inference API', base_url: 'https://api-inference.huggingface.co/v1', hint: 'Free serverless inference for open-source models with User Access Token (hf_...)' },
+  { name: 'modelscope', label: 'ModelScope (Aliyun / Alibaba)', base_url: 'https://api-inference.modelscope.cn/v1', hint: 'Free daily tokens for Qwen, DeepSeek and GLM models with ModelScope SDK Token' },
+  { name: 'siliconflow', label: 'SiliconFlow (SiliconCloud)', base_url: 'https://api.siliconflow.cn/v1', hint: 'Generous free tier for Qwen, DeepSeek, GLM, TeleChat open models' },
+  { name: 'together', label: 'Together AI', base_url: 'https://api.together.xyz/v1', hint: 'OpenAI-compatible serverless endpoints for Llama, Mistral, Qwen' },
+  { name: 'fireworks', label: 'Fireworks AI', base_url: 'https://api.fireworks.ai/inference/v1', hint: 'Fast inference for Llama 3.3, Qwen 2.5 Coder, DeepSeek' },
+  { name: 'hyperbolic', label: 'Hyperbolic', base_url: 'https://api.hyperbolic.xyz/v1', hint: 'Decentralized fast inference for DeepSeek-R1/V3, Llama 3.3, Qwen 2.5' },
+  { name: 'deepinfra', label: 'DeepInfra', base_url: 'https://api.deepinfra.com/v1/openai', hint: 'Serverless inference for Llama 3.3, DeepSeek, Qwen' },
+  { name: 'groq', label: 'Groq', base_url: 'https://api.groq.com/openai/v1', hint: 'Ultra-fast LPU inference for Llama 3.3, Llama 3.1, Mixtral' },
+  { name: 'cerebras', label: 'Cerebras', base_url: 'https://api.cerebras.ai/v1', hint: 'World-record fast inference for Llama 3.1/3.3' },
+  { name: 'sambanova', label: 'SambaNova Cloud', base_url: 'https://api.sambanova.ai/v1', hint: 'Fast SN40L inference for Llama 3.3 70B & 405B' },
+  { name: 'github-models', label: 'GitHub Models', base_url: 'https://models.github.ai/inference', hint: 'Free tier for personal GitHub accounts via Personal Access Token' },
+  { name: 'gemini-studio', label: 'Google Gemini Studio', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', hint: 'Generous free tier for Gemini 2.5/3 Flash & Pro' },
+];
+
 const EMPTY_PROVIDER: RegistryProvider = { name: '', tier: 3, base_url: '', api_key_env: '', api_key: '', enabled: true, models: [], access_type: 'api_key', cost_type: 'free', api_format: 'openai', auth_config: {} };
+
 
 const PAGES: { id: Page; label: string; section: string; icon: React.ReactNode }[] = [
   { id: 'agents', label: 'Agents', section: 'Monitoring', icon: <Bot size={15} /> },
@@ -3260,6 +3276,27 @@ function App() {
                       </button>
                     ))}
                   </div>
+                  {editing.access_type === 'api_key' && !editingOriginalName && (
+                    <div className="formGrid">
+                      <label>Free provider preset (autofills endpoint & defaults)
+                        <select onChange={(e) => {
+                          const preset = FREE_PROVIDER_PRESETS.find((p) => p.name === e.target.value);
+                          if (preset) {
+                            setEditing({
+                              ...editing,
+                              name: preset.name,
+                              base_url: preset.base_url,
+                              cost_type: 'free',
+                              api_format: preset.api_format ?? 'openai',
+                            });
+                          }
+                        }}>
+                          <option value="">choose a known free provider…</option>
+                          {FREE_PROVIDER_PRESETS.map((p) => <option key={p.name} value={p.name}>{p.label}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                   {editing.access_type === 'subscription' && (
                     <div className="formGrid">
                       <label>Subscription plan (fills name, URL & headers)
