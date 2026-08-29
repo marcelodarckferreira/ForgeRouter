@@ -45,6 +45,41 @@ O serviço inclui um dashboard administrativo embutido para gerenciar provedores
 - **Dashboard administrativo** — interface React/TypeScript para gerenciar provedores, agentes, cadeias de roteamento/demanda, pricing e uso, servida diretamente pela API.
 - **Persistência em banco com fallback para YAML** — o registro de provedores vive no PostgreSQL; um YAML embutido (`config/providers.yaml`) é usado automaticamente se o banco estiver inacessível ou vazio, para que o roteamento nunca pare por causa dele.
 
+## Provedores e Modelos Cadastrados
+
+O ForgeRouter possui suporte nativo e pré-configurações (presets) para múltiplos provedores do ecossistema de LLMs gratuitas e pagas, com links rápidos para obtenção de chaves e documentação:
+
+| Provedor | Tipo de Acesso | Base URL | Website Oficial | Obter Chave / Token |
+| :--- | :---: | :--- | :---: | :---: |
+| **Groq** | `api_key` (Free) | `https://api.groq.com/openai/v1` | [groq.com](https://groq.com) | [Console Keys](https://console.groq.com/keys) |
+| **Cerebras** | `api_key` (Free) | `https://api.cerebras.ai/v1` | [cerebras.ai](https://cerebras.ai) | [Cloud Portal](https://cloud.cerebras.ai) |
+| **SambaNova Cloud** | `api_key` (Free) | `https://api.sambanova.ai/v1` | [sambanova.ai](https://sambanova.ai) | [Cloud APIs](https://cloud.sambanova.ai/apis) |
+| **Google Gemini Studio** | `api_key` (Free) | `https://generativelanguage.googleapis.com/v1beta/openai` | [aistudio.google.com](https://aistudio.google.com) | [API Keys](https://aistudio.google.com/app/apikey) |
+| **GitHub Models** | `api_key` (Free) | `https://models.github.ai/inference` | [github.com](https://github.com/marketplace/models) | [Personal Tokens](https://github.com/settings/tokens) |
+| **Hugging Face** | `api_key` (Free) | `https://api-inference.huggingface.co/v1` | [huggingface.co](https://huggingface.co) | [Access Tokens](https://huggingface.co/settings/tokens) |
+| **ModelScope (Aliyun)** | `api_key` (Free) | `https://api-inference.modelscope.cn/v1` | [modelscope.cn](https://modelscope.cn) | [SDK Tokens](https://modelscope.cn/my/myaccesstoken) |
+| **SiliconFlow (SiliconCloud)** | `api_key` (Free) | `https://api.siliconflow.cn/v1` | [siliconflow.cn](https://siliconflow.cn) | [Account Keys](https://cloud.siliconflow.cn/account/ak) |
+| **Together AI** | `api_key` (Free/Paid) | `https://api.together.xyz/v1` | [together.ai](https://www.together.ai) | [API Keys](https://api.together.xyz/settings/api-keys) |
+| **Fireworks AI** | `api_key` (Free/Paid) | `https://api.fireworks.ai/inference/v1` | [fireworks.ai](https://fireworks.ai) | [API Keys](https://fireworks.ai/api-keys) |
+| **Hyperbolic** | `api_key` (Free/Paid) | `https://api.hyperbolic.xyz/v1` | [hyperbolic.xyz](https://hyperbolic.xyz) | [Settings](https://app.hyperbolic.xyz/settings) |
+| **DeepInfra** | `api_key` (Free/Paid) | `https://api.deepinfra.com/v1/openai` | [deepinfra.com](https://deepinfra.com) | [Dashboard Keys](https://deepinfra.com/dash/api_keys) |
+| **OVHcloud AI Endpoints** | `api_key` (Free) | `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1` | [ovhcloud.com](https://www.ovhcloud.com) | [OVH Manager](https://www.ovh.com/manager) |
+| **Novita AI** | `api_key` (Free/Paid) | `https://api.novita.ai/openai/v1` | [novita.ai](https://novita.ai) | [Key Management](https://novita.ai/settings/key-management) |
+| **Pollinations.ai** | `api_key` (Free/Open) | `https://text.pollinations.ai/openai` | [pollinations.ai](https://pollinations.ai) | [Acesso Aberto](https://pollinations.ai) |
+| **Mistral AI** | `api_key` (Free/Paid) | `https://api.mistral.ai/v1` | [mistral.ai](https://mistral.ai) | [Console Keys](https://console.mistral.ai/api-keys) |
+| **Cohere** | `api_key` (Free/Trial) | `https://api.cohere.ai/compatibility/v1` | [cohere.com](https://cohere.com) | [Dashboard Keys](https://dashboard.cohere.com/api-keys) |
+| **Cloudflare Workers AI** | `api_key` (Free) | `https://api.cloudflare.com/.../ai/v1` | [cloudflare.com](https://ai.cloudflare.com) | [API Tokens](https://dash.cloudflare.com/profile/api-tokens) |
+| **OpenRouter** | `api_key` (Free/Paid) | `https://openrouter.ai/api/v1` | [openrouter.ai](https://openrouter.ai) | [Keys](https://openrouter.ai/keys) |
+| **NVIDIA NIM** | `api_key` (Free Credits) | `https://integrate.api.nvidia.com/v1` | [build.nvidia.com](https://build.nvidia.com) | [NVIDIA Build](https://build.nvidia.com) |
+| **Claude Code** | `subscription` (OAuth) | Handler dedicado / Anthropic | [anthropic.com](https://anthropic.com) | `~/.claude/.credentials.json` |
+| **Google Antigravity** | `subscription` (OAuth) | Handler dedicado / Cloud API | [cloud.google.com](https://cloud.google.com) | `~/.gemini/antigravity-cli` |
+| **OpenAI Codex** | `subscription` (OAuth) | Handler dedicado / Codex | [chatgpt.com](https://chatgpt.com) | `~/.codex` |
+| **Z.ai (Zhipu GLM)** | `subscription` / `api_key` | `https://api.z.ai/api/coding/paas/v4` | [z.ai](https://z.ai) | [Z.ai Portal](https://z.ai) |
+| **Ollama Local** | `local` | `http://127.0.0.1:11434/v1` | [ollama.com](https://ollama.com) | Local / Sem Chave |
+
+> **Nota sobre Meta-Routers / LLMs Automáticas:** Todos os modelos que atuam como meta-roteadores (ex.: `openrouter/auto`, `openrouter/free`, `kilo-auto/*`, `pareto-code`, `fusion`) são excluídos e bloqueados automaticamente para preservar o controle estrito de latência, saúde e fidelidade de roteamento do ForgeRouter.
+
+
 ## Arquitetura
 
 ```text
