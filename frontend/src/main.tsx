@@ -79,20 +79,73 @@ function DemandTag({ demand }: { demand: string | null }) {
   );
 }
 
-const FREE_PROVIDER_PRESETS: { name: string; label: string; base_url: string; api_format?: 'openai' | 'anthropic'; hint: string }[] = [
-  { name: 'huggingface', label: 'Hugging Face Inference API', base_url: 'https://api-inference.huggingface.co/v1', hint: 'Free serverless inference for open-source models with User Access Token (hf_...)' },
-  { name: 'modelscope', label: 'ModelScope (Aliyun / Alibaba)', base_url: 'https://api-inference.modelscope.cn/v1', hint: 'Free daily tokens for Qwen, DeepSeek and GLM models with ModelScope SDK Token' },
-  { name: 'siliconflow', label: 'SiliconFlow (SiliconCloud)', base_url: 'https://api.siliconflow.cn/v1', hint: 'Generous free tier for Qwen, DeepSeek, GLM, TeleChat open models' },
-  { name: 'together', label: 'Together AI', base_url: 'https://api.together.xyz/v1', hint: 'OpenAI-compatible serverless endpoints for Llama, Mistral, Qwen' },
-  { name: 'fireworks', label: 'Fireworks AI', base_url: 'https://api.fireworks.ai/inference/v1', hint: 'Fast inference for Llama 3.3, Qwen 2.5 Coder, DeepSeek' },
-  { name: 'hyperbolic', label: 'Hyperbolic', base_url: 'https://api.hyperbolic.xyz/v1', hint: 'Decentralized fast inference for DeepSeek-R1/V3, Llama 3.3, Qwen 2.5' },
-  { name: 'deepinfra', label: 'DeepInfra', base_url: 'https://api.deepinfra.com/v1/openai', hint: 'Serverless inference for Llama 3.3, DeepSeek, Qwen' },
-  { name: 'groq', label: 'Groq', base_url: 'https://api.groq.com/openai/v1', hint: 'Ultra-fast LPU inference for Llama 3.3, Llama 3.1, Mixtral' },
-  { name: 'cerebras', label: 'Cerebras', base_url: 'https://api.cerebras.ai/v1', hint: 'World-record fast inference for Llama 3.1/3.3' },
-  { name: 'sambanova', label: 'SambaNova Cloud', base_url: 'https://api.sambanova.ai/v1', hint: 'Fast SN40L inference for Llama 3.3 70B & 405B' },
-  { name: 'github-models', label: 'GitHub Models', base_url: 'https://models.github.ai/inference', hint: 'Free tier for personal GitHub accounts via Personal Access Token' },
-  { name: 'gemini-studio', label: 'Google Gemini Studio', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', hint: 'Generous free tier for Gemini 2.5/3 Flash & Pro' },
+const FREE_PROVIDER_PRESETS: { name: string; label: string; base_url: string; website_url: string; key_url: string; api_format?: 'openai' | 'anthropic'; hint: string }[] = [
+  { name: 'huggingface', label: 'Hugging Face Inference API', base_url: 'https://api-inference.huggingface.co/v1', website_url: 'https://huggingface.co', key_url: 'https://huggingface.co/settings/tokens', hint: 'Free serverless inference for open-source models with User Access Token (hf_...)' },
+  { name: 'modelscope', label: 'ModelScope (Aliyun / Alibaba)', base_url: 'https://api-inference.modelscope.cn/v1', website_url: 'https://modelscope.cn', key_url: 'https://modelscope.cn/my/myaccesstoken', hint: 'Free daily tokens for Qwen, DeepSeek and GLM models with ModelScope SDK Token' },
+  { name: 'siliconflow', label: 'SiliconFlow (SiliconCloud)', base_url: 'https://api.siliconflow.cn/v1', website_url: 'https://siliconflow.cn', key_url: 'https://cloud.siliconflow.cn/account/ak', hint: 'Generous free tier for Qwen, DeepSeek, GLM, TeleChat open models' },
+  { name: 'together', label: 'Together AI', base_url: 'https://api.together.xyz/v1', website_url: 'https://www.together.ai', key_url: 'https://api.together.xyz/settings/api-keys', hint: 'OpenAI-compatible serverless endpoints for Llama, Mistral, Qwen' },
+  { name: 'fireworks', label: 'Fireworks AI', base_url: 'https://api.fireworks.ai/inference/v1', website_url: 'https://fireworks.ai', key_url: 'https://fireworks.ai/api-keys', hint: 'Fast inference for Llama 3.3, Qwen 2.5 Coder, DeepSeek' },
+  { name: 'hyperbolic', label: 'Hyperbolic', base_url: 'https://api.hyperbolic.xyz/v1', website_url: 'https://hyperbolic.xyz', key_url: 'https://app.hyperbolic.xyz/settings', hint: 'Decentralized fast inference for DeepSeek-R1/V3, Llama 3.3, Qwen 2.5' },
+  { name: 'deepinfra', label: 'DeepInfra', base_url: 'https://api.deepinfra.com/v1/openai', website_url: 'https://deepinfra.com', key_url: 'https://deepinfra.com/dash/api_keys', hint: 'Serverless inference for Llama 3.3, DeepSeek, Qwen' },
+  { name: 'groq', label: 'Groq', base_url: 'https://api.groq.com/openai/v1', website_url: 'https://groq.com', key_url: 'https://console.groq.com/keys', hint: 'Ultra-fast LPU inference for Llama 3.3, Llama 3.1, Mixtral' },
+  { name: 'cerebras', label: 'Cerebras', base_url: 'https://api.cerebras.ai/v1', website_url: 'https://cerebras.ai', key_url: 'https://cloud.cerebras.ai', hint: 'World-record fast inference for Llama 3.1/3.3' },
+  { name: 'sambanova', label: 'SambaNova Cloud', base_url: 'https://api.sambanova.ai/v1', website_url: 'https://sambanova.ai', key_url: 'https://cloud.sambanova.ai/apis', hint: 'Fast SN40L inference for Llama 3.3 70B & 405B' },
+  { name: 'github-models', label: 'GitHub Models', base_url: 'https://models.github.ai/inference', website_url: 'https://github.com/marketplace/models', key_url: 'https://github.com/settings/tokens', hint: 'Free tier for personal GitHub accounts via Personal Access Token' },
+  { name: 'gemini-studio', label: 'Google Gemini Studio', base_url: 'https://generativelanguage.googleapis.com/v1beta/openai', website_url: 'https://aistudio.google.com', key_url: 'https://aistudio.google.com/app/apikey', hint: 'Generous free tier for Gemini 2.5/3 Flash & Pro' },
+  { name: 'cohere', label: 'Cohere', base_url: 'https://api.cohere.ai/compatibility/v1', website_url: 'https://cohere.com', key_url: 'https://dashboard.cohere.com/api-keys', hint: 'Free trial key for Command R & R+ models' },
+  { name: 'mistral', label: 'Mistral AI', base_url: 'https://api.mistral.ai/v1', website_url: 'https://mistral.ai', key_url: 'https://console.mistral.ai/api-keys', hint: 'La Plateforme API for Mistral Small, Codestral' },
+  { name: 'cloudflare', label: 'Cloudflare Workers AI', base_url: 'https://api.cloudflare.com/client/v4/accounts/.../ai/v1', website_url: 'https://ai.cloudflare.com', key_url: 'https://dash.cloudflare.com/profile/api-tokens', hint: 'Free daily neurons on Cloudflare Workers AI' },
+  { name: 'openrouter', label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', website_url: 'https://openrouter.ai', key_url: 'https://openrouter.ai/keys', hint: 'Free tier for :free models (Llama, Gemini, Qwen)' },
+  { name: 'Kilo', label: 'Kilo Gateway', base_url: 'https://api.kilo.ai/api/gateway', website_url: 'https://kilo.ai', key_url: 'https://kilo.ai', hint: 'Free gateway for open models' },
+  { name: 'opencode zen', label: 'OpenCode Zen', base_url: 'https://opencode.ai/zen/v1', website_url: 'https://opencode.ai', key_url: 'https://opencode.ai', hint: 'Free Zen endpoints for community models' },
+  { name: 'llm7', label: 'LLM7', base_url: 'https://api.llm7.io/v1', website_url: 'https://llm7.io', key_url: 'https://llm7.io', hint: 'Free OpenAI-compatible community gateway' },
+  { name: 'Empero', label: 'Empero', base_url: 'https://free.empero.org/v1', website_url: 'https://empero.org', key_url: 'https://empero.org', hint: 'Free community LLM endpoints' },
+  { name: 'zai_api', label: 'Z.AI / Zhipu GLM', base_url: 'https://api.z.ai/api/coding/paas/v4', website_url: 'https://z.ai', key_url: 'https://z.ai', hint: 'GLM coding endpoints' },
 ];
+
+/** Lookup table of provider website links and API key portals. */
+const KNOWN_PROVIDER_LINKS: Record<string, { website: string; key_portal?: string }> = {
+  huggingface: { website: 'https://huggingface.co', key_portal: 'https://huggingface.co/settings/tokens' },
+  modelscope: { website: 'https://modelscope.cn', key_portal: 'https://modelscope.cn/my/myaccesstoken' },
+  siliconflow: { website: 'https://siliconflow.cn', key_portal: 'https://cloud.siliconflow.cn/account/ak' },
+  together: { website: 'https://www.together.ai', key_portal: 'https://api.together.xyz/settings/api-keys' },
+  fireworks: { website: 'https://fireworks.ai', key_portal: 'https://fireworks.ai/api-keys' },
+  hyperbolic: { website: 'https://hyperbolic.xyz', key_portal: 'https://app.hyperbolic.xyz/settings' },
+  deepinfra: { website: 'https://deepinfra.com', key_portal: 'https://deepinfra.com/dash/api_keys' },
+  groq: { website: 'https://groq.com', key_portal: 'https://console.groq.com/keys' },
+  cerebras: { website: 'https://cerebras.ai', key_portal: 'https://cloud.cerebras.ai' },
+  sambanova: { website: 'https://sambanova.ai', key_portal: 'https://cloud.sambanova.ai/apis' },
+  'github-models': { website: 'https://github.com/marketplace/models', key_portal: 'https://github.com/settings/tokens' },
+  gemini_studio: { website: 'https://aistudio.google.com', key_portal: 'https://aistudio.google.com/app/apikey' },
+  'gemini-studio': { website: 'https://aistudio.google.com', key_portal: 'https://aistudio.google.com/app/apikey' },
+  cohere: { website: 'https://cohere.com', key_portal: 'https://dashboard.cohere.com/api-keys' },
+  mistral: { website: 'https://mistral.ai', key_portal: 'https://console.mistral.ai/api-keys' },
+  cloudflare: { website: 'https://ai.cloudflare.com', key_portal: 'https://dash.cloudflare.com/profile/api-tokens' },
+  openrouter: { website: 'https://openrouter.ai', key_portal: 'https://openrouter.ai/keys' },
+  Kilo: { website: 'https://kilo.ai' },
+  'opencode zen': { website: 'https://opencode.ai' },
+  llm7: { website: 'https://llm7.io' },
+  Empero: { website: 'https://empero.org' },
+  zai_api: { website: 'https://z.ai' },
+  'claude-code': { website: 'https://anthropic.com' },
+  'google-antigravity': { website: 'https://cloud.google.com' },
+  'openai-codex': { website: 'https://chatgpt.com' },
+  nvidia: { website: 'https://build.nvidia.com', key_portal: 'https://build.nvidia.com' },
+};
+
+function getProviderLinks(name: string, baseUrl?: string) {
+  const match = KNOWN_PROVIDER_LINKS[name] || FREE_PROVIDER_PRESETS.find((p) => p.name === name || p.label.toLowerCase().includes(name.toLowerCase()));
+  if (match) return { website: 'website' in match ? match.website : match.website_url, key_portal: 'key_portal' in match ? match.key_portal : match.key_url };
+  try {
+    if (baseUrl && baseUrl.startsWith('http')) {
+      const u = new URL(baseUrl);
+      return { website: `${u.protocol}//${u.host}` };
+    }
+  } catch {
+    // fallback
+  }
+  return {};
+}
 
 const EMPTY_PROVIDER: RegistryProvider = { name: '', tier: 3, base_url: '', api_key_env: '', api_key: '', enabled: true, models: [], access_type: 'api_key', cost_type: 'free', api_format: 'openai', auth_config: {} };
 
@@ -3319,11 +3372,33 @@ function App() {
                     </div>
                   )}
                   <div className="formGrid">
-                    <label>Name<input value={editing.name} placeholder="e.g. groq" onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></label>
+                    <label>
+                      Name
+                      {editing.name && (() => {
+                        const links = getProviderLinks(editing.name, editing.base_url);
+                        return links.website ? (
+                          <a href={links.website} target="_blank" rel="noreferrer" className="inlineIconLink small" title="Open provider website">
+                            <ExternalLink size={11} /> website
+                          </a>
+                        ) : null;
+                      })()}
+                      <input value={editing.name} placeholder="e.g. groq" onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                    </label>
                     <label>Tier (1 = first choice)<input type="number" min={1} max={9} value={editing.tier} onChange={(e) => setEditing({ ...editing, tier: Number(e.target.value) || 1 })} /></label>
                     <label>Base URL<input value={editing.base_url} placeholder={editing.access_type === 'local' ? 'http://127.0.0.1:11434/v1' : 'https://api.example.com/v1'} onChange={(e) => setEditing({ ...editing, base_url: e.target.value })} /></label>
                     {editing.access_type !== 'local' && editing.auth_method !== 'oauth' && (
-                      <label>{editing.access_type === 'subscription' ? 'Subscription token' : 'API key'} {editing.api_key_set ? `(saved: ${editing.api_key_masked} — leave empty to keep)` : '(empty = no key)'}
+                      <label>
+                        <span>
+                          {editing.access_type === 'subscription' ? 'Subscription token' : 'API key'} {editing.api_key_set ? `(saved: ${editing.api_key_masked} — leave empty to keep)` : '(empty = no key)'}
+                          {(() => {
+                            const links = getProviderLinks(editing.name, editing.base_url);
+                            return links.key_portal ? (
+                              <a href={links.key_portal} target="_blank" rel="noreferrer" className="inlineIconLink small" title="Get API key on provider website">
+                                <KeyRound size={11} /> get key
+                              </a>
+                            ) : null;
+                          })()}
+                        </span>
                         <input type="password" autoComplete="new-password" value={editing.api_key ?? ''} placeholder={editing.api_key_set ? `saved: ${editing.api_key_masked}` : editing.access_type === 'subscription' ? 'paste the token from your plan' : 'paste the provider API key'} onChange={(e) => setEditing({ ...editing, api_key: e.target.value })} />
                       </label>
                     )}
@@ -3379,15 +3454,34 @@ function App() {
                 const ready = readyByName[provider.name];
                 const allowedCount = agentAllowed ? provider.models.filter((model) => agentAllowed.has(model.id)).length : provider.models.length;
                 const health = healthByProvider[provider.name];
+                const links = getProviderLinks(provider.name, provider.base_url);
                 return (
                   <div className="row manage" key={provider.name}>
-                    <span>{provider.name}{!provider.enabled && <b className="status unknown">disabled</b>}<span className="caps"><i className="cap">{(provider.access_type ?? 'api_key') === 'api_key' ? 'API key' : provider.access_type === 'subscription' && provider.auth_method === 'oauth' ? 'OAuth' : provider.access_type}</i>{provider.api_format === 'anthropic' && <i className="cap" title="Anthropic Messages API (/v1/messages)">anthropic</i>}<i className={`cap ${provider.cost_type === 'paid' ? 'costPaid' : 'costFree'}`}>{provider.cost_type === 'paid' ? 'paid' : 'free'}</i></span></span>
+                    <span>
+                      {provider.name}
+                      {links.website && (
+                        <a href={links.website} target="_blank" rel="noreferrer" className="inlineIconLink" title={`Open ${provider.name} website`}>
+                          <ExternalLink size={12} />
+                        </a>
+                      )}
+                      {!provider.enabled && <b className="status unknown">disabled</b>}
+                      <span className="caps">
+                        <i className="cap">{(provider.access_type ?? 'api_key') === 'api_key' ? 'API key' : provider.access_type === 'subscription' && provider.auth_method === 'oauth' ? 'OAuth' : provider.access_type}</i>
+                        {provider.api_format === 'anthropic' && <i className="cap" title="Anthropic Messages API (/v1/messages)">anthropic</i>}
+                        <i className={`cap ${provider.cost_type === 'paid' ? 'costPaid' : 'costFree'}`}>{provider.cost_type === 'paid' ? 'paid' : 'free'}</i>
+                      </span>
+                    </span>
                     <span>{provider.tier}</span>
                     <span className="mono small">{provider.base_url}</span>
                     <span className="mono keyCell">
                       {provider.access_type === 'local' ? 'not needed' : ready?.api_key_masked ? `${ready.api_key_masked} (${ready.api_key_source})` : ready?.api_key_env || 'none'}
                       {(ready?.api_key_masked || ready?.api_key_env) && (
                         <button className="iconButton" title="Copy API key" onClick={() => void copyProviderKey(provider.name)}><Copy size={13} /></button>
+                      )}
+                      {links.key_portal && (
+                        <a href={links.key_portal} target="_blank" rel="noreferrer" className="iconButton" title="Get / Manage API key on provider website">
+                          <KeyRound size={13} />
+                        </a>
                       )}
                     </span>
                     <span title={health ? `${health.healthy} of ${health.total} models healthy` : 'no health data yet — run a scan'}>
