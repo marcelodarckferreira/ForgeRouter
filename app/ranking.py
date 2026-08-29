@@ -184,9 +184,27 @@ def infer_capabilities(item: dict[str, Any]) -> list[str]:
     return sorted(caps)
 
 
+AUTO_ROUTER_MARKERS = (
+    "openrouter/auto",
+    "kilo-auto",
+    "openrouter/free",
+    "openrouter/bodybuilder",
+    "openrouter/fusion",
+    "openrouter/pareto-code",
+)
+
+
+def is_auto_router_model(model_id: str) -> bool:
+    """True if model is a meta-router / auto model that picks underlying models dynamically."""
+    lowered = model_id.lower().strip()
+    return any(marker in lowered for marker in AUTO_ROUTER_MARKERS) or lowered in ("auto", "auto-beta")
+
+
 def is_free_model(item: dict[str, Any], base_url: str) -> bool | None:
     """True = free, False = paid, None = the provider does not publish pricing."""
     model_id = str(item.get("id", ""))
+    if is_auto_router_model(model_id):
+        return False
     if any(marker in base_url for marker in LOCAL_HOST_MARKERS):
         return True
     if model_id.endswith(":free"):
@@ -195,3 +213,4 @@ def is_free_model(item: dict[str, Any], base_url: str) -> bool | None:
     if isinstance(pricing, dict) and pricing:
         return _pricing_is_free(pricing)
     return None
+

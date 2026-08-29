@@ -35,3 +35,21 @@ def test_free_detection_from_suffix_and_local():
     assert is_free_model({"id": "meta-llama/llama-3.2-3b-instruct:free"}, "https://openrouter.ai/api/v1") is True
     assert is_free_model({"id": "qwen2.5:1.5b"}, "http://127.0.0.1:11434/v1") is True
     assert is_free_model({"id": "some-model"}, "https://api.groq.com/openai/v1") is None
+
+
+def test_auto_router_models_are_excluded():
+    from app.ranking import is_auto_router_model
+
+    assert is_auto_router_model("openrouter/auto") is True
+    assert is_auto_router_model("openrouter/auto-beta") is True
+    assert is_auto_router_model("kilo-auto/free") is True
+    assert is_auto_router_model("openrouter/free") is True
+    assert is_auto_router_model("openrouter/bodybuilder") is True
+    assert is_auto_router_model("openrouter/fusion") is True
+    assert is_auto_router_model("openrouter/pareto-code") is True
+    assert is_auto_router_model("meta-llama/llama-3.3-70b-instruct:free") is False
+
+    # is_free_model excludes auto router models even if pricing is 0 or suffix is :free
+    assert is_free_model({"id": "openrouter/auto"}, "https://openrouter.ai/api/v1") is False
+    assert is_free_model({"id": "kilo-auto/free"}, "https://api.kilo.ai/v1") is False
+
