@@ -2848,7 +2848,7 @@ function App() {
                     {(() => {
                       const client = AGENT_CLIENTS.find((item) => item.id === agentClientId) ?? AGENT_CLIENTS[0];
                       const baseUrl = agentClientBaseUrl(client);
-                      const displayKey = agent.api_key_masked || '«reveal the API key above»';
+                      const displayKey = '<KEY AGENT>';
                       return (
                         <div className="agentClientBody">
                           <p className="muted">{client.hint}</p>
