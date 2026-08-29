@@ -101,6 +101,9 @@ const FREE_PROVIDER_PRESETS: { name: string; label: string; base_url: string; we
   { name: 'llm7', label: 'LLM7', base_url: 'https://api.llm7.io/v1', website_url: 'https://llm7.io', key_url: 'https://llm7.io', hint: 'Free OpenAI-compatible community gateway' },
   { name: 'Empero', label: 'Empero', base_url: 'https://free.empero.org/v1', website_url: 'https://empero.org', key_url: 'https://empero.org', hint: 'Free community LLM endpoints' },
   { name: 'zai_api', label: 'Z.AI / Zhipu GLM', base_url: 'https://api.z.ai/api/coding/paas/v4', website_url: 'https://z.ai', key_url: 'https://z.ai', hint: 'GLM coding endpoints' },
+  { name: 'ovhcloud', label: 'OVHcloud AI Endpoints', base_url: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', website_url: 'https://www.ovhcloud.com', key_url: 'https://www.ovh.com/manager', hint: 'Free tier for Llama 3.3 and open models (EU sovereign/GDPR)' },
+  { name: 'novita', label: 'Novita AI', base_url: 'https://api.novita.ai/openai/v1', website_url: 'https://novita.ai', key_url: 'https://novita.ai/settings/key-management', hint: 'Fast inference for open-source LLMs with free trial credits' },
+  { name: 'pollinations', label: 'Pollinations.ai', base_url: 'https://text.pollinations.ai/openai', website_url: 'https://pollinations.ai', key_url: 'https://pollinations.ai', hint: 'Free OpenAI-compatible community endpoint for text and code (no key or dummy key)' },
 ];
 
 /** Lookup table of provider website links and API key portals. */
@@ -112,6 +115,9 @@ const KNOWN_PROVIDER_LINKS: Record<string, { website: string; key_portal?: strin
   fireworks: { website: 'https://fireworks.ai', key_portal: 'https://fireworks.ai/api-keys' },
   hyperbolic: { website: 'https://hyperbolic.xyz', key_portal: 'https://app.hyperbolic.xyz/settings' },
   deepinfra: { website: 'https://deepinfra.com', key_portal: 'https://deepinfra.com/dash/api_keys' },
+  ovhcloud: { website: 'https://www.ovhcloud.com', key_portal: 'https://www.ovh.com/manager' },
+  novita: { website: 'https://novita.ai', key_portal: 'https://novita.ai/settings/key-management' },
+  pollinations: { website: 'https://pollinations.ai' },
   groq: { website: 'https://groq.com', key_portal: 'https://console.groq.com/keys' },
   cerebras: { website: 'https://cerebras.ai', key_portal: 'https://cloud.cerebras.ai' },
   sambanova: { website: 'https://sambanova.ai', key_portal: 'https://cloud.sambanova.ai/apis' },

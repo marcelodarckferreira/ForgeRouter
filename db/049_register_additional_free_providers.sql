@@ -11,3 +11,11 @@ VALUES
     ('deepinfra', 'https://api.deepinfra.com/v1/openai', 3, 'api_key', 'free', 'openai', false)
 ON CONFLICT (name) DO UPDATE
 SET base_url = EXCLUDED.base_url;
+
+INSERT INTO ai_router.providers (name, base_url, tier, access_type, cost_type, api_format, enabled)
+VALUES
+    ('ovhcloud', 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', 3, 'api_key', 'free', 'openai', false),
+    ('novita', 'https://api.novita.ai/openai/v1', 3, 'api_key', 'free', 'openai', false),
+    ('pollinations', 'https://text.pollinations.ai/openai', 3, 'api_key', 'free', 'openai', false)
+ON CONFLICT (name) DO UPDATE
+SET base_url = EXCLUDED.base_url;
