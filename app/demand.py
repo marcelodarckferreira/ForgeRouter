@@ -79,6 +79,10 @@ HISTORY_DISCOUNT = 4
 # ordinary chat to a fill-in-the-middle code model. Stripped before classification.
 _MEMORY_CONTEXT_RE = re.compile(r"<memory-context>.*?</memory-context>", re.DOTALL | re.IGNORECASE)
 
+# Hermes / agent context compression handoff and preserved task list prefixes
+_TASK_LIST_PRESERVED_RE = re.compile(r"\[Your active task list was preserved across context compression\].*?(?=\n\n\S|\Z)", re.DOTALL | re.IGNORECASE)
+_CONTEXT_COMPACTION_BLOCK_RE = re.compile(r"\[CONTEXT COMPACTION — REFERENCE ONLY\].*?(?=\n\n\S|\Z)", re.DOTALL | re.IGNORECASE)
+
 # A second, untagged injection source: each Hermes profile's `pre_llm_call` hook
 # (knowledge_cycle.py, on every profile — not just Hindsight/Athos) appends its own
 # Foundation/Knowledge-Base excerpt to the user message with no wrapper at all, only
@@ -92,6 +96,8 @@ _FOUNDATION_CONTEXT_MARKER = "[FOUNDATION / KNOWLEDGE BASE — CONTEXTO OPERACIO
 
 def _strip_injected_context(text: str) -> str:
     text = _MEMORY_CONTEXT_RE.sub("", text)
+    text = _TASK_LIST_PRESERVED_RE.sub("", text)
+    text = _CONTEXT_COMPACTION_BLOCK_RE.sub("", text)
     marker_index = text.find(_FOUNDATION_CONTEXT_MARKER)
     if marker_index != -1:
         text = text[:marker_index]

@@ -1077,18 +1077,6 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     prompt_preview = _prompt_preview(request.messages)
     capability = infer_capability(request, demand)
     candidates = registry.healthy_for_capability(capability)
-    capability_downgraded = False
-    if demand == "code" and not candidates:
-        # Code-capable is a quality preference, not a hard requirement like vision
-        # (a non-code model can still write code, just not as well) — so instead of
-        # hard-failing when zero code-capable models are healthy, fall back to the
-        # general pool. required_capability on the persisted route event records
-        # the downgrade: demand="code" with required_capability != "code" is the
-        # countable "no code option available" signal, distinct from ordinary
-        # misclassification (where required_capability would still read "code").
-        capability = "tool_call" if request.tools else "text"
-        candidates = registry.healthy_for_capability(capability)
-        capability_downgraded = True
     allowed: set[str] | None = None
     if agent_name:
         # Per-agent model controls: the agent routes only to its associated models.
@@ -1100,6 +1088,20 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             allowed = None
         if allowed is not None:
             candidates = [model for model in candidates if model.id in allowed]
+    capability_downgraded = False
+    if demand == "code" and not candidates:
+        # Code-capable is a quality preference, not a hard requirement like vision
+        # (a non-code model can still write code, just not as well) — so instead of
+        # hard-failing when zero code-capable models are healthy (or allowed for this agent),
+        # fall back to the general pool. required_capability on the persisted route event records
+        # the downgrade: demand="code" with required_capability != "code" is the
+        # countable "no code option available" signal, distinct from ordinary
+        # misclassification (where required_capability would still read "code").
+        capability = "tool_call" if request.tools else "text"
+        candidates = registry.healthy_for_capability(capability)
+        if allowed is not None:
+            candidates = [model for model in candidates if model.id in allowed]
+        capability_downgraded = True
     # Auto-inclusion rule: when models deteriorate under load (429s/timeouts) the
     # healthy pool shrinks; below the minimum, models degraded *only by runtime
     # failures* re-enter as last-resort reserves instead of waiting out the

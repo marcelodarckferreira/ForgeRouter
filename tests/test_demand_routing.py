@@ -49,6 +49,24 @@ def test_classify_request_detects_code():
     assert classify_request([msg("me explique o que é uma API")], has_tools=False) == "simple"
 
 
+def test_classify_request_strips_context_compression_and_task_lists():
+    user_with_task_list = (
+        "[Your active task list was preserved across context compression]\n"
+        "- [>] 1. Criar script hindsight_prune.py (retenção 90d, preserva imutáveis) (in_progress)\n"
+        "- [ ] 2. Registrar cron hindsight-daily-prune (03:00 diário) (pending)\n\n"
+        "consegue resolver athos\n\n"
+        "continue"
+    )
+    assert classify_request([msg(user_with_task_list)], has_tools=True) == "standard"
+
+    user_with_compaction = (
+        "[CONTEXT COMPACTION — REFERENCE ONLY] Earlier turns were compacted into the summary below.\n"
+        "- Created script helper.py\n\n"
+        "tudo certo, prossiga"
+    )
+    assert classify_request([msg(user_with_compaction)], has_tools=False) == "simple"
+
+
 def test_classify_request_with_images_is_vision():
     image_msg = {"role": "user", "content": [
         {"type": "text", "text": "o que aparece na imagem?"},
