@@ -34,6 +34,22 @@ def mask_secret(value: str) -> str:
     return value[:4] + "..."
 
 
+# What build_chat_payload (app/providers/openai_compatible.py) actually forwards
+# for a given model — not a claim about what the upstream provider itself
+# accepts. ForgeRouter does not yet strip provider-incompatible params (unlike
+# e.g. Mistral rejecting explicit nulls, handled separately via exclude_none),
+# so this stays honest about current behavior rather than asserting per-provider
+# quirks nobody has verified against the live endpoint.
+_BASE_SUPPORTED_PARAMETERS = ["temperature", "max_tokens", "stream"]
+
+
+def supported_parameters(model: ProviderModel) -> list[str]:
+    params = list(_BASE_SUPPORTED_PARAMETERS)
+    if "tool_call" in model.capabilities:
+        params.append("tools")
+    return params
+
+
 @dataclass(frozen=True)
 class ProviderRegistry:
     models: list[ProviderModel]
@@ -48,6 +64,7 @@ class ProviderRegistry:
                     "tier": model.tier,
                     "capabilities": model.capabilities,
                     "healthy": model.healthy,
+                    "supported_parameters": supported_parameters(model),
                 },
             }
             for model in self.models

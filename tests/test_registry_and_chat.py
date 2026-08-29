@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.registry import load_registry
+from app.registry import ProviderModel, ProviderRegistry, load_registry
 
 client = TestClient(app)
 
@@ -21,6 +21,20 @@ def test_models_endpoint_returns_openai_compatible_models():
     payload = response.json()
     assert payload["object"] == "list"
     assert any(item["id"] == "local/qwen2.5:1.5b" for item in payload["data"])
+
+
+def test_openai_models_declares_supported_parameters_by_capability():
+    # Honest about what build_chat_payload actually forwards for this model —
+    # "tools" only appears for a model the router would ever select for a
+    # tool_call request in the first place.
+    text_only = ProviderModel("p1/text", "p1", "text", 1, ["text"], True, True, "http://p1/v1", "")
+    tool_capable = ProviderModel("p1/tools", "p1", "tools", 1, ["text", "tool_call"], True, True, "http://p1/v1", "")
+    registry = ProviderRegistry([text_only, tool_capable])
+
+    by_id = {entry["id"]: entry for entry in registry.openai_models()}
+
+    assert by_id["p1/text"]["metadata"]["supported_parameters"] == ["temperature", "max_tokens", "stream"]
+    assert by_id["p1/tools"]["metadata"]["supported_parameters"] == ["temperature", "max_tokens", "stream", "tools"]
 
 
 def test_chat_auto_returns_503_when_no_healthy_provider():

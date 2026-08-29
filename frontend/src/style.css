@@ -244,6 +244,14 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .setupRow>span:first-child{color:var(--muted);font-size:13px}
 .agentModels .modelsHeader{padding:14px 22px 0}
 .agentModelChips{display:flex;flex-wrap:wrap;gap:6px;padding:12px 22px 18px;max-height:230px;overflow-y:auto}
+.agentClients{padding:16px 22px;border-bottom:1px solid var(--muted-bg)}
+.agentClientsHeader{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
+.agentClientsHeader h3{margin:0;font-size:14px}
+.agentClientTabs{display:flex;gap:8px;flex-wrap:wrap}
+.agentClientTabs .button.active{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.agentClientBody{margin-top:10px}
+.codeBlock{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:14px;white-space:pre-wrap;word-break:break-word;overflow-x:auto;margin:10px 0 12px}
+.agentClientBody .rowActions{align-items:center;flex-wrap:wrap}
 .authShell{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:24px}
 .authCard{width:380px;max-width:100%;border:1px solid var(--border);background:var(--surface);border-radius:22px;padding:28px;display:flex;flex-direction:column;gap:14px}
 .authBrand{display:flex;align-items:center;gap:12px}

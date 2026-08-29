@@ -22,3 +22,23 @@ def _reset_routing_state():
 
     reset()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_response_cache():
+    # The opt-in response cache is process-global too — a hit left over from
+    # one test would silently short-circuit routing in the next.
+    from app.response_cache import reset as reset_cache
+
+    reset_cache()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_ledger():
+    # Same reasoning as the routing-state and response-cache resets above:
+    # per-minute counts and learned ceilings are process-global.
+    from app.rate_ledger import reset as reset_ledger
+
+    reset_ledger()
+    yield

@@ -199,6 +199,86 @@ def test_auto_inclusion_skips_hard_failures(monkeypatch):
     assert calls == ["p1/model-a"]
 
 
+def test_chat_all_providers_failed_returns_attempt_trail(monkeypatch):
+    # The 502 body must show every candidate tried, not just the last one —
+    # otherwise diagnosing "everything failed" means a trip to route_events.
+    first = ProviderModel("p1/model-a", "p1", "model-a", 1, ["text"], True, True, "http://first/v1", "")
+    second = ProviderModel("p2/model-b", "p2", "model-b", 2, ["text"], True, True, "http://second/v1", "")
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([first, second]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(model, payload):
+        if model.id == "p1/model-a":
+            return 429, {"error": {"message": "rate limited"}}
+        raise RuntimeError("connection reset")
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
+
+    assert response.status_code == 502
+    body = response.json()["error"]
+    assert body["type"] == "all_providers_failed"
+    assert body["attempts"] == [
+        {"model_id": "p1/model-a", "provider": "p1", "status_code": 429, "error_type": "http_429"},
+        {"model_id": "p2/model-b", "provider": "p2", "status_code": None, "error_type": "RuntimeError"},
+    ]
+    # last_error is kept for backward compat, still pointing at the final attempt.
+    assert body["last_error"]["model_id"] == "p2/model-b"
+
+
+def test_chat_rescues_plain_text_tool_call_from_a_small_model(monkeypatch):
+    model = ProviderModel("p1/model-a", "p1", "model-a", 1, ["text", "tool_call"], True, True, "http://first/v1", "")
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+
+    def fake_chat_completion(model, payload):
+        return 200, {"choices": [{"message": {"role": "assistant", "content": '{"name": "get_weather", "arguments": {"city": "Rio"}}'}}]}
+
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    response = client.post("/v1/chat/completions", json={
+        "messages": [{"role": "user", "content": "weather in Rio?"}],
+        "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {}}}],
+    })
+
+    assert response.status_code == 200
+    assert response.headers["x-proxyrouter-tool-rescue"] == "true"
+    message = response.json()["choices"][0]["message"]
+    assert message["content"] is None
+    assert message["tool_calls"][0]["function"]["name"] == "get_weather"
+
+
+def test_rate_ledger_deprioritizes_a_model_after_it_gets_429d(monkeypatch):
+    # First call: p1 (tier 1, tried first) gets 429'd — the ledger learns a
+    # ceiling of 1 (one request was in-window at the moment of the 429).
+    # Second call, still well inside that window: p1 must sort after p2
+    # instead of being tried (and failing) again.
+    first = ProviderModel("p1/model-a", "p1", "model-a", 1, ["text"], True, True, "http://first/v1", "")
+    second = ProviderModel("p2/model-b", "p2", "model-b", 2, ["text"], True, True, "http://second/v1", "")
+    monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([first, second]))
+    monkeypatch.setattr("app.main.persist_route_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.main.mark_runtime_failure_unhealthy", lambda *args, **kwargs: None)
+
+    calls = []
+    def fake_chat_completion(model, payload):
+        calls.append(model.id)
+        if model.id == "p1/model-a":
+            return 429, {"error": {"message": "rate limited"}}
+        return 200, {"choices": [{"message": {"content": "OK"}}]}
+    monkeypatch.setattr("app.main.chat_completion", fake_chat_completion)
+
+    first_response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert first_response.status_code == 200
+    assert calls == ["p1/model-a", "p2/model-b"]
+
+    calls.clear()
+    second_response = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert second_response.status_code == 200
+    assert calls == ["p2/model-b"]  # p1 sorted last — not retried this time
+
+
 def test_chat_completion_stream_persists_usage_from_final_chunk(monkeypatch):
     model = ProviderModel("p1/model-a", "p1", "model-a", 1, ["text"], True, True, "http://first/v1", "")
     monkeypatch.setattr("app.main.load_registry_with_db_health", lambda: ProviderRegistry([model]))

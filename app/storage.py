@@ -348,6 +348,25 @@ def set_context_truncation_enabled(enabled: bool) -> None:
     set_setting("context_truncation_enabled", "true" if enabled else "false")
 
 
+def response_cache_enabled() -> bool:
+    return get_setting("response_cache_enabled", "false") == "true"
+
+
+def set_response_cache_enabled(enabled: bool) -> None:
+    set_setting("response_cache_enabled", "true" if enabled else "false")
+
+
+def response_cache_ttl_seconds() -> int:
+    try:
+        return int(get_setting("response_cache_ttl_seconds", "300") or "300")
+    except ValueError:
+        return 300
+
+
+def set_response_cache_ttl_seconds(value: int) -> None:
+    set_setting("response_cache_ttl_seconds", str(value))
+
+
 def context_truncation_max_tokens() -> int:
     """Fallback budget (flat tokens) used only when the selected model's real
     context window isn't in the pricing catalog — see

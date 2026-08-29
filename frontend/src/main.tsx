@@ -1162,6 +1162,56 @@ function generateAgentKey(name: string = ''): string {
   return `${slug}_${base64}`;
 }
 
+// Ready-to-paste connection snippets for coding tools that can be pointed at
+// ForgeRouter instead of (or alongside) their default backend. Each snippet is
+// rendered with a placeholder/masked key on screen — the real key only ever
+// enters the clipboard string, via a fetch to the reveal endpoint at copy
+// time, mirroring copyAgentKey's rule that a plaintext secret never touches
+// React state or the DOM. `embedsSecret: false` (Codex) means the block
+// itself never carries the key at all — Codex reads it from an env var named
+// by `env_key`, so only the separate `secret` line needs the real value.
+type AgentClientId = 'claude-code' | 'codex' | 'hermes-agent';
+type AgentClientDef = {
+  id: AgentClientId;
+  label: string;
+  hint: string;
+  filename: string;
+  baseUrlKind: 'root' | 'v1'; // Anthropic wire: base URL is the API root, SDK appends /v1/messages. OpenAI-style (Codex, Hermes Agent): base URL already ends in /v1.
+  embedsSecret: boolean;
+  block: (baseUrl: string, keyToken: string) => string;
+  secret?: { label: string; line: (key: string) => string };
+};
+const AGENT_CLIENTS: AgentClientDef[] = [
+  {
+    id: 'claude-code',
+    label: 'Claude Code',
+    hint: 'Merge into ~/.claude/settings.json (or settings.local.json). Claude Code sends ANTHROPIC_AUTH_TOKEN as a Bearer header, matching how ForgeRouter reads agent keys.',
+    filename: 'settings.json',
+    baseUrlKind: 'root',
+    embedsSecret: true,
+    block: (baseUrl, keyToken) => JSON.stringify({ env: { ANTHROPIC_BASE_URL: baseUrl, ANTHROPIC_AUTH_TOKEN: keyToken } }, null, 2),
+  },
+  {
+    id: 'codex',
+    label: 'Codex CLI',
+    hint: 'Append to ~/.codex/config.toml. Requires wire_api = "responses" — Codex dropped its Chat Completions fallback in v0.138. The key never enters this file; Codex reads it from the env var below via env_key.',
+    filename: 'config.toml',
+    baseUrlKind: 'v1',
+    embedsSecret: false,
+    block: (baseUrl) => `[model_providers.forgerouter]\nname = "ForgeRouter"\nbase_url = "${baseUrl}"\nwire_api = "responses"\nenv_key = "FORGEROUTER_API_KEY"\n\nmodel_provider = "forgerouter"\nmodel = "forgerouter/auto"`,
+    secret: { label: 'env var (shell profile or systemd EnvironmentFile)', line: (key) => `FORGEROUTER_API_KEY=${key}` },
+  },
+  {
+    id: 'hermes-agent',
+    label: 'Hermes Agent',
+    hint: 'Matches the profile contract in /root/.hermes/profiles/<name>/config.yaml. context_length: 64000 is required — below it, Hermes Agent refuses forgerouter/* virtual models at startup.',
+    filename: 'config.yaml',
+    baseUrlKind: 'v1',
+    embedsSecret: true,
+    block: (baseUrl, keyToken) => `model:\n  provider: forgerouter\n  default: forgerouter/auto\n  context_length: 64000\nproviders:\n  forgerouter:\n    base_url: ${baseUrl}\n    default_model: forgerouter/auto\n    transport: chat_completions\n    api_key: ${keyToken}`,
+  },
+];
+
 /** Trusted SSO handoff from ForgeHub: the embedding page passes a freshly
  * minted session token in the URL fragment (#sso=…) — fragments never reach
  * server logs. Consumed once and scrubbed from the address bar; the token
@@ -1246,6 +1296,7 @@ function App() {
   const [agentModelsDraft, setAgentModelsDraft] = useState<string[]>([]);
   const [agentModelSearch, setAgentModelSearch] = useState('');
   const [savingAgentModels, setSavingAgentModels] = useState(false);
+  const [agentClientId, setAgentClientId] = useState<AgentClientId>('claude-code');
   const [taskMap, setTaskMap] = useState<{ task: string; hint: string; model: string }[]>(DEFAULT_TASK_MAP);
   const [pricingModels, setPricingModels] = useState<PriceModel[]>([]);
   const [pricingMeta, setPricingMeta] = useState<{ priced_count: number; total_count: number; last_synced: string | null }>({ priced_count: 0, total_count: 0, last_synced: null });
@@ -1464,6 +1515,7 @@ function App() {
     const agent = agentsRef.current.find((item) => item.name === selectedAgent);
     setAgentModelsDraft(agent?.models ?? []);
     setAgentModelSearch('');
+    setAgentClientId('claude-code');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAgent]);
 
@@ -2012,6 +2064,34 @@ function App() {
     try {
       const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/key`);
       setScanStatus((await copyText(data.api_key)) ? `${name} API key copied` : 'copy failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch the agent API key');
+    }
+  }
+
+  function agentClientBaseUrl(client: AgentClientDef): string {
+    return client.baseUrlKind === 'root' ? window.location.origin : `${window.location.origin}/v1`;
+  }
+
+  async function copyAgentClientBlock(name: string, client: AgentClientDef) {
+    const baseUrl = agentClientBaseUrl(client);
+    if (!client.embedsSecret) {
+      setScanStatus((await copyText(client.block(baseUrl, ''))) ? `${client.label} config copied` : 'copy failed');
+      return;
+    }
+    try {
+      const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/key`);
+      setScanStatus((await copyText(client.block(baseUrl, data.api_key))) ? `${client.label} config copied (with the real key)` : 'copy failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch the agent API key');
+    }
+  }
+
+  async function copyAgentClientSecret(name: string, client: AgentClientDef) {
+    if (!client.secret) return;
+    try {
+      const data = await fetchJson(`/admin/agents/${encodeURIComponent(name)}/key`);
+      setScanStatus((await copyText(client.secret.line(data.api_key))) ? `${client.label} ${client.secret.label} copied` : 'copy failed');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch the agent API key');
     }
@@ -2734,6 +2814,43 @@ function App() {
                       <button className="button secondary" title="Clone this agent's provider/model controls into a new agent" onClick={() => void duplicateAgent(agent.name)}><CopyPlus size={14} /> Duplicate</button>
                     </span>
                     <button className="iconButton danger" title="Delete agent" onClick={() => void removeAgent(agent.name)}><Trash2 size={13} /></button>
+                  </div>
+                  <div className="agentClients">
+                    <div className="agentClientsHeader">
+                      <h3>Connect a coding tool <span className="muted">— ready-to-paste config for the base URL and key above, in each tool's own file format</span></h3>
+                      <div className="agentClientTabs">
+                        {AGENT_CLIENTS.map((client) => (
+                          <button
+                            key={client.id}
+                            type="button"
+                            className={`button secondary${agentClientId === client.id ? ' active' : ''}`}
+                            onClick={() => setAgentClientId(client.id)}
+                          >{client.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {(() => {
+                      const client = AGENT_CLIENTS.find((item) => item.id === agentClientId) ?? AGENT_CLIENTS[0];
+                      const baseUrl = agentClientBaseUrl(client);
+                      const displayKey = agent.api_key_masked || '«reveal the API key above»';
+                      return (
+                        <div className="agentClientBody">
+                          <p className="muted">{client.hint}</p>
+                          <pre className="codeBlock mono">{client.block(baseUrl, displayKey)}</pre>
+                          <div className="rowActions">
+                            <span className="muted mono">{client.filename}</span>
+                            <button className="button secondary" onClick={() => void copyAgentClientBlock(agent.name, client)}>
+                              <Copy size={13} /> Copy {client.embedsSecret ? 'config with real key' : 'config'}
+                            </button>
+                            {client.secret && (
+                              <button className="button secondary" onClick={() => void copyAgentClientSecret(agent.name, client)}>
+                                <Copy size={13} /> Copy {client.secret.label}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="agentModels">
                     <div className="modelsHeader">

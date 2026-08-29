@@ -26,9 +26,12 @@ from app.routing_state import (
     record_sticky,
     sticky_model,
 )
+from app.rate_ledger import near_ceiling, record_attempt, record_rate_limit_hit
 from app.registry import load_registry, load_registry_with_db_health, provider_readiness
 from app.providers.openai_compatible import build_chat_payload, build_embeddings_payload, chat_completion, embeddings
 from app.deploy_config import apply_agent_deploy_config
+from app import response_cache
+from app.tool_rescue import rescue_tool_calls
 from app.validation.health import detect_silent_failure
 from app.storage import (
     agent_allowed_models,
@@ -67,11 +70,15 @@ from app.storage import (
     get_demand_routes,
     get_setting,
     has_any_agent,
+    response_cache_enabled,
+    response_cache_ttl_seconds,
     set_demand_routes,
     set_context_compaction_enabled,
     set_context_truncation_enabled,
     set_context_truncation_max_tokens,
     set_context_truncation_trigger_percent,
+    set_response_cache_enabled,
+    set_response_cache_ttl_seconds,
     set_setting,
     latest_provider_health_rows,
     list_agents_with_usage,
@@ -450,6 +457,7 @@ def embeddings_endpoint(request: EmbeddingsRequest, raw_request: Request):
         )
 
     last_error: dict[str, Any] | None = None
+    attempts: list[dict[str, Any]] = []
     for selected in candidates:
         payload = build_embeddings_payload(selected, request.input, encoding_format=request.encoding_format, dimensions=request.dimensions)
         try:
@@ -467,6 +475,7 @@ def embeddings_endpoint(request: EmbeddingsRequest, raw_request: Request):
             error_type = f"http_{status_code}" if status_code >= 400 else "invalid_response"
             record_provider_failure(selected.provider)
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
+            attempts.append({"model_id": selected.id, "provider": selected.provider, "status_code": status_code, "error_type": error_type})
             try:
                 persist_route_event(request_id, selected.id, "embedding", "provider_error", error_type, agent_name=agent_name)
             except Exception:
@@ -478,6 +487,7 @@ def embeddings_endpoint(request: EmbeddingsRequest, raw_request: Request):
         except Exception as exc:
             record_provider_failure(selected.provider)
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
+            attempts.append({"model_id": selected.id, "provider": selected.provider, "status_code": None, "error_type": type(exc).__name__})
             try:
                 persist_route_event(request_id, selected.id, "embedding", "failed", type(exc).__name__, agent_name=agent_name)
             except Exception:
@@ -488,7 +498,7 @@ def embeddings_endpoint(request: EmbeddingsRequest, raw_request: Request):
                 pass
     return JSONResponse(
         status_code=502,
-        content={"error": {"message": "All healthy embedding providers failed", "type": "all_providers_failed", "last_error": last_error}},
+        content={"error": {"message": "All healthy embedding providers failed", "type": "all_providers_failed", "last_error": last_error, "attempts": attempts}},
         headers={"x-proxyrouter-request-id": request_id},
     )
 
@@ -917,6 +927,21 @@ def _prompt_preview(messages: list[Any]) -> str | None:
     return preview or None
 
 
+def _response_cache_active(raw_request: Request) -> bool:
+    # Per-request header wins either direction over the operator's global
+    # default — "off" lets a caller opt out of a cached answer, "on" lets one
+    # be tested without flipping the setting for every other agent.
+    header = raw_request.headers.get("x-proxyrouter-cache", "").strip().lower()
+    if header == "off":
+        return False
+    if header == "on":
+        return True
+    try:
+        return response_cache_enabled()
+    except Exception:
+        return False
+
+
 _SUMMARY_SYSTEM_PROMPT = (
     "Summarize the following excerpt from an earlier part of this conversation in 3-6 concise "
     "sentences. Preserve names, decisions, numbers, file paths, and any fact a later turn might "
@@ -1025,6 +1050,28 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                         }
                     },
                 )
+
+    # Opt-in exact-match cache: keyed on the caller's own request shape, checked
+    # before any registry/candidate work so a hit skips routing entirely and
+    # costs zero provider quota. Streaming requests are never cached — there is
+    # no meaningful "replay" of an SSE stream from a stored final body.
+    cache_key_value: str | None = None
+    if not request.stream and _response_cache_active(raw_request):
+        cache_key_value = response_cache.cache_key(
+            agent_name,
+            request.model,
+            [message.model_dump(exclude_none=True) for message in request.messages],
+            request.tools,
+            request.temperature,
+            request.max_tokens,
+        )
+        try:
+            cached_body = response_cache.get(cache_key_value, response_cache_ttl_seconds())
+        except Exception:
+            cached_body = None
+        if cached_body is not None:
+            return JSONResponse(status_code=200, content=cached_body, headers={"x-proxyrouter-cache": "hit"})
+
     registry = load_registry_with_db_health()
     demand = resolve_demand(request.model, request.messages, bool(request.tools))
     prompt_preview = _prompt_preview(request.messages)
@@ -1119,6 +1166,14 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     tripped = {model.provider: breaker_open(model.provider) for model in candidates}
     if any(tripped.values()):
         candidates = sorted(candidates, key=lambda model: tripped[model.provider])
+    # Rate-limit ledger: a model whose trailing-60s request count has reached a
+    # ceiling learned from its own past 429s sorts last too — same
+    # deprioritize-never-exclude treatment as the circuit breaker above, but
+    # proactive instead of reactive (tries to avoid the 429 rather than just
+    # recovering from it).
+    near_limit = {model.id: near_ceiling(model.provider, model.id) for model in candidates}
+    if any(near_limit.values()):
+        candidates = sorted(candidates, key=lambda model: near_limit[model.id])
     if not candidates:
         return JSONResponse(
             status_code=503,
@@ -1132,6 +1187,11 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         )
     request_id = str(uuid.uuid4())
     last_error: dict[str, Any] | None = None
+    # Every candidate tried, in order, win or lose — surfaced in the terminal
+    # 502 so a caller (or whoever's debugging one) can see the whole fallover
+    # without a trip to route_events. last_error is kept alongside for
+    # backward compat; attempts is the fuller picture.
+    attempts: list[dict[str, Any]] = []
     # exclude_none: strict providers (Mistral, Cloudflare) reject explicit nulls
     # ("name": null → 422 extra_forbidden); lenient ones ignore them either way.
     raw_messages = [message.model_dump(exclude_none=True) for message in request.messages]
@@ -1190,6 +1250,10 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             stream=request.stream,
         )
         try:
+            record_attempt(selected.provider, selected.id)
+        except Exception:
+            pass
+        try:
             status_code, body = chat_completion(selected, payload)
             # Internal marker from the provider client: Retry-After on a 429/5xx
             # becomes this model's runtime cooldown (never leaks to the caller).
@@ -1208,16 +1272,36 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                     record_provider_success(selected.provider)
                     record_sticky(agent_name, demand, selected.id)
                     usage = body.get("usage") if isinstance(body, dict) and isinstance(body.get("usage"), dict) else None
+                    rescued = False
+                    if isinstance(body, dict) and request.tools:
+                        try:
+                            rescued = rescue_tool_calls(body, request.tools)
+                        except Exception:
+                            rescued = False
                     try:
                         persist_route_event(request_id, selected.id, capability, "success", None, usage=usage, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, provider_model=selected.provider_model, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
                     except Exception:
                         pass
-                    return JSONResponse(status_code=status_code, content=body, headers={"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id})
+                    if cache_key_value is not None:
+                        try:
+                            response_cache.put(cache_key_value, body)
+                        except Exception:
+                            pass
+                    response_headers = {"x-proxyrouter-request-id": request_id, "x-proxyrouter-model": selected.id, "x-proxyrouter-cache": "miss" if cache_key_value is not None else "off"}
+                    if rescued:
+                        response_headers["x-proxyrouter-tool-rescue"] = "true"
+                    return JSONResponse(status_code=status_code, content=body, headers=response_headers)
                 error_type = f"silent_{silent_failure}"
             else:
                 error_type = f"http_{status_code}"
             record_provider_failure(selected.provider)
+            if status_code == 429:
+                try:
+                    record_rate_limit_hit(selected.provider, selected.id)
+                except Exception:
+                    pass
             last_error = {"status_code": status_code, "body": body, "model_id": selected.id}
+            attempts.append({"model_id": selected.id, "provider": selected.provider, "status_code": status_code, "error_type": error_type})
             try:
                 persist_route_event(request_id, selected.id, capability, "provider_error", error_type, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
@@ -1229,6 +1313,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
         except Exception as exc:
             record_provider_failure(selected.provider)
             last_error = {"status_code": 502, "body": {"error": {"message": str(exc)}}, "model_id": selected.id}
+            attempts.append({"model_id": selected.id, "provider": selected.provider, "status_code": None, "error_type": type(exc).__name__})
             try:
                 persist_route_event(request_id, selected.id, capability, "failed", type(exc).__name__, agent_name=agent_name, tokens_raw=tokens_raw, tokens_compacted=tokens_compacted, demand=demand, prompt_preview=prompt_preview, messages_dropped=messages_dropped)
             except Exception:
@@ -1239,7 +1324,7 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 pass
     return JSONResponse(
         status_code=502,
-        content={"error": {"message": "All healthy providers failed", "type": "all_providers_failed", "last_error": last_error}},
+        content={"error": {"message": "All healthy providers failed", "type": "all_providers_failed", "last_error": last_error, "attempts": attempts}},
         headers={"x-proxyrouter-request-id": request_id},
     )
 
@@ -2544,6 +2629,43 @@ def admin_context_truncation_set(payload: ContextTruncationPayload, request: Req
         "max_tokens": context_truncation_max_tokens(),
         "trigger_percent": context_truncation_trigger_percent(),
     }
+
+
+class ResponseCachePayload(BaseModel):
+    enabled: bool
+    ttl_seconds: int | None = None
+
+
+@app.get("/admin/settings/response-cache")
+def admin_response_cache_get():
+    try:
+        enabled = response_cache_enabled()
+        ttl_seconds = response_cache_ttl_seconds()
+    except Exception:
+        enabled, ttl_seconds = False, 300
+    return {"enabled": enabled, "ttl_seconds": ttl_seconds}
+
+
+@app.post("/admin/settings/response-cache")
+def admin_response_cache_set(payload: ResponseCachePayload, request: Request):
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    if payload.ttl_seconds is not None and payload.ttl_seconds < 1:
+        return JSONResponse(
+            status_code=400,
+            content={"error": {"message": "ttl_seconds must be at least 1", "type": "invalid_payload"}},
+        )
+    try:
+        set_response_cache_enabled(payload.enabled)
+        if payload.ttl_seconds is not None:
+            set_response_cache_ttl_seconds(payload.ttl_seconds)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"message": str(exc), "type": "settings_failed"}},
+        )
+    return {"status": "saved", "enabled": payload.enabled, "ttl_seconds": response_cache_ttl_seconds()}
 
 
 @app.get("/admin/pricing/models")
