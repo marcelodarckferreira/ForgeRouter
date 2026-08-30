@@ -1345,6 +1345,67 @@ def sync_agent_model_associations() -> dict[str, int]:
     return {"associations_added": added, "associations_removed": removed}
 
 
+def associate_all_healthy_models_to_all_agents() -> dict[str, int]:
+    """Associate and enable every healthy, online (enabled) model across all
+    registered agents, ensuring all agents have full access to all healthy LLMs."""
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            # 1. Ensure all agents participate with all enabled providers
+            cur.execute(
+                """
+                INSERT INTO ai_router.agent_providers (agent_id, provider_id)
+                SELECT a.agent_id, p.provider_id
+                FROM ai_router.agents a
+                CROSS JOIN ai_router.providers p
+                WHERE a.enabled AND p.enabled
+                ON CONFLICT (agent_id, provider_id) DO NOTHING
+                """
+            )
+            # 2. Link every healthy enabled model to every agent (setting enabled = TRUE)
+            cur.execute(
+                """
+                WITH latest_health AS (
+                    SELECT DISTINCT ON (model_id) model_id, status
+                    FROM ai_router.provider_health
+                    ORDER BY model_id, checked_at DESC
+                )
+                INSERT INTO ai_router.agent_models (agent_id, model_id, enabled)
+                SELECT a.agent_id, m.model_id, TRUE
+                FROM ai_router.agents a
+                CROSS JOIN ai_router.models m
+                JOIN ai_router.providers p ON p.provider_id = m.provider_id
+                LEFT JOIN latest_health lh ON lh.model_id = m.model_id
+                WHERE a.enabled AND m.enabled AND p.enabled
+                  AND (lh.status = 'healthy' OR lh.status IS NULL)
+                ON CONFLICT (agent_id, model_id) DO UPDATE SET enabled = TRUE
+                """
+            )
+            associations_updated = cur.rowcount
+            cur.execute("SELECT COUNT(*) FROM ai_router.agents WHERE enabled")
+            agent_count = cur.fetchone()[0] if cur.rowcount else 0
+            cur.execute(
+                """
+                WITH latest_health AS (
+                    SELECT DISTINCT ON (model_id) model_id, status
+                    FROM ai_router.provider_health
+                    ORDER BY model_id, checked_at DESC
+                )
+                SELECT COUNT(DISTINCT m.model_id)
+                FROM ai_router.models m
+                JOIN ai_router.providers p ON p.provider_id = m.provider_id
+                LEFT JOIN latest_health lh ON lh.model_id = m.model_id
+                WHERE m.enabled AND p.enabled AND (lh.status = 'healthy' OR lh.status IS NULL)
+                """
+            )
+            model_count = cur.fetchone()[0] if cur.rowcount else 0
+        conn.commit()
+    return {
+        "agents_updated": agent_count,
+        "models_count": model_count,
+        "associations_updated": associations_updated,
+    }
+
+
 def agent_allowed_models(name: str) -> set[str] | None:
     """Models the agent may use. An empty set means the agent has no providers
     associated yet and routes to nothing — providers must be registered under

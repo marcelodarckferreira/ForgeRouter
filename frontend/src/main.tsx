@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, ExternalLink, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
+import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, CheckCheck, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, ExternalLink, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 import { selectedSubscriptionPlan, selectedSubscriptionPlanName, subscriptionPlanAuthUrl } from './subscriptionPlans';
 
@@ -1394,6 +1394,7 @@ function App() {
   const [pricingSyncing, setPricingSyncing] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [refreshingHealth, setRefreshingHealth] = useState(false);
+  const [associatingHealthy, setAssociatingHealthy] = useState(false);
   const [pricingSearch, setPricingSearch] = useState('');
   const [demandData, setDemandData] = useState<DemandData | null>(null);
   const [demandDrafts, setDemandDrafts] = useState<Record<string, string[]>>({});
@@ -1683,6 +1684,22 @@ function App() {
       setError(err instanceof Error ? err.message : 'Unknown refresh error');
     } finally {
       setRefreshingHealth(false);
+    }
+  }
+
+  async function associateAllHealthy() {
+    if (associatingHealthy) return;
+    setAssociatingHealthy(true);
+    try {
+      setScanStatus('associating all healthy & online models to all agents…');
+      const data = await fetchJson('/admin/agents/associate-all-healthy', { method: 'POST' });
+      setScanStatus(data.message || 'Associated all healthy models to all agents');
+      await loadAll();
+    } catch (err) {
+      setScanStatus('failed');
+      setError(err instanceof Error ? err.message : 'Failed to associate healthy models');
+    } finally {
+      setAssociatingHealthy(false);
     }
   }
 
@@ -2728,6 +2745,9 @@ function App() {
                 <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
                   {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
                 </button>
+                <button className="button secondary" disabled={associatingHealthy || scanning || refreshingHealth} title="Associate and enable all healthy and online models for all agents" onClick={() => void associateAllHealthy()}>
+                  {associatingHealthy ? <Loader2 size={14} className="spin" /> : <CheckCheck size={14} />} {associatingHealthy ? 'Associating…' : 'Associate healthy to all agents'}
+                </button>
               </div>
             </header>
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
@@ -3292,6 +3312,9 @@ function App() {
                 <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
                   {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
                 </button>
+                <button className="button secondary" disabled={associatingHealthy || scanning || refreshingHealth} title="Associate and enable all healthy and online models for all agents" onClick={() => void associateAllHealthy()}>
+                  {associatingHealthy ? <Loader2 size={14} className="spin" /> : <CheckCheck size={14} />} {associatingHealthy ? 'Associating…' : 'Associate healthy to all agents'}
+                </button>
               </div>
             </header>
             {scanStatus && <div className="scanStatus">{scanStatus}</div>}
@@ -3527,6 +3550,9 @@ function App() {
                     <option value="all">all capabilities</option>
                     {CAPABILITIES.map((cap) => <option key={cap} value={cap}>{cap}</option>)}
                   </select>
+                  <button className="chip" disabled={associatingHealthy || scanning || refreshingHealth} title="Associate all healthy and online models to all agents" onClick={() => void associateAllHealthy()}>
+                    {associatingHealthy ? <Loader2 size={12} className="spin" /> : <CheckCheck size={12} />} {associatingHealthy ? 'Associating…' : 'Associate all healthy to all agents'}
+                  </button>
                 </div>
               }
             >

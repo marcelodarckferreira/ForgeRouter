@@ -96,6 +96,7 @@ from app.storage import (
     set_aux_tasks_agent,
     set_models_enabled_from_health,
     sync_agent_model_associations,
+    associate_all_healthy_models_to_all_agents,
     upsert_provider,
 )
 from app.validation.scanner import build_scan_payload, scan_registry
@@ -2465,6 +2466,26 @@ def admin_agent_set_models(name: str, payload: AgentModelsPayload, request: Requ
             content={"error": {"message": f"Agent not found: {name}", "type": "agent_not_found"}},
         )
     return {"status": "saved", "agent": name, "models": payload.models}
+
+
+@app.post("/admin/agents/associate-all-healthy")
+def admin_associate_all_healthy(request: Request):
+    """Associate and enable all online, healthy models for all registered agents."""
+    auth_error = require_admin(request)
+    if auth_error:
+        return auth_error
+    try:
+        result = associate_all_healthy_models_to_all_agents()
+        return {
+            "status": "ok",
+            "message": f"Associated {result['models_count']} healthy models to {result['agents_updated']} agents",
+            **result,
+        }
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"message": str(exc), "type": "associate_healthy_failed"}},
+        )
 
 
 @app.get("/admin/agents/{name}/key")

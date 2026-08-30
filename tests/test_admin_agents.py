@@ -218,3 +218,25 @@ def test_set_agent_description_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert saved == {"athos": "used by the Hermes auxiliary tasks"}
+
+
+def test_associate_all_healthy_endpoint(monkeypatch):
+    monkeypatch.setattr("app.main.has_any_agent", lambda: True)
+    monkeypatch.setattr("app.main.find_agent_by_key", lambda key: "tester" if key == "secret" else None)
+    called = []
+    monkeypatch.setattr(
+        "app.main.associate_all_healthy_models_to_all_agents",
+        lambda: called.append(True) or {"agents_updated": 3, "models_count": 12, "associations_updated": 36},
+    )
+
+    denied = client.post("/admin/agents/associate-all-healthy")
+    assert denied.status_code == 401
+
+    allowed = client.post("/admin/agents/associate-all-healthy", headers={"Authorization": "Bearer secret"})
+    assert allowed.status_code == 200
+    body = allowed.json()
+    assert body["status"] == "ok"
+    assert body["agents_updated"] == 3
+    assert body["models_count"] == 12
+    assert called == [True]
+
