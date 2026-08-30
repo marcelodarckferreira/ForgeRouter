@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { Activity, AlertTriangle, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, CheckCheck, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, ExternalLink, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, CheckCheck, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, ExternalLink, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 import { selectedSubscriptionPlan, selectedSubscriptionPlanName, subscriptionPlanAuthUrl } from './subscriptionPlans';
 
@@ -2008,13 +2008,21 @@ function App() {
       setNewAgentKind('agent');
       setNewAgentKey(generateAgentKey());
       setConnectOpen(false);
-      setSelectedAgent(name);
+      setSelectedAgent(null);
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
     } finally {
       setCreatingAgent(false);
     }
+  }
+
+  function openEditAgent(name: string) {
+    setConnectOpen(false);
+    setSelectedAgent(name);
+    const agent = agentsRef.current.find((item) => item.name === name);
+    setAgentModelsDraft(agent?.models ?? []);
+    setAgentModelSearch('');
   }
 
   async function rotateAgentKey(name: string) {
@@ -2092,11 +2100,12 @@ function App() {
     }
   }
 
-  async function saveAgentModels(name: string) {
+  async function saveAgentModels(name: string, returnToList = true) {
     try {
       setSavingAgentModels(true);
       await fetchJson(`/admin/agents/${encodeURIComponent(name)}/models`, { method: 'PUT', body: JSON.stringify({ models: agentModelsDraft }) });
       setScanStatus(`${name}: model controls saved${agentModelsDraft.length ? ` (${agentModelsDraft.length} models)` : ' (no models — the agent cannot route until providers are associated)'}`);
+      if (returnToList) setSelectedAgent(null);
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save agent models');
@@ -2730,7 +2739,202 @@ function App() {
             </span>
           </div>
         )}
-        {page === 'agents' && (
+        {page === 'agents' && connectOpen && (
+          <>
+            <header className="pageHeader">
+              <div>
+                <h1>Connect a new agent</h1>
+                <p className="subtitle">Register a new AI agent with its own API key and model controls.</p>
+              </div>
+              <div className="actions">
+                <button className="button secondary" onClick={() => setConnectOpen(false)}>
+                  <ArrowLeft size={15} /> Back to Agents
+                </button>
+              </div>
+            </header>
+            {scanStatus && <div className="scanStatus">{scanStatus}</div>}
+            {error && <div className="alert">{error}</div>}
+
+            <section className="panel editor">
+              <div className="panelHeader"><h2>Agent details</h2><span>saved to the agents registry (PostgreSQL)</span></div>
+              <div className="form">
+                <div className="formGrid">
+                  <label>Agent name<input value={newAgentName} placeholder="e.g. athos" autoFocus onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
+                  <label>Kind
+                    <select value={newAgentKind} onChange={(e) => setNewAgentKind(e.target.value as 'agent' | 'service')}>
+                      <option value="agent">Agent — real conversational agent (chat/bot/knowledge base)</option>
+                      <option value="service">Service — internal caller only (e.g. Hindsight)</option>
+                    </select>
+                  </label>
+                  <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by internal automation tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
+                  <label>API key — auto-generated, stored in the agent's registration; paste it into the agent's connection settings
+                    <span className="keyGen">
+                      <input className="mono" readOnly value={newAgentKey} />
+                      <button className="iconButton" title="Generate a new key" onClick={() => setNewAgentKey(generateAgentKey(newAgentName))}><RefreshCw size={14} /></button>
+                      <button className="iconButton" title="Copy key" onClick={() => void copyText(newAgentKey).then((ok) => setScanStatus(ok ? 'agent key copied' : 'copy failed'))}><Copy size={14} /></button>
+                    </span>
+                  </label>
+                </div>
+                <div className="formActions">
+                  <span className="muted">Each agent gets its own AGENT_API_KEY — it authenticates the agent's /v1 calls and admin actions.</span>
+                  <span className="spacer" />
+                  <button className="button secondary" onClick={() => setConnectOpen(false)}>Cancel</button>
+                  <button className="button" disabled={creatingAgent || !newAgentName.trim()} onClick={() => void createAgent()}>{creatingAgent ? 'Creating…' : 'Create agent'}</button>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {page === 'agents' && !connectOpen && selectedAgent && (() => {
+          const agent = agents.find((item) => item.name === selectedAgent);
+          if (!agent) return null;
+          return (
+            <>
+              <header className="pageHeader">
+                <div>
+                  <h1>Edit Agent: {agent.name}</h1>
+                  <p className="subtitle">Configure credentials, deploy settings, monthly budget and model controls.</p>
+                </div>
+                <div className="actions">
+                  <button className="button secondary" onClick={() => setSelectedAgent(null)}>
+                    <ArrowLeft size={15} /> Back to Agents
+                  </button>
+                  <button className="button" disabled={savingAgentModels} onClick={() => void saveAgentModels(agent.name, true)}>
+                    {savingAgentModels ? 'Saving…' : 'Save & Return'}
+                  </button>
+                </div>
+              </header>
+              {scanStatus && <div className="scanStatus">{scanStatus}</div>}
+              {error && <div className="alert">{error}</div>}
+
+              <Panel
+                title={<>Set up agent: {agent.name} <button className="iconButton" title="Rename agent" onClick={() => void renameAgent(agent.name)}><Pencil size={13} /></button></>}
+                meta={`created ${agent.created_at ? `${agent.created_at.slice(8, 10)}/${agent.created_at.slice(5, 7)}/${agent.created_at.slice(0, 4)}` : '-'}`}
+              >
+                <div className="setupRow"><span>API base URL</span><span className="mono">{window.location.origin}/v1</span><button className="iconButton" title="Copy base URL" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'base URL copied' : 'copy failed'))}><Copy size={13} /></button></div>
+                <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
+                <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
+                <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
+                <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)} billed · {formatCost(agent.reference_cost)} ref.</span><span /></div>
+                <div className="setupRow">
+                  <span>Monthly budget</span>
+                  <span>
+                    {agent.budget_limit_usd != null ? (
+                      <>
+                        {formatCost(agent.month_spend)} / {formatCost(agent.budget_limit_usd)} this month
+                        {agent.month_spend >= agent.budget_limit_usd ? (
+                          <b className={`status ${agent.budget_action === 'block' ? 'unhealthy' : 'unknown'}`} title="Reference-cost spend has reached the configured limit">
+                            {agent.budget_action === 'block' ? 'blocked' : 'over budget'}
+                          </b>
+                        ) : (
+                          <b className="status healthy">{agent.budget_action}</b>
+                        )}
+                      </>
+                    ) : (
+                      <span className="muted">no limit set</span>
+                    )}
+                  </span>
+                  <button className="iconButton" title="Set a monthly reference-cost budget for this agent" onClick={() => void editAgentBudget(agent.name, agent.budget_limit_usd, agent.budget_action)}><Pencil size={13} /></button>
+                </div>
+                <div className="setupRow">
+                  <span>Deploy-config</span>
+                  <span>
+                    {agent.config_path ? (
+                      <>
+                        <span className="mono">{agent.config_path}</span> ({agent.config_format || 'env'}){agent.restart_service ? <> · restarts <span className="mono">{agent.restart_service}</span></> : null}
+                      </>
+                    ) : (
+                      <span className="muted">not set — Rotate only updates the database key</span>
+                    )}
+                  </span>
+                  <button className="iconButton" title="Set where this agent's own runtime config lives, so Rotate can write the new key there and restart it" onClick={() => void editAgentDeployConfig(agent.name, agent)}><Pencil size={13} /></button>
+                </div>
+                <div className="setupRow">
+                  <span>Actions</span>
+                  <span className="rowActions">
+                    <button className="button secondary" title="New API key, same provider/model controls" onClick={() => void rotateAgentKey(agent.name)}><RefreshCw size={14} /> Rotate key</button>
+                    <button className="button secondary" title="Clone this agent's provider/model controls into a new agent" onClick={() => void duplicateAgent(agent.name)}><CopyPlus size={14} /> Duplicate</button>
+                  </span>
+                  <button className="iconButton danger" title="Delete agent" onClick={() => void removeAgent(agent.name)}><Trash2 size={13} /></button>
+                </div>
+                <div className="agentClients">
+                  <div className="agentClientsHeader">
+                    <h3>Connect a coding tool <span className="muted">— ready-to-paste config for the base URL and key above, in each tool's own file format</span></h3>
+                    <div className="agentClientTabs">
+                      {AGENT_CLIENTS.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className={`button secondary${agentClientId === client.id ? ' active' : ''}`}
+                          onClick={() => setAgentClientId(client.id)}
+                        >{client.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {(() => {
+                    const client = AGENT_CLIENTS.find((item) => item.id === agentClientId) ?? AGENT_CLIENTS[0];
+                    const baseUrl = agentClientBaseUrl(client);
+                    const displayKey = '<KEY AGENT>';
+                    return (
+                      <div className="agentClientBody">
+                        <p className="muted">{client.hint}</p>
+                        <pre className="codeBlock mono">{client.block(baseUrl, displayKey)}</pre>
+                        <div className="rowActions">
+                          <span className="muted mono">{client.filename}</span>
+                          <button className="button secondary" onClick={() => void copyAgentClientBlock(agent.name, client)}>
+                            <Copy size={13} /> Copy {client.embedsSecret ? 'config with real key' : 'config'}
+                          </button>
+                          {client.secret && (
+                            <button className="button secondary" onClick={() => void copyAgentClientSecret(agent.name, client)}>
+                              <Copy size={13} /> Copy {client.secret.label}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="agentModels">
+                  <div className="modelsHeader">
+                    <h3>Model controls <span className="muted">— the agent only routes through its associated models; register providers on the Routing page with this agent selected, or search to add models manually</span></h3>
+                    <div className="filters">
+                      <input className="searchBox" type="search" placeholder="Search model to add…" value={agentModelSearch} onChange={(e) => setAgentModelSearch(e.target.value)} />
+                      <button
+                        className="button secondary"
+                        title="Add healthy models the agent doesn't already have (active or disabled)"
+                        onClick={() => setAgentModelsDraft((draft) => {
+                          const known = new Set([...draft, ...(agent.models_off ?? [])]);
+                          const newHealthyIds = registry.flatMap((provider) => provider.models.map((model) => model.id))
+                            .filter((id) => healthByModel[id] === 'healthy' && !known.has(id));
+                          return [...draft, ...newHealthyIds];
+                        })}
+                      >Add all healthy</button>
+                      <button className="button" disabled={savingAgentModels} onClick={() => void saveAgentModels(agent.name, true)}>{savingAgentModels ? 'Saving…' : `Save & Return (${agentModelsDraft.length} models)`}</button>
+                    </div>
+                  </div>
+                  <div className="agentModelChips">
+                    {registry.flatMap((provider) => provider.models.map((model) => model.id))
+                      .filter((id) => agentModelSearch.trim()
+                        ? id.toLowerCase().includes(agentModelSearch.trim().toLowerCase())
+                        : agentModelsDraft.includes(id) || (agent.models_off ?? []).includes(id))
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`cap toggle${agentModelsDraft.includes(id) ? ' active' : ''}`}
+                          onClick={() => setAgentModelsDraft((draft) => draft.includes(id) ? draft.filter((item) => item !== id) : [...draft, id])}
+                        >{id}</button>
+                      ))}
+                    {!agentModelsDraft.length && !agentModelSearch.trim() && <p className="muted">No models yet — this agent has no providers. Register one on the Routing page with this agent selected, or search above to add models manually.</p>}
+                  </div>
+                </div>
+              </Panel>
+            </>
+          );
+        })()}
+
+        {page === 'agents' && !connectOpen && !selectedAgent && (
           <>
             <header className="pageHeader">
               <div>
@@ -2738,7 +2942,7 @@ function App() {
                 <p className="subtitle">View and manage all your connected AI agents. Each agent authenticates with its own API key.</p>
               </div>
               <div className="actions">
-                <button className="button" onClick={() => { setConnectOpen(!connectOpen); if (!connectOpen) setNewAgentKey(generateAgentKey(newAgentName)); }}><Plus size={15} /> Connect Agent</button>
+                <button className="button" onClick={() => { setSelectedAgent(null); setConnectOpen(true); setNewAgentKey(generateAgentKey(newAgentName)); }}><Plus size={15} /> Connect Agent</button>
                 <button className="button secondary" disabled={scanning || refreshingHealth} title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>
                   {scanning ? <Loader2 size={14} className="spin" /> : null} {scanning ? 'Scanning…' : 'Run scan'}
                 </button>
@@ -2760,44 +2964,10 @@ function App() {
               </section>
             )}
 
-            {connectOpen && (
-              <section className="panel editor">
-                <div className="panelHeader"><h2>Connect a new agent</h2><span>saved to the agents registry (PostgreSQL)</span></div>
-                <div className="form">
-                  <div className="formGrid">
-                    <label>Agent name<input value={newAgentName} placeholder="e.g. athos" onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
-                    <label>Kind
-                      <select value={newAgentKind} onChange={(e) => setNewAgentKind(e.target.value as 'agent' | 'service')}>
-                        <option value="agent">Agent — real conversational agent (chat/bot/knowledge base)</option>
-                        <option value="service">Service — internal caller only (e.g. Hindsight)</option>
-                      </select>
-                    </label>
-                    <label>Description — what this agent is for (optional)<input value={newAgentDescription} placeholder="e.g. used by internal automation tasks" onChange={(e) => setNewAgentDescription(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
-                    <label>API key — auto-generated, stored in the agent's registration; paste it into the agent's connection settings
-                      <span className="keyGen">
-                        <input className="mono" readOnly value={newAgentKey} />
-                        <button className="iconButton" title="Generate a new key" onClick={() => setNewAgentKey(generateAgentKey(newAgentName))}><RefreshCw size={14} /></button>
-                        <button className="iconButton" title="Copy key" onClick={() => void copyText(newAgentKey).then((ok) => setScanStatus(ok ? 'agent key copied' : 'copy failed'))}><Copy size={14} /></button>
-                      </span>
-                    </label>
-                  </div>
-                  <div className="formActions">
-                    <span className="muted">Each agent gets its own AGENTE_API_KEY — it authenticates the agent's /v1 calls and admin actions.</span>
-                    <span className="spacer" />
-                    <button className="button secondary" onClick={() => setConnectOpen(false)}>Cancel</button>
-                    <button className="button" disabled={creatingAgent || !newAgentName.trim()} onClick={() => void createAgent()}>{creatingAgent ? 'Creating…' : 'Create agent'}</button>
-                  </div>
-                </div>
-              </section>
-            )}
-
             <section className="agentGrid">
               {agents.map((agent) => {
                 const agentProviders = new Set(agent.models.map((id) => providerByModel[id] ?? id.split('/')[0]));
                 const agentHealthy = agent.models.filter((id) => healthByModel[id] === 'healthy').length;
-                // Task-group sizes over the agent's healthy models, mirroring the
-                // automatic chain bands: rank <30 simple, 30–49 standard, ≥50 complex;
-                // reasoning/vision/audio by catalog capability (a model may serve several groups).
                 const groups: Record<string, number> = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0, code: 0 };
                 const categories: Record<string, number> = Object.fromEntries(CAPABILITIES.map((cap) => [cap, 0]));
                 const costs: Record<string, number> = { free: 0, paid: 0, local: 0 };
@@ -2816,15 +2986,24 @@ function App() {
                   else groups.simple += 1;
                 }
                 return (
-                  <button key={agent.name} className={`agentCard${selectedAgent === agent.name ? ' active' : ''}`} onClick={() => setSelectedAgent(selectedAgent === agent.name ? null : agent.name)}>
+                  <div key={agent.name} className="agentCard">
                     <span className="agentHead">
-                      <Bot size={17} /><strong>{agent.name}</strong>
-                      <b
-                        className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}${togglingKind === agent.name ? ' toggling' : ''}`}
-                        title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a conversational agent (no chat/bot/knowledge base). ' : 'Real conversational agent (chat/bot/knowledge base). ') + 'Click to toggle.'}
-                        onClick={(e) => { e.stopPropagation(); if (togglingKind !== agent.name) void toggleAgentKind(agent.name, agent.kind); }}
-                      >{agent.kind === 'service' ? 'service' : 'agent'}</b>
-                      {!agent.enabled && <b className="status unknown">disabled</b>}
+                      <span className="agentHeadLeft">
+                        <Bot size={17} /><strong>{agent.name}</strong>
+                        <b
+                          className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}${togglingKind === agent.name ? ' toggling' : ''}`}
+                          title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a conversational agent (no chat/bot/knowledge base). ' : 'Real conversational agent (chat/bot/knowledge base). ') + 'Click to toggle.'}
+                          onClick={(e) => { e.stopPropagation(); if (togglingKind !== agent.name) void toggleAgentKind(agent.name, agent.kind); }}
+                        >{agent.kind === 'service' ? 'service' : 'agent'}</b>
+                        {!agent.enabled && <b className="status unknown">disabled</b>}
+                      </span>
+                      <button
+                        className="iconButton editAgentBtn"
+                        title={`Edit ${agent.name}`}
+                        onClick={() => openEditAgent(agent.name)}
+                      >
+                        <Pencil size={15} />
+                      </button>
                     </span>
                     {agent.description && <span className="muted">{agent.description}</span>}
                     <span className="agentStats">
@@ -2866,140 +3045,16 @@ function App() {
                       <i className={`cap costLocal${costs.local === 0 ? ' groupEmpty' : ''}`}>local {costs.local}</i>
                     </span>
                     <AgentSparkline daily={agent.daily} />
-                  </button>
+                    <div className="agentCardFooter">
+                      <button className="button secondary small wide" onClick={() => openEditAgent(agent.name)}>
+                        <Pencil size={13} /> Edit Agent
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
               {!agents.length && <p className="muted">No agents yet — click "Connect Agent" to register the first one.</p>}
             </section>
-
-            {selectedAgent && (() => {
-              const agent = agents.find((item) => item.name === selectedAgent);
-              if (!agent) return null;
-              return (
-                <Panel
-                  title={<>Set up agent: {agent.name} <button className="iconButton" title="Rename agent" onClick={() => void renameAgent(agent.name)}><Pencil size={13} /></button></>}
-                  meta={`created ${agent.created_at ? `${agent.created_at.slice(8, 10)}/${agent.created_at.slice(5, 7)}/${agent.created_at.slice(0, 4)}` : '-'}`}
-                >
-                  <div className="setupRow"><span>API base URL</span><span className="mono">{window.location.origin}/v1</span><button className="iconButton" title="Copy base URL" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'base URL copied' : 'copy failed'))}><Copy size={13} /></button></div>
-                  <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
-                  <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
-                  <div className="setupRow"><span>Description</span><span>{agent.description || <span className="muted">— what is this agent for?</span>}</span><button className="iconButton" title="Edit description" onClick={() => void editAgentDescription(agent.name, agent.description ?? '')}><Pencil size={13} /></button></div>
-                  <div className="setupRow"><span>Usage (30d)</span><span>{agent.messages} messages · {formatTokens(agent.tokens)} tokens · {formatCost(agent.cost)} billed · {formatCost(agent.reference_cost)} ref.</span><span /></div>
-                  <div className="setupRow">
-                    <span>Monthly budget</span>
-                    <span>
-                      {agent.budget_limit_usd != null ? (
-                        <>
-                          {formatCost(agent.month_spend)} / {formatCost(agent.budget_limit_usd)} this month
-                          {agent.month_spend >= agent.budget_limit_usd ? (
-                            <b className={`status ${agent.budget_action === 'block' ? 'unhealthy' : 'unknown'}`} title="Reference-cost spend has reached the configured limit">
-                              {agent.budget_action === 'block' ? 'blocked' : 'over budget'}
-                            </b>
-                          ) : (
-                            <b className="status healthy">{agent.budget_action}</b>
-                          )}
-                        </>
-                      ) : (
-                        <span className="muted">no limit set</span>
-                      )}
-                    </span>
-                    <button className="iconButton" title="Set a monthly reference-cost budget for this agent" onClick={() => void editAgentBudget(agent.name, agent.budget_limit_usd, agent.budget_action)}><Pencil size={13} /></button>
-                  </div>
-                  <div className="setupRow">
-                    <span>Deploy-config</span>
-                    <span>
-                      {agent.config_path ? (
-                        <>
-                          <span className="mono">{agent.config_path}</span> ({agent.config_format || 'env'}){agent.restart_service ? <> · restarts <span className="mono">{agent.restart_service}</span></> : null}
-                        </>
-                      ) : (
-                        <span className="muted">not set — Rotate only updates the database key</span>
-                      )}
-                    </span>
-                    <button className="iconButton" title="Set where this agent's own runtime config lives, so Rotate can write the new key there and restart it" onClick={() => void editAgentDeployConfig(agent.name, agent)}><Pencil size={13} /></button>
-                  </div>
-                  <div className="setupRow">
-                    <span>Actions</span>
-                    <span className="rowActions">
-                      <button className="button secondary" title="New API key, same provider/model controls" onClick={() => void rotateAgentKey(agent.name)}><RefreshCw size={14} /> Rotate key</button>
-                      <button className="button secondary" title="Clone this agent's provider/model controls into a new agent" onClick={() => void duplicateAgent(agent.name)}><CopyPlus size={14} /> Duplicate</button>
-                    </span>
-                    <button className="iconButton danger" title="Delete agent" onClick={() => void removeAgent(agent.name)}><Trash2 size={13} /></button>
-                  </div>
-                  <div className="agentClients">
-                    <div className="agentClientsHeader">
-                      <h3>Connect a coding tool <span className="muted">— ready-to-paste config for the base URL and key above, in each tool's own file format</span></h3>
-                      <div className="agentClientTabs">
-                        {AGENT_CLIENTS.map((client) => (
-                          <button
-                            key={client.id}
-                            type="button"
-                            className={`button secondary${agentClientId === client.id ? ' active' : ''}`}
-                            onClick={() => setAgentClientId(client.id)}
-                          >{client.label}</button>
-                        ))}
-                      </div>
-                    </div>
-                    {(() => {
-                      const client = AGENT_CLIENTS.find((item) => item.id === agentClientId) ?? AGENT_CLIENTS[0];
-                      const baseUrl = agentClientBaseUrl(client);
-                      const displayKey = '<KEY AGENT>';
-                      return (
-                        <div className="agentClientBody">
-                          <p className="muted">{client.hint}</p>
-                          <pre className="codeBlock mono">{client.block(baseUrl, displayKey)}</pre>
-                          <div className="rowActions">
-                            <span className="muted mono">{client.filename}</span>
-                            <button className="button secondary" onClick={() => void copyAgentClientBlock(agent.name, client)}>
-                              <Copy size={13} /> Copy {client.embedsSecret ? 'config with real key' : 'config'}
-                            </button>
-                            {client.secret && (
-                              <button className="button secondary" onClick={() => void copyAgentClientSecret(agent.name, client)}>
-                                <Copy size={13} /> Copy {client.secret.label}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="agentModels">
-                    <div className="modelsHeader">
-                      <h3>Model controls <span className="muted">— the agent only routes through its associated models; register providers on the Routing page with this agent selected, or search to add models manually</span></h3>
-                      <div className="filters">
-                        <input className="searchBox" type="search" placeholder="Search model to add…" value={agentModelSearch} onChange={(e) => setAgentModelSearch(e.target.value)} />
-                        <button
-                          className="button secondary"
-                          title="Add healthy models the agent doesn't already have (active or disabled)"
-                          onClick={() => setAgentModelsDraft((draft) => {
-                            const known = new Set([...draft, ...(agent.models_off ?? [])]);
-                            const newHealthyIds = registry.flatMap((provider) => provider.models.map((model) => model.id))
-                              .filter((id) => healthByModel[id] === 'healthy' && !known.has(id));
-                            return [...draft, ...newHealthyIds];
-                          })}
-                        >Add all healthy</button>
-                        <button className="button secondary" disabled={savingAgentModels} onClick={() => void saveAgentModels(agent.name)}>{savingAgentModels ? 'Saving…' : `Save models (${agentModelsDraft.length})`}</button>
-                      </div>
-                    </div>
-                    <div className="agentModelChips">
-                      {registry.flatMap((provider) => provider.models.map((model) => model.id))
-                        .filter((id) => agentModelSearch.trim()
-                          ? id.toLowerCase().includes(agentModelSearch.trim().toLowerCase())
-                          : agentModelsDraft.includes(id) || (agent.models_off ?? []).includes(id))
-                        .map((id) => (
-                          <button
-                            key={id}
-                            type="button"
-                            className={`cap toggle${agentModelsDraft.includes(id) ? ' active' : ''}`}
-                            onClick={() => setAgentModelsDraft((draft) => draft.includes(id) ? draft.filter((item) => item !== id) : [...draft, id])}
-                          >{id}</button>
-                        ))}
-                      {!agentModelsDraft.length && !agentModelSearch.trim() && <p className="muted">No models yet — this agent has no providers. Register one on the Routing page with this agent selected, or search above to add models manually.</p>}
-                    </div>
-                  </div>
-                </Panel>
-              );
-            })()}
           </>
         )}
 
