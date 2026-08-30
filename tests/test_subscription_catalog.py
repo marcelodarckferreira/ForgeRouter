@@ -14,15 +14,25 @@ class _Cursor:
     def fetchall(self):
         return [
             (
+                "minimax",
+                "MiniMax",
+                "Pay-as-you-go",
+                "https://api.minimax.chat/v1",
+                "bearer",
+                "minimax.io -> API Keys",
+                "https://platform.minimax.io/",
+                {},
+            ),
+            (
                 "openai-codex",
                 "OpenAI Codex",
                 "ChatGPT Plus/Pro plan",
                 "https://chatgpt.com/backend-api/codex",
                 "oauth",
                 "automatic — uses the Codex CLI login on the server",
-                "https://chatgpt.com/auth/login/",
+                "",
                 {},
-            )
+            ),
         ]
 
 
@@ -44,13 +54,23 @@ def test_subscription_catalog_returns_each_plans_authentication_url(monkeypatch)
 
     assert catalog == [
         {
+            "name": "minimax",
+            "display_name": "MiniMax",
+            "plan_hint": "Pay-as-you-go",
+            "base_url": "https://api.minimax.chat/v1",
+            "auth_method": "bearer",
+            "token_hint": "minimax.io -> API Keys",
+            "auth_url": "https://platform.minimax.io/",
+            "extra_headers": {},
+        },
+        {
             "name": "openai-codex",
             "display_name": "OpenAI Codex",
             "plan_hint": "ChatGPT Plus/Pro plan",
             "base_url": "https://chatgpt.com/backend-api/codex",
             "auth_method": "oauth",
             "token_hint": "automatic — uses the Codex CLI login on the server",
-            "auth_url": "https://chatgpt.com/auth/login/",
+            "auth_url": "",
             "extra_headers": {},
-        }
+        },
     ]

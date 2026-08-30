@@ -22,13 +22,13 @@ test('subscription plan select shows the placeholder for a custom provider', () 
 
 test('subscription authentication URL comes from the selected catalog plan', () => {
   const catalog = [
-    { name: 'openai-codex', auth_url: 'https://chatgpt.com/auth/login/' },
+    { name: 'minimax', auth_url: 'https://platform.minimax.io/' },
     { name: 'custom-plan', auth_url: '' },
   ];
 
   assert.equal(
-    subscriptionPlanHelpers.subscriptionPlanAuthUrl?.(catalog, 'openai-codex'),
-    'https://chatgpt.com/auth/login/',
+    subscriptionPlanHelpers.subscriptionPlanAuthUrl?.(catalog, 'minimax'),
+    'https://platform.minimax.io/',
   );
   assert.equal(
     subscriptionPlanHelpers.subscriptionPlanAuthUrl?.(catalog, 'custom-plan'),

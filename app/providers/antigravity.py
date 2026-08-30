@@ -18,6 +18,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import shutil
+import subprocess
 import time
 import uuid
 from typing import Any, Iterable, Iterator
@@ -28,16 +30,29 @@ from app.registry import ProviderModel
 
 ANTIGRAVITY_BASE_MARKER = "cloudcode-pa.googleapis.com"
 
-# Static fallback model catalog — the Code Assist API has no usable /models
-# endpoint for this client, and rejects ids outside this Gemini family. The
-# health scan still decides which ones actually work for the account.
+# Static fallback model catalog — models supported by the Antigravity (agy) CLI.
+# The health scan decides which ones actually work for the account.
 ANTIGRAVITY_MODELS: list[dict[str, Any]] = [
-    {"id": "gemini-3-pro-preview", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
-    {"id": "gemini-3-flash-preview", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.7-flash-high", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.7-flash-medium", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.7-flash-low", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.6-flash-high", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.6-flash-medium", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.6-flash-low", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.5-flash-high", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.5-flash-medium", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.5-flash-low", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.1-pro-high", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3.1-pro-low", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "gemini-2.5-pro", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "gemini-2.5-flash", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "gemini-2.5-flash-lite", "capabilities": ["text", "code", "tool_call", "vision"]},
+    {"id": "gemini-3-pro-preview", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gemini-3-flash-preview", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
     {"id": "gemini-3.1-flash-lite-preview", "capabilities": ["text", "code", "tool_call", "vision"]},
+    {"id": "claude-sonnet-4-6", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "claude-opus-4-6-thinking", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
+    {"id": "gpt-oss-120b-medium", "capabilities": ["text", "code", "reasoning", "tool_call", "vision"]},
 ]
 
 
@@ -77,7 +92,42 @@ def _auth_file_token() -> str:
         return ""
 
 
+def _find_agy_bin() -> str:
+    path_override = os.environ.get("AGY_CLI_PATH")
+    if path_override and os.path.exists(path_override):
+        return path_override
+    for candidate in [
+        shutil.which("agy"),
+        "/usr/local/bin/agy",
+        os.path.expanduser("~/.local/bin/agy"),
+        "/root/.local/bin/agy",
+    ]:
+        if candidate and os.path.exists(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return ""
+
+
 def antigravity_discover_models() -> list[dict[str, Any]]:
+    agy_bin = _find_agy_bin()
+    if agy_bin:
+        try:
+            res = subprocess.run([agy_bin, "models"], capture_output=True, text=True, timeout=10)
+            if res.returncode == 0:
+                discovered = []
+                for line in res.stdout.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("⠋") and not line.startswith("Fetching") and not line.startswith("⠙") and not line.startswith("⠹") and not line.startswith("⠸") and not line.startswith("⠼") and not line.startswith("⠴") and not line.startswith("⠦") and not line.startswith("⠧") and not line.startswith("⠇") and not line.startswith("⠏"):
+                        parts = line.split()
+                        if parts:
+                            m_id = parts[0]
+                            discovered.append({
+                                "id": m_id,
+                                "capabilities": ["text", "code", "reasoning", "tool_call", "vision"],
+                            })
+                if discovered:
+                    return discovered
+        except Exception:
+            pass
     return [dict(model) for model in ANTIGRAVITY_MODELS]
 
 
@@ -370,9 +420,158 @@ def stream_events_as_chunks(events: Iterable[dict[str, Any]], model_id: str) -> 
     yield b"data: [DONE]\n\n"
 
 
+def _format_messages_for_cli(messages: list[dict[str, Any]]) -> str:
+    parts: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = _text_of(msg.get("content"))
+        if role == "system":
+            parts.append(f"Instructions:\n{content}")
+        elif role == "user":
+            parts.append(f"User:\n{content}")
+        elif role == "assistant":
+            parts.append(f"Assistant:\n{content}")
+        else:
+            parts.append(f"{role}:\n{content}")
+    return "\n\n".join(parts) if parts else "Hello"
+
+
+def _stream_agy_chunks(proc: subprocess.Popen, model_id: str) -> Iterator[bytes]:
+    completion_id = f"antigravity-{uuid.uuid4()}"
+    started = False
+    usage: dict[str, int] | None = None
+    try:
+        if proc.stdout:
+            for line in proc.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except Exception:
+                    continue
+                evt_type = event.get("event")
+                if evt_type == "step_update":
+                    step = event.get("step_update") or {}
+                    delta_text = step.get("text_delta")
+                    if delta_text:
+                        delta: dict[str, Any] = {"content": delta_text}
+                        if not started:
+                            delta["role"] = "assistant"
+                            started = True
+                        chunk = {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": model_id,
+                            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+                        }
+                        yield f"data: {json.dumps(chunk)}\n\n".encode()
+                    if step.get("usage"):
+                        u = step["usage"]
+                        usage = {
+                            "prompt_tokens": int(u.get("input_tokens") or 0),
+                            "completion_tokens": int(u.get("output_tokens") or 0),
+                            "total_tokens": int(u.get("total_tokens") or 0),
+                        }
+                elif evt_type == "result":
+                    res = event.get("result") or {}
+                    if res.get("usage"):
+                        u = res["usage"]
+                        usage = {
+                            "prompt_tokens": int(u.get("input_tokens") or 0),
+                            "completion_tokens": int(u.get("output_tokens") or 0),
+                            "total_tokens": int(u.get("total_tokens") or 0),
+                        }
+    finally:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    final_chunk = {
+        "id": completion_id,
+        "object": "chat.completion.chunk",
+        "created": int(time.time()),
+        "model": model_id,
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        "usage": usage or {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+    yield f"data: {json.dumps(final_chunk)}\n\n".encode()
+    yield b"data: [DONE]\n\n"
+
+
+def _agy_chat_completion(agy_bin: str, model: ProviderModel, chat_payload: dict[str, Any], timeout: float = 120.0) -> tuple[int, Any]:
+    prompt = _format_messages_for_cli(chat_payload.get("messages", []))
+    model_name = model.provider_model or model.id.split("/")[-1]
+    stream = bool(chat_payload.get("stream"))
+    cmd = [
+        agy_bin,
+        "--print",
+        prompt,
+        "--model",
+        model_name,
+        "--disable-slash-commands",
+        "--dangerously-skip-permissions",
+        "--output-format",
+        "stream-json" if stream else "json",
+    ]
+    if stream:
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+            )
+            return 200, _stream_agy_chunks(proc, model.id)
+        except Exception as exc:
+            return 502, {"error": {"message": f"failed to launch agy: {exc}", "type": "antigravity_exec_error"}}
+
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except Exception as exc:
+        return 502, {"error": {"message": f"agy execution error: {exc}", "type": "antigravity_exec_error"}}
+
+    if res.returncode != 0:
+        return 502, {"error": {"message": res.stderr.strip() or f"agy exited with code {res.returncode}", "type": "antigravity_exec_error"}}
+
+    try:
+        data = json.loads(res.stdout)
+    except Exception:
+        return 502, {"error": {"message": f"invalid json response from agy: {res.stdout[:300]}", "type": "antigravity_parse_error"}}
+
+    text = data.get("response", "")
+    usage_info = data.get("usage") or {}
+    usage = {
+        "prompt_tokens": int(usage_info.get("input_tokens") or 0),
+        "completion_tokens": int(usage_info.get("output_tokens") or 0),
+        "total_tokens": int(usage_info.get("total_tokens") or 0),
+    }
+    completion_id = f"antigravity-{uuid.uuid4()}"
+    return 200, {
+        "id": completion_id,
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model.id,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": usage,
+    }
+
+
 def antigravity_chat_completion(model: ProviderModel, chat_payload: dict[str, Any], timeout: float = 120.0) -> tuple[int, Any]:
     """Adapter entry point, mirroring openai_compatible.chat_completion's contract:
     (status, dict) for non-stream calls, (status, bytes-iterator) for stream."""
+    agy_bin = _find_agy_bin()
+    if agy_bin:
+        return _agy_chat_completion(agy_bin, model, chat_payload, timeout=timeout)
+
     token = antigravity_token(model.api_key or "", model.api_key_env or "")
     if not token:
         return 401, {

@@ -229,6 +229,39 @@ Tudo o mais — quais provedores estão habilitados, quais modelos eles expõem,
 
 Autenticação com os provedores de assinatura OAuth (Claude Code, Codex, Antigravity, Z.ai, DeepSeek, xAI Grok) não usa `.env`: cada handler lê o token OAuth já mantido por sua respectiva CLI (`~/.codex`, `~/.gemini`, `~/.claude/.credentials.json`, `~/.zai`, `~/.deepseek`), exceto o xAI Grok, cujo login (`scripts/xai_oauth_login.py`) e refresh de token são realizados pelo próprio ForgeRouter (`~/.xai/auth.json`, montado com escrita). O Nous Portal é uma chave de API comum (`portal.nousresearch.com` → API Keys, requer crédito na conta), colada no dashboard como qualquer provedor por chave de API — sem arquivo montado, sem processo externo. Detalhes por provedor em `docs/SUBSCRIPTION_*_REFERENCE.md`.
 
+### Provedores de Assinatura Local (OpenAI Codex, Claude Code e Google Antigravity)
+
+O ForgeRouter integra-se nativamente com as assinaturas de coding já autenticadas na máquina host, permitindo consumir as cotas dessas contas sem necessidade de cadastrar chaves de API pagas no dashboard:
+
+1. **OpenAI Codex (`openai-codex`):**
+   - **Autenticação:** Requer que o CLI oficial do Codex (`codex`) esteja logado no host (`~/.codex/auth.json`).
+   - **Como ativar:** No dashboard do ForgeRouter, selecione o plano **OpenAI Codex**, deixe o campo de chave de API vazio (a autenticação é resolvida automaticamente pelo arquivo montado), clique em **"Detect models"** e salve.
+   - **Roteamento:** As chamadas são traduzidas para o protocolo de Responses do Codex (`chatgpt.com/backend-api/codex`).
+
+2. **Claude Code (`claude-code`):**
+   - **Autenticação:** Requer que o CLI oficial do Claude (`claude`) esteja autenticado no host (`~/.claude/.credentials.json`).
+   - **Como ativar:** No dashboard, selecione o plano **Claude Code**, deixe o campo de chave vazio, clique em **"Detect models"** e salve.
+   - **Roteamento:** As requisições são enviadas para a API de Mensagens da Anthropic (`api.anthropic.com/v1/messages`) utilizando os headers OAuth do Claude Code.
+
+3. **Google Antigravity (`google-antigravity`):**
+   - **Autenticação:** Requer que o CLI `agy` esteja logado na sua conta Google no host (`~/.gemini/antigravity-cli`).
+   - **Como ativar:** No dashboard, selecione **Google Antigravity**, deixe a chave em branco, clique em **"Detect models"** para listar os modelos disponíveis da sua conta (`gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.1-pro`, etc.) e salve.
+   - **Roteamento:** O ForgeRouter executa o binário `agy` diretamente via subprocesso dentro do container, transmitindo completions e streaming com suporte completo a contagem de tokens.
+
+#### Como o sistema mantém as contas e tokens sempre ativos (Keepalive)
+
+Tokens OAuth emitidos para CLIs locais possuem prazo de validade e expiram se os utilitários ficarem inativos por longos períodos:
+
+1. **Renovação por tráfego e Health Scan:** Sempre que uma requisição é roteada ou quando o cron do ForgeRouter executa o scan de saúde periódico (`scripts/health_scan_sync.py` a cada 10 minutos), as credenciais são exercitadas.
+2. **Script de Keepalive dedicado (`scripts/keepalive_subscriptions.sh`):** Para garantir que as contas nunca fiquem inativas mesmo sem tráfego de usuários, um cronjob no host executa verificações leves a cada 30 minutos:
+   - `codex doctor --summary`: valida diagnósticos e renova os tokens em `~/.codex/auth.json`.
+   - `claude -p "ping" --dangerously-skip-permissions`: realiza um ping não-interativo mantendo `~/.claude/.credentials.json` ativo.
+   - `agy models`: consulta o catálogo remoto do Google, renovando os tokens de sessão no keyring e em `~/.gemini/`.
+   - **Agendamento no Crontab do Host:**
+     ```bash
+     */30 * * * * flock -n /tmp/subscription-keepalive.lock /root/project/forgerouter/scripts/keepalive_subscriptions.sh >> /var/log/subscription-keepalive.log 2>&1
+     ```
+
 ## Executando o Projeto
 
 ### Docker (produção / uso normal)

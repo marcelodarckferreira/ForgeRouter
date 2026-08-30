@@ -4,3 +4,8 @@
 .codex/config.toml
 frontend/node_modules/
 .dev/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+.pytest_cache/
+

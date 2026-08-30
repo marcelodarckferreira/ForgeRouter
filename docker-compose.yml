@@ -13,8 +13,9 @@ services:
       # OAuth token from here automatically — no token is stored in the registry.
       - ~/.codex:/root/.codex:ro
       # Antigravity (agy) CLI login (read-only): the Google Antigravity plan
-      # handler resolves its OAuth token from here automatically.
+      # handler resolves its OAuth token and executes agy directly.
       - ~/.gemini:/root/.gemini:ro
+      - ~/.local/bin/agy:/usr/local/bin/agy:ro
       # Claude Code CLI login (read-only, single file — avoids exposing the
       # CLI's conversation history/session data): the Claude Code plan
       # handler resolves its OAuth token from here automatically.

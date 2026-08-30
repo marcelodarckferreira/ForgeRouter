@@ -111,3 +111,54 @@ def test_stream_events_as_chunks_emits_content_and_usage():
     assert chunks[0]["choices"][0]["delta"] == {"role": "assistant", "content": "Hi"}
     assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
     assert chunks[-1]["usage"] == {"prompt_tokens": 2, "completion_tokens": 1, "total_tokens": 3}
+
+
+def test_format_messages_for_cli():
+    from app.providers.antigravity import _format_messages_for_cli
+
+    messages = [
+        {"role": "system", "content": "System directive"},
+        {"role": "user", "content": [{"type": "text", "text": "Hello user"}]},
+        {"role": "assistant", "content": "Hello bot"},
+    ]
+    prompt = _format_messages_for_cli(messages)
+    assert "Instructions:\nSystem directive" in prompt
+    assert "User:\nHello user" in prompt
+    assert "Assistant:\nHello bot" in prompt
+
+
+def test_antigravity_chat_completion_with_agy_cli(monkeypatch):
+    import subprocess
+    from app.registry import ProviderModel
+    from app.providers.antigravity import antigravity_chat_completion
+
+    monkeypatch.setattr(antigravity_module, "_find_agy_bin", lambda: "/mock/agy")
+
+    fake_output = json.dumps({
+        "status": "SUCCESS",
+        "response": "Hello from mock agy",
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+    })
+
+    class FakeCompletedProcess:
+        returncode = 0
+        stdout = fake_output
+        stderr = ""
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: FakeCompletedProcess())
+
+    model = ProviderModel(
+        id="google-antigravity/gemini-3.7-flash-low",
+        provider="google-antigravity",
+        provider_model="gemini-3.7-flash-low",
+        base_url="https://cloudcode-pa.googleapis.com/v1internal",
+        capabilities=["text", "code"],
+        enabled=True,
+        healthy=True,
+        tier=1,
+    )
+    status, res = antigravity_chat_completion(model, {"messages": [{"role": "user", "content": "hi"}]})
+    assert status == 200
+    assert res["choices"][0]["message"]["content"] == "Hello from mock agy"
+    assert res["usage"] == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
