@@ -4,6 +4,7 @@ from typing import Any, AsyncIterator, Iterable, Iterator
 import asyncio
 import base64
 import binascii
+import contextlib
 import json
 import os
 import re
@@ -104,7 +105,40 @@ from app.storage import (
 )
 from app.validation.scanner import build_scan_payload, scan_registry
 
-app = FastAPI(title="ForgeRouter", version="0.1.0")
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
+    # A fresh boot (or a model just added) has zero rows in ai_router.provider_health
+    # for anything not yet scanned — both the dashboard (latest_provider_health_rows)
+    # and routing (load_registry_with_db_health) then see "unknown"/the stale default
+    # models.healthy=false, not the model's real status, until the cron
+    # (scripts/health_scan_sync.py, which only covers a %-slice per run) or a manual
+    # Rescan eventually gets to it. Kick off one full scan here so the service never
+    # starts blind. Fire-and-forget: must not delay the app becoming ready, and any
+    # failure here must never break startup (same "DB failures never break routing"
+    # rule as every other persistence call).
+    if os.environ.get("DATABASE_URL"):
+        from app.health_watchdog import note_check
+
+        async def _run() -> None:
+            try:
+                await _run_health_scan_and_sync()
+            except Exception:
+                pass  # best-effort — the cron and manual Rescan remain the fallback
+            try:
+                min_healthy = int(os.environ.get("HEALTH_WATCHDOG_MIN_HEALTHY", "3"))
+                cooldown_seconds = int(os.environ.get("HEALTH_WATCHDOG_COOLDOWN_SECONDS", "300"))
+                healthy_enabled, total_enabled = _enabled_healthy_counts()
+                note_check(healthy_enabled, total_enabled, min_healthy, cooldown_seconds, datetime.now(timezone.utc))
+            except Exception:
+                pass
+
+        asyncio.create_task(_run())
+        asyncio.create_task(_health_watchdog_loop())
+
+    yield
+
+
+app = FastAPI(title="ForgeRouter", version="0.1.0", lifespan=_lifespan)
 
 # Virtual routes can select different concrete models. Advertise a conservative
 # contract that satisfies agent clients without overstating unknown backends.
@@ -179,38 +213,6 @@ async def _health_watchdog_loop() -> None:
         except Exception:
             pass  # the watchdog must never crash the process
 
-
-@app.on_event("startup")
-async def _startup_health_scan() -> None:
-    # A fresh boot (or a model just added) has zero rows in ai_router.provider_health
-    # for anything not yet scanned — both the dashboard (latest_provider_health_rows)
-    # and routing (load_registry_with_db_health) then see "unknown"/the stale default
-    # models.healthy=false, not the model's real status, until the cron
-    # (scripts/health_scan_sync.py, which only covers a %-slice per run) or a manual
-    # Rescan eventually gets to it. Kick off one full scan here so the service never
-    # starts blind. Fire-and-forget: must not delay the app becoming ready, and any
-    # failure here must never break startup (same "DB failures never break routing"
-    # rule as every other persistence call).
-    if not os.environ.get("DATABASE_URL"):
-        return  # no DB to persist into (e.g. hermetic tests) — nothing to do
-
-    from app.health_watchdog import note_check
-
-    async def _run() -> None:
-        try:
-            await _run_health_scan_and_sync()
-        except Exception:
-            pass  # best-effort — the cron and manual Rescan remain the fallback
-        try:
-            min_healthy = int(os.environ.get("HEALTH_WATCHDOG_MIN_HEALTHY", "3"))
-            cooldown_seconds = int(os.environ.get("HEALTH_WATCHDOG_COOLDOWN_SECONDS", "300"))
-            healthy_enabled, total_enabled = _enabled_healthy_counts()
-            note_check(healthy_enabled, total_enabled, min_healthy, cooldown_seconds, datetime.now(timezone.utc))
-        except Exception:
-            pass
-
-    asyncio.create_task(_run())
-    asyncio.create_task(_health_watchdog_loop())
 
 
 class ChatMessage(BaseModel):
