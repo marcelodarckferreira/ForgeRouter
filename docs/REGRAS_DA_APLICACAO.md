@@ -42,8 +42,9 @@
   (`GET /admin/agents/{name}/key`) exige autenticação admin.
 
 ### 2.3 Cadastro do agente
-- Campos: nome, key (gerada automaticamente), **descrição** (propósito do agente,
-  editável depois pelo painel "Set up agent").
+- Campos: nome, key (gerada automaticamente), **descrição** (propósito do agente)
+  e **imagem de perfil** opcional, recortada em 256 px e persistida como data URI.
+  Descrição e imagem permanecem editáveis no painel "Set up agent".
 - **Papel aux-tasks é exclusivo**: apenas **um** agente pode ser o agente das
   tarefas auxiliares (flag `aux_tasks`, garantida por índice único no banco).
   Atribuir o papel a outro agente remove do anterior automaticamente.
@@ -292,7 +293,7 @@ Requisição → POST /v1/chat/completions
   tabelas).
 - Tabelas: `providers`, `models`, `provider_health` (append-only),
   `route_events` (inclui `prompt_tokens_raw`/`prompt_tokens_compacted` —
-  indicadores de compactação de contexto), `agents` (keys + `description` +
+  indicadores de compactação de contexto), `agents` (keys + `description` + `avatar_data_url` +
   `aux_tasks` exclusivo), `agent_models` (associações/opt-outs),
   `agent_providers` (participação durável), `demand_routes`, `task_map`,
   `users`, `sessions`, `subscription_catalog`, `settings` (key/value genérico,

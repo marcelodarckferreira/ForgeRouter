@@ -4,6 +4,7 @@ from app.main import app
 from app.registry import ProviderModel, ProviderRegistry
 
 client = TestClient(app)
+VALID_AVATAR = "data:image/jpeg;base64,/9j/2Q=="
 
 
 def agent_row(**overrides):
@@ -12,6 +13,7 @@ def agent_row(**overrides):
         "api_key": "hermes_supersecretvalue",
         "enabled": True,
         "created_at": None,
+        "avatar_data_url": VALID_AVATAR,
         "messages": 2,
         "tokens": 100,
         "cost": 0.0,
@@ -30,7 +32,18 @@ def test_agents_list_masks_api_keys(monkeypatch):
     agent = response.json()["agents"][0]
     assert "api_key" not in agent
     assert agent["api_key_masked"]
+    assert "avatar_data_url" not in agent
     assert "supersecret" not in response.text
+
+
+def test_agents_list_includes_profile_image_for_dashboard_session(monkeypatch):
+    monkeypatch.setattr("app.main.list_agents_with_usage", lambda days=30: [agent_row()])
+    monkeypatch.setattr("app.main.session_user", lambda token: {"username": "admin"} if token == "session" else None)
+
+    response = client.get("/admin/agents", headers={"Authorization": "Bearer session"})
+
+    assert response.status_code == 200
+    assert response.json()["agents"][0]["avatar_data_url"] == VALID_AVATAR
 
 
 def test_agent_create_requires_admin_token(monkeypatch):
@@ -44,7 +57,8 @@ def test_agent_create_requires_admin_token(monkeypatch):
 
 def test_agent_create_generates_key(monkeypatch):
     created = {}
-    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent": created.update(name=name, api_key=api_key, description=description, kind=kind))
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent", avatar_data_url=None: created.update(name=name, api_key=api_key, description=description, kind=kind, avatar_data_url=avatar_data_url))
 
     response = client.post("/admin/agents", json={"name": " athos "})
 
@@ -52,18 +66,74 @@ def test_agent_create_generates_key(monkeypatch):
     body = response.json()
     assert body["agent"] == "athos"
     assert body["api_key"].startswith("athos_")
-    assert created == {"name": "athos", "api_key": body["api_key"], "description": "", "kind": "agent"}
+    assert created == {"name": "athos", "api_key": body["api_key"], "description": "", "kind": "agent", "avatar_data_url": None}
 
 
 def test_agent_create_accepts_pregenerated_key(monkeypatch):
     created = {}
-    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent": created.update(name=name, api_key=api_key, description=description, kind=kind))
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr("app.main.create_agent", lambda name, api_key, description="", kind="agent", avatar_data_url=None: created.update(name=name, api_key=api_key, description=description, kind=kind, avatar_data_url=avatar_data_url))
 
     response = client.post("/admin/agents", json={"name": "athos", "api_key": "hermes_pregenerated"})
 
     assert response.status_code == 200
     assert response.json()["api_key"] == "hermes_pregenerated"
     assert created["api_key"] == "hermes_pregenerated"
+
+
+def test_agent_create_persists_profile_image(monkeypatch):
+    created = {}
+    avatar = VALID_AVATAR
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr(
+        "app.main.create_agent",
+        lambda name, api_key, description="", kind="agent", avatar_data_url=None: created.update(
+            name=name,
+            avatar_data_url=avatar_data_url,
+        ),
+    )
+
+    response = client.post("/admin/agents", json={"name": "athos", "avatar_data_url": avatar})
+
+    assert response.status_code == 200
+    assert created == {"name": "athos", "avatar_data_url": avatar}
+
+
+def test_agent_create_rejects_invalid_profile_image(monkeypatch):
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr("app.main.create_agent", lambda *args, **kwargs: None)
+
+    response = client.post("/admin/agents", json={"name": "athos", "avatar_data_url": "https://example.com/avatar.png"})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_avatar"
+
+
+def test_agent_create_rejects_fake_image_data(monkeypatch):
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr("app.main.create_agent", lambda *args, **kwargs: None)
+
+    response = client.post(
+        "/admin/agents",
+        json={"name": "athos", "avatar_data_url": "data:image/jpeg;base64,YXZhdGFy"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "invalid_avatar"
+
+
+def test_agent_profile_image_can_be_updated_and_removed(monkeypatch):
+    saved = []
+    monkeypatch.setattr("app.main.has_any_agent", lambda: False)
+    monkeypatch.setattr("app.main.set_agent_avatar", lambda name, avatar: saved.append((name, avatar)) or True)
+    avatar = VALID_AVATAR
+
+    updated = client.put("/admin/agents/athos/avatar", json={"avatar_data_url": avatar})
+    removed = client.put("/admin/agents/athos/avatar", json={"avatar_data_url": ""})
+
+    assert updated.status_code == 200
+    assert removed.status_code == 200
+    assert saved == [("athos", avatar), ("athos", None)]
 
 
 def test_agent_key_reveal_requires_admin_token(monkeypatch):
@@ -239,4 +309,3 @@ def test_associate_all_healthy_endpoint(monkeypatch):
     assert body["agents_updated"] == 3
     assert body["models_count"] == 12
     assert called == [True]
-

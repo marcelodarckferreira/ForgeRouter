@@ -1082,7 +1082,7 @@ def delete_provider(name: str) -> bool:
 def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
     agents_query = """
     SELECT name, api_key, enabled, created_at, description, aux_tasks, budget_limit_usd, budget_action,
-           config_path, config_format, config_key, restart_service, kind
+           config_path, config_format, config_key, restart_service, kind, avatar_data_url
     FROM ai_router.agents
     ORDER BY created_at, name
     """
@@ -1138,6 +1138,7 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
             "config_key": row[10] or "",
             "restart_service": row[11] or "",
             "kind": row[12] or "agent",
+            "avatar_data_url": row[13],
             "month_spend": 0.0,
             "messages": 0,
             "tokens": 0,
@@ -1175,12 +1176,18 @@ def list_agents_with_usage(days: int = 30) -> list[dict[str, Any]]:
     return list(agents.values())
 
 
-def create_agent(name: str, api_key: str, description: str = "", kind: str = "agent") -> None:
+def create_agent(
+    name: str,
+    api_key: str,
+    description: str = "",
+    kind: str = "agent",
+    avatar_data_url: str | None = None,
+) -> None:
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO ai_router.agents (name, api_key, description, kind) VALUES (%s, %s, %s, %s)",
-                (name, api_key, description, kind),
+                "INSERT INTO ai_router.agents (name, api_key, description, kind, avatar_data_url) VALUES (%s, %s, %s, %s, %s)",
+                (name, api_key, description, kind, avatar_data_url),
             )
         conn.commit()
 
@@ -1212,6 +1219,15 @@ def set_agent_description(name: str, description: str) -> bool:
     with db_connect() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE ai_router.agents SET description = %s WHERE name = %s", (description, name))
+            updated = cur.rowcount > 0
+        conn.commit()
+    return updated
+
+
+def set_agent_avatar(name: str, avatar_data_url: str | None) -> bool:
+    with db_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE ai_router.agents SET avatar_data_url = %s WHERE name = %s", (avatar_data_url, name))
             updated = cur.rowcount > 0
         conn.commit()
     return updated

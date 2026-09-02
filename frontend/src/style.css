@@ -1,6 +1,6 @@
 /* Theme tokens: dark is the default; html.light flips the neutral scale.
    Brand violet/teal and status chips are shared by both themes. */
-:root{--bg:#08090b;--surface:#0c0c0f;--surface2:#0a0a0d;--raised:#101013;--muted-bg:#18181b;--hover:#1c1c21;--border:#27272a;--input-border:#3f3f46;--text:#f4f4f5;--text2:#e4e4e7;--text3:#d4d4d8;--muted:#a1a1aa;--faint:#71717a;--faintest:#52525b;--btn-bg:#fff;--btn-fg:#09090b}
+:root{--bg:#08090b;--surface:#0c0c0f;--surface2:#0a0a0d;--raised:#101013;--muted-bg:#18181b;--hover:#1c1c21;--border:#27272a;--input-border:#3f3f46;--text:#f4f4f5;--text2:#e4e4e7;--text3:#d4d4d8;--muted:#a1a1aa;--faint:#71717a;--faintest:#52525b;--btn-bg:#fff;--btn-fg:#09090b;scrollbar-color:rgba(161,161,170,.55) var(--muted-bg);scrollbar-width:thin}
 html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--muted-bg:#e9ebee;--hover:#e2e5e9;--border:#d9dce1;--input-border:#c6ccd4;--text:#16181d;--text2:#24262c;--text3:#33363e;--muted:#5b616b;--faint:#666c76;--faintest:#8a8f98;--btn-bg:#18181b;--btn-fg:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{min-height:100vh;padding:48px;max-width:1180px;margin:0 auto}.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:28px}.eyebrow{color:#8b5cf6;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:700}h1{font-size:48px;letter-spacing:-.05em;margin:0 0 12px}.subtitle{color:var(--muted);max-width:680px;font-size:17px;line-height:1.6}.button{background:var(--btn-bg);color:var(--btn-fg);border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer;transition:opacity .15s ease,transform .1s ease,background .15s ease}.button:not(:disabled):hover{opacity:.88}.button:not(:disabled):active{transform:scale(.97)}.button:disabled{opacity:.45;cursor:not-allowed}.button.secondary{transition:background .15s ease,opacity .15s ease,transform .1s ease}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:28px 0}.metric{border:1px solid var(--border);background:linear-gradient(180deg,var(--raised),var(--surface));border-radius:18px;padding:18px}.metricIcon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:6px;background:rgba(139,92,246,.14);color:#a78bfa}.metricIcon svg{width:18px}.metric span{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}.metric strong{font-size:22px}.alert{border:1px solid #7f1d1d;background:#450a0a;color:#fecaca;border-radius:14px;padding:14px;margin:18px 0}.panel{border:1px solid var(--border);border-radius:22px;background:var(--surface);overflow:hidden}.panelHeader{display:flex;justify-content:space-between;align-items:center;padding:20px 22px;border-bottom:1px solid var(--border)}.panelHeader h2{margin:0;font-size:18px}.panelHeader span{color:var(--faint)}.table{width:100%}.row{display:grid;grid-template-columns:1fr 2fr .5fr .8fr .8fr 1fr;gap:12px;padding:15px 22px;border-bottom:1px solid var(--muted-bg);align-items:center}.row.head{color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-size:12px}.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px}.status{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;transition:background .2s ease,color .2s ease,opacity .2s ease}.status.healthy{background:#052e16;color:#86efac}.status.unhealthy{background:#3f1d05;color:#fdba74}.status.unknown{background:var(--border);color:var(--text3)}@media(max-width:900px){.shell{padding:24px}.hero{display:block}.cards{grid-template-columns:1fr 1fr}.row{grid-template-columns:1fr;gap:6px}}
 .tokenBox{display:flex;align-items:center;gap:10px;border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:12px 14px;margin:12px 0 22px}.tokenBox svg{width:18px;color:#8b5cf6}.tokenBox input{flex:1;background:transparent;border:0;color:var(--text);outline:0;font-size:14px}.panel{margin-bottom:18px}.row.route{grid-template-columns:.4fr 2fr 1.5fr .8fr .8fr 1fr}.small{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
@@ -92,8 +92,10 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
    ON (each badge keeps its own color: base .cap purple, or agentChip/capTask/
    costFree/etc.) and only go muted via .cap.groupEmpty once actually toggled off,
    matching "every group is enabled by default" for a freshly connected agent. */
-.cap.groupToggle{cursor:pointer}
+.cap.groupToggle{cursor:pointer;font:inherit;line-height:1.2}
 .cap.groupToggle:hover{filter:brightness(1.2)}
+.cap.groupToggle:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+.cap.groupToggle:disabled{cursor:not-allowed;filter:none;opacity:.55}
 .chip.select{appearance:none;background:var(--muted-bg)}
 .searchBox{background:var(--muted-bg);color:var(--text);border:1px solid var(--input-border);border-radius:999px;padding:5px 12px;font-size:12px;outline:0;width:180px}
 .searchBox:focus{border-color:#8b5cf6}
@@ -243,6 +245,30 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .agentStats{display:flex;gap:18px;color:var(--muted);font-size:13px}
 .agentStats b{color:var(--text);font-size:15px;margin-left:6px}
 .agentSpark{width:100%;height:44px}
+.agentIdentity{display:inline-flex;align-items:center;gap:7px;min-width:0;vertical-align:middle;color:inherit}
+.agentIdentityName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.agentAvatar{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:999px;overflow:hidden;background:linear-gradient(135deg,#8b5cf6,#2dd4bf);color:#fff;font-weight:800;line-height:1}
+.agentAvatar img{display:block;width:100%;height:100%;object-fit:cover}
+.agentAvatar.xs{width:18px;height:18px;font-size:9px}
+.agentAvatar.sm{width:24px;height:24px;font-size:11px}
+.agentAvatar.md{width:34px;height:34px;font-size:14px}
+.agentAvatar.lg{width:48px;height:48px;font-size:19px}
+.agentAvatar.aggregate{background:var(--muted-bg);color:#a78bfa;border:1px solid var(--input-border)}
+.agentSelectTrigger{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;min-width:170px;max-width:260px;height:38px;padding:5px 10px;background:var(--muted-bg);color:var(--text);border:1px solid var(--input-border);border-radius:12px;cursor:pointer;font:inherit;font-size:12px}
+.agentSelectTrigger:hover{border-color:var(--faintest);background:var(--hover)}
+.agentSelectTrigger:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+.agentSelectContent{z-index:80;width:var(--radix-select-trigger-width);max-height:min(320px,var(--radix-select-content-available-height));overflow:hidden;background:var(--raised);border:1px solid var(--input-border);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.5)}
+.agentSelectViewport{padding:5px}
+.agentSelectItem{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 30px 6px 8px;border-radius:8px;color:var(--text3);cursor:pointer;outline:0;font-size:12px;user-select:none}
+.agentSelectItem[data-highlighted]{background:var(--hover);color:var(--text)}
+.agentSelectItem[data-state="checked"]{color:#c4b5fd}
+.agentSelectItem>span:last-child{position:absolute;right:9px;display:inline-flex;color:#2dd4bf}
+.agentLegendIdentity{display:flex;align-items:center;min-width:0}
+.panelHeader .agentIdentityName,.metric .agentIdentityName{color:var(--text);margin:0;display:inline}
+.metric .agentIdentity{display:inline-flex;margin:0}
+.metric .agentAvatar{margin:0;display:inline-flex}
+.agentAvatarField{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px}
+.agentProfileRow .avatarPicker{padding:0}
 .keyGen{display:flex;gap:6px;align-items:center}
 .keyGen input{flex:1;font-size:12px}
 .setupRow{display:grid;grid-template-columns:140px 1fr auto;gap:12px;padding:14px 22px;border-bottom:1px solid var(--muted-bg);align-items:center}

@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
+import * as Select from '@radix-ui/react-select';
 import { Activity, AlertTriangle, ArrowLeft, AudioLines, Bot, Boxes, Brain, Check, CheckCircle2, CheckCheck, ChevronDown, ChevronUp, Code, Copy, CopyPlus, DollarSign, ExternalLink, Eye, EyeOff, HeartPulse, ImagePlus, Info, KeyRound, Layers, LayoutDashboard, Link2, Loader2, LogOut, MessageSquare, Monitor, Moon, Network, PanelLeftClose, PanelLeftOpen, Pause, Pencil, Plus, Power, PowerOff, RefreshCw, Route, Save, Scissors, Send, ShieldCheck, Shuffle, SignalHigh, SignalLow, SignalMedium, SlidersHorizontal, Sun, Terminal, Trash2, Type, User, UsersRound, Wrench, X } from 'lucide-react';
 import './style.css';
 import { selectedSubscriptionPlan, selectedSubscriptionPlanName, subscriptionPlanAuthUrl } from './subscriptionPlans';
+import { modelIdsForCostClass, nextAgentModelsForToggle, type CostClass } from './agentModelGroups';
 
 type ProviderHealth = { provider: string; model_id: string; tier: number; status: string; http_code: number | null; latency_ms: number | null; error_message: string | null; checked_at: string | null; };
 type RouteEvent = { route_id: number; request_id: string; model_id: string | null; required_capability: string; status: string; error_type: string | null; created_at: string | null; total_tokens: number | null; cost: number; reference_cost: number | null; agent: string | null; demand: string | null; prompt_preview: string | null; messages_dropped: number | null; };
@@ -30,7 +32,7 @@ type PlayMessage = { role: 'user' | 'assistant'; content: string; meta?: string;
 type Attachment = { id: string; url: string; name: string };
 
 type AgentDaily = { day: string; messages: number; tokens: number; cost: number; reference_cost: number };
-type AgentInfo = { name: string; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; kind?: 'agent' | 'service'; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
+type AgentInfo = { name: string; avatar_data_url?: string | null; enabled: boolean; created_at: string | null; description?: string; aux_tasks?: boolean; kind?: 'agent' | 'service'; api_key_masked: string; messages: number; tokens: number; cost: number; reference_cost: number; budget_limit_usd: number | null; budget_action: string; month_spend: number; daily: AgentDaily[]; models: string[]; models_off?: string[]; config_path?: string; config_format?: string; config_key?: string; restart_service?: string };
 
 type DemandData = { demands: string[]; info: Record<string, string>; routes: Record<string, string[]>; defaults: Record<string, string[]>; virtual_models: string[] };
 
@@ -603,6 +605,78 @@ function UserAvatar({ username, avatarUrl, size }: { username: string; avatarUrl
     <span className={`userAvatar${size ? ` ${size}` : ''}`}>
       {avatarUrl ? <img src={avatarUrl} alt="" /> : username.charAt(0).toUpperCase()}
     </span>
+  );
+}
+
+function AgentAvatar({ name, avatarUrl, size = 'sm' }: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [avatarUrl]);
+  const showImage = Boolean(avatarUrl) && !failed;
+  return (
+    <span className={`agentAvatar ${size}`} aria-hidden="true">
+      {showImage ? <img src={avatarUrl ?? ''} alt="" onError={() => setFailed(true)} /> : name.charAt(0).toUpperCase() || <Bot size={14} />}
+    </span>
+  );
+}
+
+function AgentIdentity({ name, avatarUrl, size = 'sm', className = '' }: {
+  name: string;
+  avatarUrl?: string | null;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  return (
+    <span className={`agentIdentity${className ? ` ${className}` : ''}`}>
+      <AgentAvatar name={name} avatarUrl={avatarUrl} size={size} />
+      <span className="agentIdentityName">{name}</span>
+    </span>
+  );
+}
+
+function AgentSelect({ agents, value, onValueChange, includeAll = false, label, placeholder = 'Select agent' }: {
+  agents: AgentInfo[];
+  value: string;
+  onValueChange: (value: string) => void;
+  includeAll?: boolean;
+  label: string;
+  placeholder?: string;
+}) {
+  const selected = agents.find((agent) => agent.name === value);
+  return (
+    <Select.Root value={value || undefined} onValueChange={onValueChange}>
+      <Select.Trigger className="agentSelectTrigger" aria-label={label} title={label}>
+        {value === 'all' && includeAll ? (
+          <span className="agentIdentity"><span className="agentAvatar sm aggregate"><UsersRound size={14} /></span><span className="agentIdentityName">All agents</span></span>
+        ) : selected ? (
+          <AgentIdentity name={selected.name} avatarUrl={selected.avatar_data_url} />
+        ) : (
+          <span className="muted">{placeholder}</span>
+        )}
+        <Select.Icon><ChevronDown size={14} /></Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <Select.Content className="agentSelectContent" position="popper" sideOffset={6} collisionPadding={10}>
+          <Select.Viewport className="agentSelectViewport">
+            {includeAll && (
+              <Select.Item className="agentSelectItem" value="all">
+                <Select.ItemText><span className="agentIdentity"><span className="agentAvatar sm aggregate"><UsersRound size={14} /></span><span className="agentIdentityName">All agents</span></span></Select.ItemText>
+                <Select.ItemIndicator><Check size={13} /></Select.ItemIndicator>
+              </Select.Item>
+            )}
+            {agents.map((agent) => (
+              <Select.Item className="agentSelectItem" key={agent.name} value={agent.name}>
+                <Select.ItemText><AgentIdentity name={agent.name} avatarUrl={agent.avatar_data_url} /></Select.ItemText>
+                <Select.ItemIndicator><Check size={13} /></Select.ItemIndicator>
+              </Select.Item>
+            ))}
+          </Select.Viewport>
+        </Select.Content>
+      </Select.Portal>
+    </Select.Root>
   );
 }
 
@@ -1365,6 +1439,7 @@ function App() {
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentDescription, setNewAgentDescription] = useState('');
   const [newAgentKind, setNewAgentKind] = useState<'agent' | 'service'>('agent');
+  const [newAgentAvatar, setNewAgentAvatar] = useState<string | null>(null);
   const [togglingGroup, setTogglingGroup] = useState<string | null>(null);
   const [togglingKind, setTogglingKind] = useState<string | null>(null);
   const [promptModal, setPromptModal] = useState<{ title: string; value: string; resolve: (value: string | null) => void } | null>(null);
@@ -2001,11 +2076,12 @@ function App() {
     try {
       setCreatingAgent(true);
       setError(null);
-      await fetchJson('/admin/agents', { method: 'POST', body: JSON.stringify({ name, api_key: newAgentKey, description: newAgentDescription.trim(), kind: newAgentKind }) });
+      await fetchJson('/admin/agents', { method: 'POST', body: JSON.stringify({ name, api_key: newAgentKey, description: newAgentDescription.trim(), kind: newAgentKind, avatar_data_url: newAgentAvatar }) });
       setScanStatus(`agent "${name}" created — the key is stored in the agent's registration; paste it into the agent's connection settings`);
       setNewAgentName('');
       setNewAgentDescription('');
       setNewAgentKind('agent');
+      setNewAgentAvatar(null);
       setNewAgentKey(generateAgentKey());
       setConnectOpen(false);
       setSelectedAgent(null);
@@ -2150,6 +2226,20 @@ function App() {
       await loadAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the agent description');
+    }
+  }
+
+  async function saveAgentAvatar(name: string, avatarDataUrl: string | null) {
+    try {
+      setError(null);
+      await fetchJson(`/admin/agents/${encodeURIComponent(name)}/avatar`, {
+        method: 'PUT',
+        body: JSON.stringify({ avatar_data_url: avatarDataUrl ?? '' }),
+      });
+      setScanStatus(`${name}: profile image ${avatarDataUrl ? 'saved' : 'removed'}`);
+      await loadAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save the agent profile image');
     }
   }
 
@@ -2443,15 +2533,6 @@ function App() {
     for (const provider of registry) for (const model of provider.models) map[model.id] = provider.name;
     return map;
   }, [registry]);
-  // Cost/access classification per model, from its provider: local > paid > free.
-  const costClassByModel = useMemo(() => {
-    const map: Record<string, 'free' | 'paid' | 'local'> = {};
-    for (const provider of registry) {
-      const cls = provider.access_type === 'local' ? 'local' : provider.cost_type === 'paid' ? 'paid' : 'free';
-      for (const model of provider.models) map[model.id] = cls;
-    }
-    return map;
-  }, [registry]);
   const readyByName = useMemo(() => Object.fromEntries(readiness.map((item) => [item.provider, item])), [readiness]);
   const scoreByModel = useMemo(() => {
     const map: Record<string, number> = {};
@@ -2490,8 +2571,11 @@ function App() {
       );
     });
   }
+  function modelsInCostClass(costClass: CostClass): string[] {
+    return modelIdsForCostClass(registry, healthByModel, costClass);
+  }
   async function toggleAgentModelSet(agent: AgentInfo, ids: string[], label: string) {
-    if (!ids.length) return;
+    if (!ids.length || togglingGroup) return;
     const current = new Set(agent.models);
     // "Any on -> turn off" rather than "all on -> turn off": a model that
     // belongs to more than one group (e.g. vision+reasoning) gets removed by
@@ -2501,9 +2585,7 @@ function App() {
     // like "turn everything on" and silently re-added the model the first
     // click had just turned off.
     const anyOn = ids.some((id) => current.has(id));
-    const next = anyOn
-      ? agent.models.filter((id) => !ids.includes(id))
-      : [...new Set([...agent.models, ...ids])];
+    const next = nextAgentModelsForToggle(agent.models, ids);
     const key = `${agent.name}:${label}`;
     setTogglingGroup(key);
     try {
@@ -2523,6 +2605,7 @@ function App() {
     const agent = agents.find((item) => item.name === agentFilter);
     return agent ? new Set(agent.models) : null;
   }, [agentFilter, agents]);
+  const agentByName = useMemo(() => new Map(agents.map((agent) => [agent.name, agent])), [agents]);
   // Manage providers always shows the full registry — hiding rows under an agent
   // filter made freshly saved providers look like the save had failed. The Models
   // column still reports how many models the filtered agent may use.
@@ -2599,18 +2682,24 @@ function App() {
     .sort((a, b) => (scoreByModel[b.model_id] ?? 0) - (scoreByModel[a.model_id] ?? 0));
 
   const agentSelect = (
-    <select className="chip select" title="Filter by agent — applies to every screen" value={agentFilter} onChange={(e) => selectAgentFilter(e.target.value)}>
-      <option value="all">all agents</option>
-      {agents.map((agent) => <option key={agent.name} value={agent.name}>{agent.name}</option>)}
-    </select>
+    <AgentSelect
+      agents={agents}
+      value={agentFilter}
+      onValueChange={selectAgentFilter}
+      includeAll
+      label="Filter by agent — applies to every screen"
+    />
   );
 
   // Routing variant without "all agents": provider management acts under a
   // specific agent's API key (AGENTE_API_KEY), so one must always be selected.
   const agentSelectRequired = (
-    <select className="chip select" title="Provider management acts under this agent's API key" value={agentFilter === 'all' ? agents[0]?.name ?? '' : agentFilter} onChange={(e) => selectAgentFilter(e.target.value)}>
-      {agents.map((agent) => <option key={agent.name} value={agent.name}>{agent.name}</option>)}
-    </select>
+    <AgentSelect
+      agents={agents}
+      value={agentFilter === 'all' ? agents[0]?.name ?? '' : agentFilter}
+      onValueChange={selectAgentFilter}
+      label="Provider management acts under this agent's API key"
+    />
   );
 
   const usagePanel = usage && (
@@ -2627,8 +2716,8 @@ function App() {
       <UsageChart
         seriesList={
           agentFilter === 'all' && usage.by_agent && usage.by_agent.length > 0
-            ? usage.by_agent.map((a) => ({ name: a.agent, daily: a.daily }))
-            : [{ name: agentFilter === 'all' ? 'Total' : agentFilter, daily: usage.daily }]
+            ? usage.by_agent.map((a) => ({ name: a.agent, avatarUrl: agents.find((agent) => agent.name === a.agent)?.avatar_data_url, daily: a.daily }))
+            : [{ name: agentFilter === 'all' ? 'Total' : agentFilter, avatarUrl: agents.find((agent) => agent.name === agentFilter)?.avatar_data_url, daily: usage.daily }]
         }
         metric={usageMetric}
         days={usage.days}
@@ -2759,6 +2848,10 @@ function App() {
               <div className="panelHeader"><h2>Agent details</h2><span>saved to the agents registry (PostgreSQL)</span></div>
               <div className="form">
                 <div className="formGrid">
+                  <div className="agentAvatarField">
+                    <span>Profile image (optional)</span>
+                    <AvatarPicker username={newAgentName || '?'} value={newAgentAvatar} onChange={setNewAgentAvatar} onError={setError} />
+                  </div>
                   <label>Agent name<input value={newAgentName} placeholder="e.g. athos" autoFocus onChange={(e) => { const value = e.target.value; setNewAgentName(value); setNewAgentKey(generateAgentKey(value)); }} onKeyDown={(e) => { if (e.key === 'Enter') void createAgent(); }} /></label>
                   <label>Kind
                     <select value={newAgentKind} onChange={(e) => setNewAgentKind(e.target.value as 'agent' | 'service')}>
@@ -2793,7 +2886,7 @@ function App() {
             <>
               <header className="pageHeader">
                 <div>
-                  <h1>Edit Agent: {agent.name}</h1>
+                  <h1><AgentIdentity name={agent.name} avatarUrl={agent.avatar_data_url} size="lg" /></h1>
                   <p className="subtitle">Configure credentials, deploy settings, monthly budget and model controls.</p>
                 </div>
                 <div className="actions">
@@ -2809,9 +2902,19 @@ function App() {
               {error && <div className="alert">{error}</div>}
 
               <Panel
-                title={<>Set up agent: {agent.name} <button className="iconButton" title="Rename agent" onClick={() => void renameAgent(agent.name)}><Pencil size={13} /></button></>}
+                title={<><AgentIdentity name={agent.name} avatarUrl={agent.avatar_data_url} size="md" /><button className="iconButton" title="Rename agent" onClick={() => void renameAgent(agent.name)}><Pencil size={13} /></button></>}
                 meta={`created ${agent.created_at ? `${agent.created_at.slice(8, 10)}/${agent.created_at.slice(5, 7)}/${agent.created_at.slice(0, 4)}` : '-'}`}
               >
+                <div className="setupRow agentProfileRow">
+                  <span>Profile image</span>
+                  <AvatarPicker
+                    username={agent.name}
+                    value={agent.avatar_data_url ?? null}
+                    onChange={(next) => void saveAgentAvatar(agent.name, next)}
+                    onError={setError}
+                  />
+                  <span />
+                </div>
                 <div className="setupRow"><span>API base URL</span><span className="mono">{window.location.origin}/v1</span><button className="iconButton" title="Copy base URL" onClick={() => void copyText(`${window.location.origin}/v1`).then((ok) => setScanStatus(ok ? 'base URL copied' : 'copy failed'))}><Copy size={13} /></button></div>
                 <div className="setupRow"><span>API key</span><span className="mono">{agent.api_key_masked || '-'}</span><button className="iconButton" title="Copy API key (requires admin token)" onClick={() => void copyAgentKey(agent.name)}><Copy size={13} /></button></div>
                 <div className="setupRow"><span>Model name</span><span className="mono">auto</span><button className="iconButton" title="Copy model name" onClick={() => void copyText('auto').then((ok) => setScanStatus(ok ? 'model name copied' : 'copy failed'))}><Copy size={13} /></button></div>
@@ -2970,10 +3073,8 @@ function App() {
                 const agentHealthy = agent.models.filter((id) => healthByModel[id] === 'healthy').length;
                 const groups: Record<string, number> = { simple: 0, standard: 0, complex: 0, reasoning: 0, vision: 0, audio: 0, code: 0 };
                 const categories: Record<string, number> = Object.fromEntries(CAPABILITIES.map((cap) => [cap, 0]));
-                const costs: Record<string, number> = { free: 0, paid: 0, local: 0 };
                 for (const id of agent.models) {
                   if (healthByModel[id] !== 'healthy') continue;
-                  costs[costClassByModel[id] ?? 'free'] += 1;
                   const score = scoreByModel[id] ?? 0;
                   const caps = capsByModel[id] ?? [];
                   for (const cap of caps) if (cap in categories) categories[cap] += 1;
@@ -2989,7 +3090,7 @@ function App() {
                   <div key={agent.name} className="agentCard">
                     <span className="agentHead">
                       <span className="agentHeadLeft">
-                        <Bot size={17} /><strong>{agent.name}</strong>
+                        <AgentIdentity name={agent.name} avatarUrl={agent.avatar_data_url} size="md" />
                         <b
                           className={`status ${agent.kind === 'service' ? 'unhealthy' : 'unknown'}${togglingKind === agent.name ? ' toggling' : ''}`}
                           title={togglingKind === agent.name ? 'Saving…' : (agent.kind === 'service' ? 'Internal service consuming LLMs through this agent identity — not a conversational agent (no chat/bot/knowledge base). ' : 'Real conversational agent (chat/bot/knowledge base). ') + 'Click to toggle.'}
@@ -3014,14 +3115,23 @@ function App() {
                     </span>
                     <span className="muted groupsHint">Click a group below to enable/disable it for this agent</span>
                     <span className="caps agentGroups" title="Healthy models per task group — click a group to enable/disable all of it for this agent">
-                      {Object.entries(groups).map(([group, count]) => (
-                        <i
-                          key={group}
-                          className={`cap groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${group}` ? ' toggling' : ''}`}
-                          title={`Click to ${count > 0 ? 'disable' : 'enable'} all "${group}" models for ${agent.name}`}
-                          onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, modelsInGroup(group), group); }}
-                        >{group} {count}</i>
-                      ))}
+                      {Object.entries(groups).map(([group]) => {
+                        const groupIds = modelsInGroup(group);
+                        const count = groupIds.filter((id) => agent.models.includes(id)).length;
+                        const pressed = count === 0 ? false : count === groupIds.length ? true : 'mixed';
+                        return (
+                          <button
+                            key={group}
+                            type="button"
+                            className={`cap groupToggle${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${group}` ? ' toggling' : ''}`}
+                            title={`Click to ${count > 0 ? 'disable' : 'enable'} all "${group}" models for ${agent.name}`}
+                            aria-pressed={pressed}
+                            aria-busy={togglingGroup === `${agent.name}:${group}`}
+                            disabled={!groupIds.length || Boolean(togglingGroup)}
+                            onClick={(e) => { e.stopPropagation(); void toggleAgentModelSet(agent, groupIds, group); }}
+                          >{group} {count}</button>
+                        );
+                      })}
                     </span>
                     <span className="caps agentGroups" title="Task map — healthy models the agent can serve each task with">
                       {taskMap.map((item) => {
@@ -3039,10 +3149,24 @@ function App() {
                         <i key={cap} className={`cap agentChip${count === 0 ? ' groupEmpty' : ''}`}>{cap} {count}</i>
                       ))}
                     </span>
-                    <span className="caps agentGroups" title="Healthy models by cost/access classification">
-                      <i className={`cap costFree${costs.free === 0 ? ' groupEmpty' : ''}`}>free {costs.free}</i>
-                      <i className={`cap costPaid${costs.paid === 0 ? ' groupEmpty' : ''}`}>paid {costs.paid}</i>
-                      <i className={`cap costLocal${costs.local === 0 ? ' groupEmpty' : ''}`}>local {costs.local}</i>
+                    <span className="caps agentGroups" title="Healthy models by cost/access classification — click to enable or disable the group">
+                      {(['free', 'paid', 'local'] as CostClass[]).map((costClass) => {
+                        const groupIds = modelsInCostClass(costClass);
+                        const count = groupIds.filter((id) => agent.models.includes(id)).length;
+                        const pressed = count === 0 ? false : count === groupIds.length ? true : 'mixed';
+                        return (
+                          <button
+                            key={costClass}
+                            type="button"
+                            className={`cap groupToggle cost${costClass.charAt(0).toUpperCase()}${count === 0 ? ' groupEmpty' : ''}${togglingGroup === `${agent.name}:${costClass}` ? ' toggling' : ''}`}
+                            title={`Click to ${count > 0 ? 'disable' : 'enable'} all ${costClass} models for ${agent.name}`}
+                            aria-pressed={pressed}
+                            aria-busy={togglingGroup === `${agent.name}:${costClass}`}
+                            disabled={!groupIds.length || Boolean(togglingGroup)}
+                            onClick={() => void toggleAgentModelSet(agent, groupIds, costClass)}
+                          >{costClass} {count}</button>
+                        );
+                      })}
                     </span>
                     <AgentSparkline daily={agent.daily} />
                     <div className="agentCardFooter">
@@ -3087,10 +3211,10 @@ function App() {
                   <b className="status unhealthy">{modelStatusCounts.down} off</b>
                 </span>
               </div>
-              <Metric icon={<Route />} label={`Messages (30d)${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} value={`${usage?.totals.messages ?? 0}`} accent="accent-blue" />
+              <Metric icon={<Route />} label={<>Messages (30d){agentFilter !== 'all' && <> — <AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /></>}</>} value={`${usage?.totals.messages ?? 0}`} accent="accent-blue" />
               <div className="metric">
                 <div className="metricIcon accent-green"><DollarSign /></div>
-                <span>Real cost (30d){agentFilter !== 'all' ? ` — ${agentFilter}` : ''}</span>
+                <span>Real cost (30d){agentFilter !== 'all' && <> — <AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /></>}</span>
                 <strong>{formatCost(usage?.totals.cost ?? 0)}</strong>
                 <div className="costRefBlock">
                   <span>Reference cost (30d)</span>
@@ -3199,7 +3323,7 @@ function App() {
                   <div className="tableScroll">
                     {yearlyUsage.by_agent.map((agentRow, index) => (
                       <div className="row monthly" style={{ gridTemplateColumns: gridCols }} key={agentRow.agent}>
-                        <span><i className="legendDot" style={{ background: agentColor(index) }} />{agentRow.agent}</span>
+                        <span className="agentLegendIdentity"><i className="legendDot" style={{ background: agentColor(index) }} /><AgentIdentity name={agentRow.agent} avatarUrl={agentByName.get(agentRow.agent)?.avatar_data_url} size="xs" /></span>
                         {months.map((m) => <span key={m}>{formatMetricValue(agentRow.months[m]?.[usageMetric] ?? 0, usageMetric)}</span>)}
                         <span><b>{formatMetricValue(agentRow.totals[usageMetric], usageMetric)}</b></span>
                       </div>
@@ -3255,7 +3379,7 @@ function App() {
               usage.by_agent.map((agentUsage, index) => agentUsage.by_model.length > 0 && (
                 <Panel
                   key={agentUsage.agent}
-                  title={<><i className="legendDot" style={{ background: agentColor(index) }} />Cost by model — {agentUsage.agent}</>}
+                  title={<><i className="legendDot" style={{ background: agentColor(index) }} />Cost by model — <AgentIdentity name={agentUsage.agent} avatarUrl={agentByName.get(agentUsage.agent)?.avatar_data_url} size="xs" /></>}
                   meta={`${agentUsage.by_model.length} models · ${agentUsage.totals.messages} msgs · ${formatTokens(agentUsage.totals.tokens)} tok · ${formatCost(agentUsage.totals.cost)} · last ${usage.days} days`}
                 >
                   <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span></div>
@@ -3274,7 +3398,7 @@ function App() {
                 </Panel>
               ))
             ) : (usage && usage.by_model.length > 0 && (
-              <Panel title={`Cost by model${agentFilter !== 'all' ? ` — ${agentFilter}` : ''}`} meta={`${usage.by_model.length} models · last ${usage.days} days`}>
+              <Panel title={<>Cost by model{agentFilter !== 'all' && <> — <AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /></>}</>} meta={`${usage.by_model.length} models · last ${usage.days} days`}>
                 <div className="row byModel head"><span>Model</span><span>Messages</span><span>Tokens</span><span>% of total</span><span>Cost</span><span title="Notional cost at public commercial rates for an equivalent model — never billed">Ref. cost</span></div>
                 <div className="tableScroll">
                 {usage.by_model.map((item) => (
@@ -3319,7 +3443,7 @@ function App() {
                     <span><b className={`status ${route.status}`}>{route.status}</b></span>
                     <span className="mono">{route.model_id ?? '-'}</span>
                     <span><DemandTag demand={route.demand} /></span>
-                    <span className="caps">{route.agent ? <i className="cap agentChip">{route.agent}</i> : <span className="muted">-</span>}</span>
+                    <span className="caps">{route.agent ? <span className="cap agentChip"><AgentIdentity name={route.agent} avatarUrl={agentByName.get(route.agent)?.avatar_data_url} size="xs" /></span> : <span className="muted">-</span>}</span>
                     <span>{formatTokens(route.total_tokens)}</span>
                     <span>{route.total_tokens ? formatCost(route.cost) : '-'}</span>
                     <span>{route.reference_cost != null ? formatCost(route.reference_cost) : '-'}</span>
@@ -3329,7 +3453,7 @@ function App() {
                   {expandedRoute === route.route_id && (
                     <div className="msgDetail">
                       <p><b>Message</b></p>
-                      <p>ID <span className="mono">{route.request_id}</span> · Route #{route.route_id} · Capability <span className="mono">{route.required_capability}</span> · Agent <span className="mono">{route.agent ?? '-'}</span></p>
+                      <p>ID <span className="mono">{route.request_id}</span> · Route #{route.route_id} · Capability <span className="mono">{route.required_capability}</span> · Agent {route.agent ? <AgentIdentity name={route.agent} avatarUrl={agentByName.get(route.agent)?.avatar_data_url} size="xs" /> : <span className="mono">-</span>}</p>
                       <p>Model <span className="mono">{route.model_id ?? '-'}</span> · Demand <span className="mono">{route.demand ?? '-'}</span> · Tokens {route.total_tokens ?? 0} · Cost {formatCost(route.cost)}{route.reference_cost != null ? <> · Ref. cost {formatCost(route.reference_cost)}</> : null}{route.error_type ? <> · Error <span className="mono">{route.error_type}</span></> : null}</p>
                       {route.prompt_preview && (
                         <p title="First ~100 characters of the last user message — ForgeRouter does not persist full conversation content">
@@ -3576,7 +3700,8 @@ function App() {
                     <span className="caps">{agentAllowed ? (() => {
                       const providerIds = provider.models.map((model) => model.id);
                       const participates = providerIds.some((id) => agentAllowed.has(id));
-                      return <button type="button" className={`cap toggle${participates ? ' active' : ''}`} title={participates ? `${agentFilter} routes through this provider — click to opt out of all of its models` : `${agentFilter} opted out of this provider — click to associate its enabled models`} onClick={() => void setAgentModelAssociation(participates ? providerIds : provider.models.filter((model) => model.enabled).map((model) => model.id), !participates)}>{agentFilter}</button>;
+                      const filteredAgent = agentByName.get(agentFilter);
+                      return <button type="button" className={`cap toggle${participates ? ' active' : ''}`} title={participates ? `${agentFilter} routes through this provider — click to opt out of all of its models` : `${agentFilter} opted out of this provider — click to associate its enabled models`} onClick={() => void setAgentModelAssociation(participates ? providerIds : provider.models.filter((model) => model.enabled).map((model) => model.id), !participates)}><AgentIdentity name={agentFilter} avatarUrl={filteredAgent?.avatar_data_url} size="xs" /></button>;
                     })() : <span className="muted">-</span>}</span>
                     <span title={agentAllowed ? `models ${agentFilter} may use / total` : 'total models'}>{agentAllowed ? `${allowedCount}/${provider.models.length}` : provider.models.length}</span>
                     <span className="rowActions">
@@ -3615,7 +3740,7 @@ function App() {
               <div className="tableScroll">
               {visibleProviders.map((provider) => {
                 const associated = agentAllowed?.has(provider.model_id) ?? false;
-                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span className="caps">{agentAllowed ? <button type="button" className={`cap toggle${associated ? ' active' : ''}`} title={associated ? `${agentFilter} routes through this model — click to opt out` : `${agentFilter} opted out of this model — click to associate`} onClick={() => void setAgentModelAssociation([provider.model_id], !associated)}>{agentFilter}</button> : <span className="muted">-</span>}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
+                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span className="caps">{agentAllowed ? <button type="button" className={`cap toggle${associated ? ' active' : ''}`} title={associated ? `${agentFilter} routes through this model — click to opt out` : `${agentFilter} opted out of this model — click to associate`} onClick={() => void setAgentModelAssociation([provider.model_id], !associated)}><AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /></button> : <span className="muted">-</span>}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
               })}
               {!visibleProviders.length && <div className="row"><span className="muted">No providers match this filter.</span></div>}
               </div>
@@ -3783,7 +3908,7 @@ function App() {
             <header className="pageHeader">
               <div>
                 <h1>Playground</h1>
-                <p className="subtitle">Chat through the router. "auto" picks the best healthy model by tier.{agentFilter !== 'all' && <> Chatting as <b>{agentFilter}</b> — usage counts for this agent and its model controls apply.</>}</p>
+                <p className="subtitle">Chat through the router. "auto" picks the best healthy model by tier.{agentFilter !== 'all' && <> Chatting as <AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /> — usage counts for this agent and its model controls apply.</>}</p>
               </div>
             </header>
             {error && <div className="alert">{error}</div>}
@@ -3823,7 +3948,7 @@ function App() {
                   ref={composerRef}
                   rows={1}
                   autoFocus
-                  className="composerInput"
+                  className="composerInput resize-none"
                   aria-label="Message"
                   placeholder="Type a message… (Enter sends, Shift+Enter for a new line)"
                   value={playInput}
@@ -3845,16 +3970,13 @@ function App() {
                   </div>
                   <span className="composerRight">
                     {playInput.trim() && <span className="tokenEst" title="Rough token estimate">~{Math.ceil(playInput.length / 4)} tok</span>}
-                    <select
-                      className="chip select"
-                      title="Chat as agent (required)"
-                      aria-label="Chat as agent"
+                    <AgentSelect
+                      agents={agents}
                       value={agentFilter === 'all' ? '' : agentFilter}
-                      onChange={(e) => selectAgentFilter(e.target.value)}
-                    >
-                      {agentFilter === 'all' && <option value="" disabled>select agent…</option>}
-                      {agents.map((agent) => <option key={agent.name} value={agent.name}>{agent.name}</option>)}
-                    </select>
+                      onValueChange={selectAgentFilter}
+                      label="Chat as agent (required)"
+                      placeholder="Select agent…"
+                    />
                     <div className="modelPicker" ref={pickerRef}>
                       <button className="modelPickerBtn" aria-label="Select model" aria-expanded={modelPickerOpen} onClick={() => { setModelPickerOpen(!modelPickerOpen); setPlayModelSearch(''); }}>
                         <span className="mono">{playModel === 'auto' ? 'auto (router decides)' : playModel}</span>
@@ -3992,7 +4114,7 @@ function agentColor(index: number): string {
   return AGENT_COLORS[index % AGENT_COLORS.length];
 }
 
-function UsageChart({ seriesList, metric, days }: { seriesList: { name: string; daily: UsageDay[] }[]; metric: UsageMetric; days: number }) {
+function UsageChart({ seriesList, metric, days }: { seriesList: { name: string; avatarUrl?: string | null; daily: UsageDay[] }[]; metric: UsageMetric; days: number }) {
   const dayKeys: string[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date();
@@ -4001,7 +4123,7 @@ function UsageChart({ seriesList, metric, days }: { seriesList: { name: string; 
   }
   const lines = seriesList.map((series, index) => {
     const byDay = Object.fromEntries(series.daily.map((item) => [item.day, item[metric]]));
-    return { name: series.name, color: agentColor(index), values: dayKeys.map((key) => byDay[key] ?? 0) };
+    return { name: series.name, avatarUrl: series.avatarUrl, color: agentColor(index), values: dayKeys.map((key) => byDay[key] ?? 0) };
   });
   const width = 920, height = 180, padX = 42, padY = 16;
   const max = Math.max(1, ...lines.flatMap((line) => line.values));
@@ -4038,7 +4160,7 @@ function UsageChart({ seriesList, metric, days }: { seriesList: { name: string; 
       </svg>
       {!single && (
         <div className="chartLegend">
-          {lines.map((line) => <span key={line.name}><i className="legendDot" style={{ background: line.color }} />{line.name}</span>)}
+          {lines.map((line) => <span key={line.name}><i className="legendDot" style={{ background: line.color }} /><AgentIdentity name={line.name} avatarUrl={line.avatarUrl} size="xs" /></span>)}
         </div>
       )}
     </div>
@@ -4058,7 +4180,7 @@ function AgentSparkline({ daily }: { daily: AgentDaily[] }) {
   );
 }
 
-function Metric({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent?: string }) { return <div className="metric"><div className={`metricIcon${accent ? ` ${accent}` : ''}`}>{icon}</div><span>{label}</span><strong>{value}</strong></div>; }
+function Metric({ icon, label, value, accent }: { icon: React.ReactNode; label: React.ReactNode; value: string; accent?: string }) { return <div className="metric"><div className={`metricIcon${accent ? ` ${accent}` : ''}`}>{icon}</div><span>{label}</span><strong>{value}</strong></div>; }
 function Panel({ title, meta, extra, children }: { title: React.ReactNode; meta: string; extra?: React.ReactNode; children: React.ReactNode }) { return <section className="panel"><div className="panelHeader"><h2>{title}</h2><div className="panelMeta">{extra}<span>{meta}</span></div></div><div className="table">{children}</div></section>; }
 
 createRoot(document.getElementById('root')!).render(<App />);

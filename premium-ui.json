@@ -1,0 +1,26 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["frontend/src"],
+  "locale": "en",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "CRUD"],
+  "ownership": {
+    "Select/Listbox": "native"
+  },
+  "ownershipVariants": {
+    "Select/Listbox": {
+      "default": "native",
+      "agentIdentity": "authored-radix"
+    }
+  },
+  "requiredCommands": ["frontend-test", "frontend-build", "backend-test"],
+  "commands": {
+    "frontend-test": "npm --prefix frontend test",
+    "frontend-build": "npm --prefix frontend run build",
+    "backend-test": "docker compose run --rm forgerouter pytest -q"
+  },
+  "evidence": {
+    "crudFullFlow": "tests/test_admin_agents.py",
+    "failurePaths": "tests/test_admin_agents.py"
+  }
+}
