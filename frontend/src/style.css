@@ -259,7 +259,7 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .agentSelectTrigger:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
 .agentSelectContent{z-index:80;width:var(--radix-select-trigger-width);max-height:min(320px,var(--radix-select-content-available-height));overflow:hidden;background:var(--raised);border:1px solid var(--input-border);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.5)}
 .agentSelectViewport{padding:5px}
-.agentSelectItem{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 30px 6px 8px;border-radius:8px;color:var(--text3);cursor:pointer;outline:0;font-size:12px;user-select:none}
+.agentSelectItem{position:relative;display:flex;align-items:center;gap:8px;min-height:38px;padding:6px 30px 6px 8px;border-radius:8px;color:var(--text3);cursor:pointer;outline:0;font-size:12px;user-select:none}
 .agentSelectItem[data-highlighted]{background:var(--hover);color:var(--text)}
 .agentSelectItem[data-state="checked"]{color:#c4b5fd}
 .agentSelectItem>span:last-child{position:absolute;right:9px;display:inline-flex;color:#2dd4bf}
