@@ -66,15 +66,11 @@
   Refresh e salvamento de provider, e garante isso automaticamente — novos
   providers e novos agentes se encontram sozinhos.
 - **Opt-out por agente é a exceção persistente**: desligar um modelo para um
-  agente (coluna Agent nas tabelas da tela Routing, ou Model controls na tela
-  Agents) mantém a linha no banco com `enabled = FALSE`. Por existir, o sync não
+  agente (em Model controls na tela My Agents) mantém a linha no banco com `enabled = FALSE`. Por existir, o sync não
   religa — a escolha sobrevive a todos os scans.
 - Modelos desabilitados no provider (on/off desmarcado) saem da lista de todos os
   agentes.
-- Na tela Routing, a coluna **Agent** mostra apenas o agente selecionado no
-  filtro, como toggle de associação — no nível do modelo (Manage Models) e no
-  nível do provider (Manage providers, que liga/desliga todos os modelos do
-  provider de uma vez).
+- A tela **Routing** foca exclusivamente na validação de infraestrutura, cadastro de provedores e verificação de saúde/latência dos modelos. O gerenciamento e associação de modelos a cada agente é realizado exclusivamente na tela **My Agents** (em Model controls e group toggles).
 - Falha na consulta de agente **nunca** interrompe o roteamento.
 
 ## 4. Providers

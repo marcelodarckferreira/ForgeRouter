@@ -3483,16 +3483,12 @@ function App() {
                 <p className="subtitle">Providers, models, health and routing priority.</p>
               </div>
               <div className="actions">
-                {agentSelectRequired}
                 <button className="button secondary" onClick={() => openEditor(EMPTY_PROVIDER, null)}><Plus size={15} /> Add provider</button>
                 <button className="button secondary" disabled={scanning || refreshingHealth} title="Discover new models, re-catalog and health-scan every provider — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void runScan()}>
                   {scanning ? <Loader2 size={14} className="spin" /> : null} {scanning ? 'Scanning…' : 'Run scan'}
                 </button>
                 <button className="button" disabled={scanning || refreshingHealth} title="Re-check health and latency of the registered models — unhealthy models are unchecked (on/off) and all agents are updated" onClick={() => void refreshHealth()}>
                   {refreshingHealth ? <Loader2 size={14} className="spin" /> : null} {refreshingHealth ? 'Refreshing…' : 'Refresh'}
-                </button>
-                <button className="button secondary" disabled={associatingHealthy || scanning || refreshingHealth} title="Associate and enable all healthy and online models for all agents" onClick={() => void associateAllHealthy()}>
-                  {associatingHealthy ? <Loader2 size={14} className="spin" /> : <CheckCheck size={14} />} {associatingHealthy ? 'Associating…' : 'Associate healthy to all agents'}
                 </button>
               </div>
             </header>
@@ -3656,11 +3652,10 @@ function App() {
             )}
 
             <Panel title="Manage providers" meta={`${visibleRegistry.length}/${registry.length} shown · ${readiness.filter((item) => !item.api_key_required || item.api_key_configured).length}/${readiness.length} ready · ${providerTotals.healthy}/${providerTotals.total} providers · ${healthy}/${providers.length} models healthy`}>
-              <div className="row manage head"><span>Provider</span><span>Tier</span><span>Base URL</span><span>API key</span><span>Status</span><span>Agent</span><span>Models</span><span>Actions</span></div>
+              <div className="row manage head"><span>Provider</span><span>Tier</span><span>Base URL</span><span>API key</span><span>Status</span><span>Models</span><span>Actions</span></div>
               <div className="tableScroll">
               {visibleRegistry.map((provider) => {
                 const ready = readyByName[provider.name];
-                const allowedCount = agentAllowed ? provider.models.filter((model) => agentAllowed.has(model.id)).length : provider.models.length;
                 const health = healthByProvider[provider.name];
                 const links = getProviderLinks(provider.name, provider.base_url);
                 return (
@@ -3697,13 +3692,7 @@ function App() {
                         ? <><b className={`status ${health.healthy > 0 ? 'healthy' : 'unhealthy'}`}>{health.healthy > 0 ? 'healthy' : 'unhealthy'}</b> <span className="muted small">{health.healthy}/{health.total}</span></>
                         : <b className="status unknown">unknown</b>}
                     </span>
-                    <span className="caps">{agentAllowed ? (() => {
-                      const providerIds = provider.models.map((model) => model.id);
-                      const participates = providerIds.some((id) => agentAllowed.has(id));
-                      const filteredAgent = agentByName.get(agentFilter);
-                      return <button type="button" className={`cap toggle${participates ? ' active' : ''}`} title={participates ? `${agentFilter} routes through this provider — click to opt out of all of its models` : `${agentFilter} opted out of this provider — click to associate its enabled models`} onClick={() => void setAgentModelAssociation(participates ? providerIds : provider.models.filter((model) => model.enabled).map((model) => model.id), !participates)}><AgentIdentity name={agentFilter} avatarUrl={filteredAgent?.avatar_data_url} size="xs" /></button>;
-                    })() : <span className="muted">-</span>}</span>
-                    <span title={agentAllowed ? `models ${agentFilter} may use / total` : 'total models'}>{agentAllowed ? `${allowedCount}/${provider.models.length}` : provider.models.length}</span>
+                    <span title="total models">{provider.models.length}</span>
                     <span className="rowActions">
                       <button className="iconButton" title={provider.enabled ? 'Disable provider — its models leave routing (config and key are kept)' : 'Enable provider — its models return to routing'} onClick={() => void toggleProviderEnabled(provider)}>{provider.enabled ? <Power size={15} /> : <PowerOff size={15} />}</button>
                       <button className="iconButton" title="Validate configuration — credential check + real call to each enabled model" disabled={validating !== null} onClick={() => void validateProvider(provider.name)}>{validating === provider.name ? <Loader2 size={15} className="spin" /> : <CheckCircle2 size={15} />}</button>
@@ -3730,22 +3719,19 @@ function App() {
                     <option value="all">all capabilities</option>
                     {CAPABILITIES.map((cap) => <option key={cap} value={cap}>{cap}</option>)}
                   </select>
-                  <button className="chip" disabled={associatingHealthy || scanning || refreshingHealth} title="Associate all healthy and online models to all agents" onClick={() => void associateAllHealthy()}>
-                    {associatingHealthy ? <Loader2 size={12} className="spin" /> : <CheckCheck size={12} />} {associatingHealthy ? 'Associating…' : 'Associate all healthy to all agents'}
-                  </button>
                 </div>
               }
             >
-              <div className="row head"><span>Provider</span><span>Model</span><span>Tier</span><span>AI rank</span><span>Capabilities</span><span>Agent</span><span>Status</span><span>Latency</span><span>Error</span></div>
+              <div className="row head"><span>Provider</span><span>Model</span><span>Tier</span><span>AI rank</span><span>Capabilities</span><span>Status</span><span>Latency</span><span>Error</span></div>
               <div className="tableScroll">
               {visibleProviders.map((provider) => {
-                const associated = agentAllowed?.has(provider.model_id) ?? false;
-                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span className="caps">{agentAllowed ? <button type="button" className={`cap toggle${associated ? ' active' : ''}`} title={associated ? `${agentFilter} routes through this model — click to opt out` : `${agentFilter} opted out of this model — click to associate`} onClick={() => void setAgentModelAssociation([provider.model_id], !associated)}><AgentIdentity name={agentFilter} avatarUrl={agentByName.get(agentFilter)?.avatar_data_url} size="xs" /></button> : <span className="muted">-</span>}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
+                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
               })}
               {!visibleProviders.length && <div className="row"><span className="muted">No providers match this filter.</span></div>}
               </div>
             </Panel>
           </>
+
         )}
 
         {page === 'tasks' && (
