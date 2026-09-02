@@ -3691,10 +3691,12 @@ function App() {
                     </span>
                     <span title={health ? `${health.healthy} of ${health.total} models healthy` : 'no health data yet — run a scan'}>
                       {health
-                        ? <><b className={`status ${health.healthy > 0 ? 'healthy' : 'unhealthy'}`}>{health.healthy > 0 ? 'healthy' : 'unhealthy'}</b> <span className="muted small">{health.healthy}/{health.total}</span></>
+                        ? <b className={`status ${health.healthy > 0 ? 'healthy' : 'unhealthy'}`}>{health.healthy > 0 ? 'healthy' : 'unhealthy'}</b>
                         : <b className="status unknown">unknown</b>}
                     </span>
-                    <span title="total models">{provider.models.length}</span>
+                    <span title={health ? `${health.healthy} healthy / ${health.total} total models` : 'total models'}>
+                      {health ? <><span className="mono">{health.healthy}</span><span className="muted">/{health.total}</span></> : <span className="mono">{provider.models.length}</span>}
+                    </span>
                     <span className="rowActions">
                       <button className="iconButton" title={provider.enabled ? 'Disable provider — its models leave routing (config and key are kept)' : 'Enable provider — its models return to routing'} onClick={() => void toggleProviderEnabled(provider)}>{provider.enabled ? <Power size={15} /> : <PowerOff size={15} />}</button>
                       <button className="iconButton" title="Validate configuration — credential check + real call to each enabled model" disabled={validating !== null} onClick={() => void validateProvider(provider.name)}>{validating === provider.name ? <Loader2 size={15} className="spin" /> : <CheckCircle2 size={15} />}</button>

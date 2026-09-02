@@ -13,7 +13,7 @@ html.light{--bg:#eef0f3;--surface:#ffffff;--surface2:#f7f8fa;--raised:#f3f4f6;--
 .filters{display:flex;gap:6px}
 .chip{background:var(--muted-bg);color:var(--muted);border:1px solid var(--input-border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;text-transform:capitalize}
 .chip.active{background:#8b5cf6;border-color:#8b5cf6;color:#fff}
-.row.manage{grid-template-columns:1fr .3fr 1.6fr 1.1fr .7fr .5fr .65fr}
+.row.manage{grid-template-columns:1fr .3fr 1.6fr 1fr .8fr .6fr .65fr}
 .cap.agentChip{background:#0c2433;color:#7dd3fc;border-color:#155e75}
 .chartLegend{display:flex;gap:16px;flex-wrap:wrap;padding:2px 22px 14px;color:var(--muted);font-size:12px}
 .chartLegend span{display:inline-flex;align-items:center}
