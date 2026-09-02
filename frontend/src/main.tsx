@@ -3577,23 +3577,25 @@ function App() {
                   )}
                   <div className="formGrid">
                     <label>
-                      Name
-                      {editing.name && (() => {
-                        const links = getProviderLinks(editing.name, editing.base_url);
-                        return links.website ? (
-                          <a href={links.website} target="_blank" rel="noreferrer" className="inlineIconLink small" title="Open provider website">
-                            <ExternalLink size={11} /> website
-                          </a>
-                        ) : null;
-                      })()}
+                      <span className="labelHead">
+                        Name
+                        {editing.name && (() => {
+                          const links = getProviderLinks(editing.name, editing.base_url);
+                          return links.website ? (
+                            <a href={links.website} target="_blank" rel="noreferrer" className="inlineIconLink small" title="Open provider website">
+                              <ExternalLink size={11} /> website
+                            </a>
+                          ) : null;
+                        })()}
+                      </span>
                       <input value={editing.name} placeholder="e.g. groq" onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
                     </label>
                     <label>Tier (1 = first choice)<input type="number" min={1} max={9} value={editing.tier} onChange={(e) => setEditing({ ...editing, tier: Number(e.target.value) || 1 })} /></label>
                     <label>Base URL<input value={editing.base_url} placeholder={editing.access_type === 'local' ? 'http://127.0.0.1:11434/v1' : 'https://api.example.com/v1'} onChange={(e) => setEditing({ ...editing, base_url: e.target.value })} /></label>
                     {editing.access_type !== 'local' && editing.auth_method !== 'oauth' && (
                       <label>
-                        <span>
-                          {editing.access_type === 'subscription' ? 'Subscription token' : 'API key'} {editing.api_key_set ? `(saved: ${editing.api_key_masked} — leave empty to keep)` : '(empty = no key)'}
+                        <span className="labelHead">
+                          <span>{editing.access_type === 'subscription' ? 'Subscription token' : 'API key'} {editing.api_key_set ? `(saved: ${editing.api_key_masked} — leave empty to keep)` : '(empty = no key)'}</span>
                           {(() => {
                             const links = getProviderLinks(editing.name, editing.base_url);
                             return links.key_portal ? (
