@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from app.pricing import context_window
+
 
 @dataclass(frozen=True)
 class ProviderModel:
@@ -55,8 +57,11 @@ class ProviderRegistry:
     models: list[ProviderModel]
 
     def openai_models(self) -> list[dict[str, Any]]:
-        return [
-            {
+        entries = []
+        for model in self.models:
+            if not model.enabled:
+                continue
+            entry = {
                 "id": model.id,
                 "object": "model",
                 "owned_by": model.provider,
@@ -67,9 +72,14 @@ class ProviderRegistry:
                     "supported_parameters": supported_parameters(model),
                 },
             }
-            for model in self.models
-            if model.enabled
-        ]
+            # Real per-model window, when the LiteLLM catalog has it — never
+            # guessed (see app.pricing philosophy), so the key is simply
+            # omitted rather than published as an artificial value.
+            window = context_window(model.id, model.provider_model)
+            if window:
+                entry["context_length"] = window
+            entries.append(entry)
+        return entries
 
     def healthy_for_capability(self, capability: str) -> list[ProviderModel]:
         # Fallback order = the Manage Models table: tier ascending (lower routes

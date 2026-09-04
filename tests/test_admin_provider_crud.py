@@ -187,6 +187,49 @@ def test_registry_endpoint_is_public_and_falls_back_to_yaml(monkeypatch):
     assert any(provider["name"] == "local" for provider in payload["providers"])
 
 
+def test_registry_endpoint_exposes_context_length_per_model(monkeypatch):
+    monkeypatch.setattr(
+        "app.storage.db_providers_with_models",
+        lambda: [
+            {
+                "name": "groq",
+                "tier": 1,
+                "base_url": "https://api.groq.com/openai/v1",
+                "api_key_env": "",
+                "api_key": "",
+                "enabled": True,
+                "models": [
+                    {
+                        "id": "groq/llama-3.3-70b-versatile",
+                        "provider_model": "llama-3.3-70b-versatile",
+                        "capabilities": ["text"],
+                        "enabled": True,
+                        "healthy": True,
+                        "manual_off": False,
+                    },
+                    {
+                        "id": "groq/unknown-model",
+                        "provider_model": "unknown-model",
+                        "capabilities": ["text"],
+                        "enabled": True,
+                        "healthy": True,
+                        "manual_off": False,
+                    },
+                ],
+            }
+        ],
+    )
+    windows = {"groq/llama-3.3-70b-versatile": 131_072}
+    monkeypatch.setattr("app.main.context_window", lambda public_id, provider_model: windows.get(public_id))
+
+    response = client.get("/admin/providers/registry")
+
+    assert response.status_code == 200
+    models = {m["id"]: m for m in response.json()["providers"][0]["models"]}
+    assert models["groq/llama-3.3-70b-versatile"]["context_length"] == 131_072
+    assert models["groq/unknown-model"]["context_length"] is None
+
+
 def test_registry_endpoint_masks_stored_api_keys(monkeypatch):
     monkeypatch.setattr(
         "app.storage.db_providers_with_models",

@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.demand import DEMAND_INFO, DEMANDS, VIRTUAL_MODELS, _message_text, default_chain, messages_have_audio, messages_have_images, resolve_demand
 from app.normalize import count_tokens, normalize_messages, truncate_messages
+from app.pricing import context_window
 from app.routing_state import (
     breaker_open,
     model_performance_cached,
@@ -140,9 +141,31 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
 
 app = FastAPI(title="ForgeRouter", version="0.1.0", lifespan=_lifespan)
 
-# Virtual routes can select different concrete models. Advertise a conservative
-# contract that satisfies agent clients without overstating unknown backends.
+# Virtual routes can select different concrete models. This is the floor of the
+# advertised contract — Hermes Agent's own hard minimum (agent/model_metadata.py:
+# MINIMUM_CONTEXT_LENGTH, mirrored as app.demand.MINIMUM_CONTEXT_LENGTH) — used
+# whenever no candidate's real window is known. When real windows are known,
+# _virtual_model_context_lengths advertises the true guaranteed minimum instead
+# of hiding a larger real window behind this constant.
 VIRTUAL_MODEL_CONTEXT_LENGTH = 64_000
+
+
+def _virtual_model_context_lengths(registry) -> dict[str, int]:
+    """Real guaranteed context window per virtual model: the smallest real
+    window among a demand's default-chain candidates, floored at
+    VIRTUAL_MODEL_CONTEXT_LENGTH since a virtual route can land on any of
+    them and must never overstate what every candidate can actually take.
+    forgerouter/auto can land on any demand's chain, so it takes the minimum
+    across all of them.
+    """
+    healthy = registry.healthy_for_capability("text")
+    per_demand: dict[str, int] = {}
+    for demand in DEMANDS:
+        chain = default_chain(healthy, demand) or healthy
+        windows = [window for window in (context_window(m.id, m.provider_model) for m in chain) if window]
+        per_demand[demand] = max(min(windows), VIRTUAL_MODEL_CONTEXT_LENGTH) if windows else VIRTUAL_MODEL_CONTEXT_LENGTH
+    per_demand["auto"] = min(per_demand.values()) if per_demand else VIRTUAL_MODEL_CONTEXT_LENGTH
+    return per_demand
 
 
 async def _run_health_scan_and_sync() -> None:
@@ -352,12 +375,13 @@ def health():
 @app.get("/v1/models")
 def models():
     registry = load_registry_with_db_health()
+    context_lengths = _virtual_model_context_lengths(registry)
     virtual = [
         {
             "id": model_id,
             "object": "model",
             "owned_by": "forgerouter",
-            "context_length": VIRTUAL_MODEL_CONTEXT_LENGTH,
+            "context_length": context_lengths[model_id.split("/", 1)[1]],
             "metadata": {"virtual": True, "description": DEMAND_INFO.get(model_id.split("/", 1)[1], "Routes by demand class automatically.")},
         }
         for model_id in VIRTUAL_MODELS
@@ -1136,6 +1160,15 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
                 ),
                 key=lambda model: (model.tier, -intelligence_score(model.id)),
             )
+    # exclude_none: strict providers (Mistral, Cloudflare) reject explicit nulls
+    # ("name": null → 422 extra_forbidden); lenient ones ignore them either way.
+    # Computed here (ahead of demand-chain ordering, not just payload building)
+    # so context-window-aware prioritization below can use the real prompt size.
+    raw_messages = [message.model_dump(exclude_none=True) for message in request.messages]
+    try:
+        tokens_raw = count_tokens(raw_messages, request.tools)
+    except Exception:
+        tokens_raw = None
     if demand:
         # Demand-based routing (auto / forgerouter/<demand>): try the configured chain for
         # the demand class first (or the rank-derived default), then every other healthy
@@ -1144,17 +1177,24 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
             # No configured/default chain applies to the downgraded general pool —
             # rank every healthy candidate best-to-worst (same dynamic_score used
             # to order every other chain) instead of a fixed demand-specific list.
+            # Same Hermes-minimum-context filter as default_chain (never fully
+            # excluding the last resort when every candidate falls short).
+            from app.demand import _meets_minimum_context
             from app.ranking import dynamic_score
 
             performance = model_performance_cached()
-            chain_ids = [model.id for model in sorted(candidates, key=lambda model: -dynamic_score(model.id, performance))]
+            eligible = [model for model in candidates if _meets_minimum_context(model)] or candidates
+            chain_ids = [model.id for model in sorted(eligible, key=lambda model: -dynamic_score(model.id, performance))]
         else:
             try:
                 chain_ids = get_demand_routes().get(demand) or []
             except Exception:
                 chain_ids = []
             if not chain_ids:
-                chain_ids = [model.id for model in default_chain(candidates, demand, performance=model_performance_cached())]
+                chain_ids = [
+                    model.id
+                    for model in default_chain(candidates, demand, performance=model_performance_cached(), estimated_tokens=tokens_raw)
+                ]
         order = {model_id: position for position, model_id in enumerate(chain_ids)}
         # Sticky routing: the last model that succeeded for this agent+demand goes
         # first (even ahead of the chain head) — staying on the same model across a
@@ -1200,13 +1240,6 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     # without a trip to route_events. last_error is kept alongside for
     # backward compat; attempts is the fuller picture.
     attempts: list[dict[str, Any]] = []
-    # exclude_none: strict providers (Mistral, Cloudflare) reject explicit nulls
-    # ("name": null → 422 extra_forbidden); lenient ones ignore them either way.
-    raw_messages = [message.model_dump(exclude_none=True) for message in request.messages]
-    try:
-        tokens_raw = count_tokens(raw_messages, request.tools)
-    except Exception:
-        tokens_raw = None
     try:
         compaction_on = context_compaction_enabled()
     except Exception:
@@ -1221,10 +1254,13 @@ def chat_completions(request: ChatCompletionRequest, raw_request: Request):
     messages_dropped = 0
     try:
         if context_truncation_enabled():
-            from app.pricing import context_window as _model_context_window
-
-            top_model = candidates[0] if candidates else None
-            window = _model_context_window(top_model.id, top_model.provider_model) if top_model else None
+            # The smallest real window among ALL candidates that may actually be
+            # tried, not just candidates[0]: the budget must hold even if the
+            # fallover lands on a candidate with less room than the first pick,
+            # or a fallback attempt can still overflow its own provider's real
+            # context limit after being "safely" truncated for a bigger one.
+            known_windows = [w for w in (context_window(model.id, model.provider_model) for model in candidates) if w]
+            window = min(known_windows) if known_windows else None
             budget = (
                 int(window * context_truncation_trigger_percent() / 100)
                 if window
@@ -2947,7 +2983,13 @@ def _mask_registry_providers(providers: list[dict[str, Any]]) -> list[dict[str, 
         item["api_key_set"] = bool(api_key)
         item["api_key_masked"] = mask_secret(api_key)
         item["models"] = [
-            {**model, "score": intelligence_score(model["id"])}
+            {
+                **model,
+                "score": intelligence_score(model["id"]),
+                # Real window from the LiteLLM catalog, when known — null (never
+                # guessed) otherwise, same as /v1/models for concrete models.
+                "context_length": context_window(model["id"], model.get("provider_model", "")),
+            }
             for model in item.get("models", [])
         ]
         # Subscription plans backed by a plan handler (Codex, Antigravity) resolve

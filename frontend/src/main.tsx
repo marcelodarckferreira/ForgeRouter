@@ -23,7 +23,7 @@ type YearlyDemandUsage = { demand: string; months: Record<string, MonthlyTotals>
 type YearlyUsageByDemand = { year: number; by_demand: YearlyDemandUsage[] };
 type ProviderReady = { provider: string; tier: number; enabled: boolean; api_key_env: string; api_key_required: boolean; api_key_configured: boolean; api_key_source?: string; api_key_masked?: string; models: string[]; };
 type HealthInfo = { status: string; http_code: number | null; latency_ms: number | null; error: string | null };
-type RegistryModel = { id: string; provider_model: string; capabilities: string[]; enabled: boolean; healthy?: boolean; score?: number; health?: string; health_detail?: HealthInfo };
+type RegistryModel = { id: string; provider_model: string; capabilities: string[]; enabled: boolean; healthy?: boolean; score?: number; context_length?: number | null; health?: string; health_detail?: HealthInfo };
 type DiscoveredModel = { id: string; score: number; free: boolean | null; capabilities: string[]; health: HealthInfo | null };
 type AccessType = 'subscription' | 'api_key' | 'local';
 type RegistryProvider = { name: string; tier: number; base_url: string; api_key_env: string; enabled: boolean; models: RegistryModel[]; api_key?: string; api_key_set?: boolean; api_key_masked?: string; access_type?: AccessType; cost_type?: 'free' | 'paid'; api_format?: 'openai' | 'anthropic'; auth_method?: string; auth_config?: { extra_headers?: Record<string, string> } };
@@ -232,6 +232,13 @@ function formatLatency(ms: number | null): string {
   if (!ms) return '-';
   const seconds = ms / 1000;
   return `${seconds.toFixed(seconds < 1 ? 2 : 1)}s`;
+}
+
+function formatContextLength(tokens: number | null | undefined): string {
+  if (!tokens) return '-';
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 ? 1 : 0)}M`;
+  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}K`;
+  return String(tokens);
 }
 
 function formatDate(iso: string | null): string {
@@ -2539,6 +2546,11 @@ function App() {
     for (const provider of registry) for (const model of provider.models) map[model.id] = model.score ?? 0;
     return map;
   }, [registry]);
+  const contextByModel = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    for (const provider of registry) for (const model of provider.models) map[model.id] = model.context_length ?? null;
+    return map;
+  }, [registry]);
   // All healthy AND enabled catalog model ids, over every provider — the universe
   // every per-badge selector below filters down from. Both checks matter: the
   // health endpoint keeps a model's last-known status even after it's been
@@ -3726,10 +3738,10 @@ function App() {
                 </div>
               }
             >
-              <div className="row head"><span>Provider</span><span>Model</span><span>Tier</span><span>AI rank</span><span>Capabilities</span><span>Status</span><span>Latency</span><span>Error</span></div>
+              <div className="row head"><span>Provider</span><span>Model</span><span>Tier</span><span>AI rank</span><span>Context</span><span>Capabilities</span><span>Status</span><span>Latency</span><span>Error</span></div>
               <div className="tableScroll">
               {visibleProviders.map((provider) => {
-                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
+                return <div className="row" key={provider.model_id}><span>{provider.provider}</span><span className="mono">{provider.model_id}</span><span>{provider.tier}</span><span><b className="rank">{scoreByModel[provider.model_id] ?? '-'}</b></span><span className="mono" title={contextByModel[provider.model_id] ? `${contextByModel[provider.model_id]?.toLocaleString()} tokens` : 'Unknown — not in the pricing catalog'}>{formatContextLength(contextByModel[provider.model_id])}</span><span className="caps">{(capsByModel[provider.model_id] ?? []).map((cap) => <i key={cap} className="cap">{cap}</i>)}</span><span><b className={`status ${provider.status}`}>{provider.status}</b></span><span>{formatLatency(provider.latency_ms)}</span><span>{provider.error_message ?? '-'}</span></div>;
               })}
               {!visibleProviders.length && <div className="row"><span className="muted">No providers match this filter.</span></div>}
               </div>
